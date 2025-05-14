@@ -201,7 +201,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     add_transaction(
                         &state.db,
                         &token,
-                        &sats.to_string(),
+                        &state.default_sats_per_request.to_string(),
                         TransactionDirection::Outgoing,
                     )
                     .await
