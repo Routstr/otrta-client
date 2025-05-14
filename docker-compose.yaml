@@ -1,0 +1,76 @@
+services:
+  otrta-ui:
+    container_name: otrta-ui
+    build:
+      context: ui
+    environment:
+      - NEXT_PUBLIC_API_URL=http://otrta-rust:3333
+    networks:
+      - otrta-network
+    ports:
+      - 3332:3000
+    volumes:
+      - ./frontend/src:/code/src:ro
+    restart: unless-stopped
+
+  otrta-rust:
+    container_name: otrta-rust
+    build:
+      context: otrta
+      dockerfile: Dockerfile.client
+    environment:
+      - RUST_LOG=debug
+      - APP_ENVIRONMENT=production
+    ports:
+      - 3333:3333
+    networks:
+      - otrta-network
+    volumes:
+      - backend_cache:/code/target
+    # extra_hosts:
+    #   - 'host.docker.internal:host-gateway'
+    depends_on:
+      - otrta-db
+      - otrta_wallet
+    restart: unless-stopped
+
+  otrta-db:
+    container_name: otrta-db
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=otrta
+    networks:
+      - otrta-network
+    ports:
+      - 5436:5432
+    volumes:
+      - psqldata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  otrta_wallet:
+    container_name: otrta_wallet
+    image: cashubtc/nutshell:0.16.5
+    ports:
+      - "4448:4448"
+    environment:
+      - MINT_URL=https://mint.minibits.cash/Bitcoin
+      - API_HOST=0.0.0.0
+    command: ["poetry", "run", "cashu", "-d"]
+    networks:
+      - otrta-network
+    restart: unless-stopped
+
+networks:
+  otrta-network:
+    external: true
+
+volumes:
+  backend_cache: {}
+  psqldata: {}

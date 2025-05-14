@@ -1,0 +1,37 @@
+FROM rust:bookworm AS builder
+
+WORKDIR /code
+
+# Copy your code and dependencies
+COPY . /code
+
+# Build application in release mode
+WORKDIR /code/gateway
+ENV SQLX_OFFLINE=true
+
+# Build application with release flag
+RUN cargo build --release
+
+# Final image - smaller runtime environment
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update -y && \
+    apt-get install -y openssl libssl-dev ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set up runtime environment
+WORKDIR /app
+
+# Expose application port
+EXPOSE 3333
+
+# Add the compiled binary and any required config files
+COPY --from=builder /code/target/release/main /app/gateway
+COPY --from=builder /code/gateway/configuration /app/configuration
+
+ENV APP_ENVIRONMENT=production
+
+# Run the binary
+CMD ["/app/gateway"]

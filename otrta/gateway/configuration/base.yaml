@@ -1,0 +1,5 @@
+application:
+  port: 3333
+  host: 0.0.0.0
+  worker: 5
+  connections: 100

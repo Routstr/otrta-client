@@ -1,0 +1,10 @@
+application:
+  wallet_url: "http://otrta_wallet:4448"
+database:
+  host: "otrta-db"
+  port: 5432
+  username: "postgres"
+  password: "postgres"
+  database_name: "otrta"
+  require_ssl: false
+  connections: 10
