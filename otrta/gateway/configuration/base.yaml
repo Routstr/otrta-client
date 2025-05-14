@@ -3,3 +3,5 @@ application:
   host: 0.0.0.0
   worker: 5
   connections: 100
+
+  default_sats_per_request: 30

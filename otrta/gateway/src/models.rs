@@ -1,7 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tokio::sync::RwLock;
 use wallet::api::CashuWalletClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -230,11 +228,6 @@ pub struct RegisterResponse {
 
 pub struct AppState {
     pub db: sqlx::PgPool,
-    pub users: RwLock<HashMap<String, User>>,
-    pub organizations: RwLock<HashMap<String, Organization>>,
-    pub api_keys: RwLock<HashMap<String, ApiKey>>,
-    pub models: RwLock<HashMap<String, Model>>,
-    pub providers: RwLock<HashMap<String, Provider>>,
-    pub credits: RwLock<HashMap<String, Credit>>,
+    pub default_sats_per_request: u32,
     pub wallet: CashuWalletClient,
 }

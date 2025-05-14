@@ -8,8 +8,7 @@ use gateway::{
     models::AppState,
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::RwLock;
+use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -40,12 +39,7 @@ async fn main() {
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),
-        users: RwLock::new(HashMap::new()),
-        organizations: RwLock::new(HashMap::new()),
-        api_keys: RwLock::new(HashMap::new()),
-        models: RwLock::new(HashMap::new()),
-        providers: RwLock::new(HashMap::new()),
-        credits: RwLock::new(HashMap::new()),
+        default_sats_per_request: configuration.application.default_sats_per_request,
         wallet,
     });
 

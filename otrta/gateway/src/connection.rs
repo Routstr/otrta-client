@@ -17,6 +17,7 @@ pub struct ApplicationSettings {
     pub worker: usize,
     pub connections: usize,
     pub wallet_url: String,
+    pub default_sats_per_request: u32,
 }
 
 #[derive(Debug, serde::Deserialize, Clone)]

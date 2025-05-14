@@ -22,7 +22,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use wallet::{
-    api::{CashuWalletApi, CashuWalletClient},
+    api::CashuWalletApi,
     models::{ChatCompletionRequest, EmbeddingRequest, ImageGenerationRequest},
 };
 
@@ -38,8 +38,7 @@ pub async fn forward_chat_completions(
 
     let response = forward_request_with_payment_with_body(
         headers,
-        &state.db,
-        &state.wallet,
+        &state,
         endpoint_fn,
         Some(request),
         is_streaming,
@@ -68,15 +67,9 @@ pub async fn forward_embeddings(
     let endpoint_fn =
         |base_endpoint: &str| -> String { format!("{}/v1/embeddings", base_endpoint) };
 
-    let response = forward_request_with_payment_with_body(
-        headers,
-        &state.db,
-        &state.wallet,
-        endpoint_fn,
-        Some(request),
-        false,
-    )
-    .await;
+    let response =
+        forward_request_with_payment_with_body(headers, &state, endpoint_fn, Some(request), false)
+            .await;
 
     response.into_response()
 }
@@ -89,15 +82,9 @@ pub async fn forward_image_generations(
     let endpoint_fn =
         |base_endpoint: &str| -> String { format!("{}/v1/images/generations", base_endpoint) };
 
-    let response = forward_request_with_payment_with_body(
-        headers,
-        &state.db,
-        &state.wallet,
-        endpoint_fn,
-        Some(request),
-        false,
-    )
-    .await;
+    let response =
+        forward_request_with_payment_with_body(headers, &state, endpoint_fn, Some(request), false)
+            .await;
 
     response.into_response()
 }
@@ -116,13 +103,12 @@ pub async fn get_specific_model(
 
 pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     original_headers: HeaderMap,
-    db: &Pool,
-    wallet: &CashuWalletClient,
+    state: &Arc<AppState>,
     endpoint_fn: impl Fn(&str) -> String,
     body: Option<T>,
     is_streaming: bool,
 ) -> Response<Body> {
-    let server_config = if let Some(config) = get_server_config(&db).await {
+    let server_config = if let Some(config) = get_server_config(&state.db).await {
         config
     } else {
         return (
@@ -161,9 +147,16 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.json(&body_data);
     }
 
-    let sats = 30;
-
-    let token_result = wallet.send(sats, None, None, None, None).await;
+    let token_result = state
+        .wallet
+        .send(
+            state.default_sats_per_request as i64,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await;
     let token = match token_result {
         Ok(token) => token.token,
         Err(e) => {
@@ -180,10 +173,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         }
     };
 
-    req_builder = req_builder.header(
-        header::AUTHORIZATION,
-        format!("Bearer {}", server_config.api_key),
-    );
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
     req_builder = req_builder.header("X-PAYMENT-SATS", &token);
 
@@ -204,12 +193,13 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
             if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
                 let in_token = change_sats.to_str().unwrap();
-                if let Ok(res) = wallet
+                if let Ok(res) = state
+                    .wallet
                     .receive(Some(change_sats.to_str().unwrap()), None, None)
                     .await
                 {
                     add_transaction(
-                        &db,
+                        &state.db,
                         &token,
                         &sats.to_string(),
                         TransactionDirection::Outgoing,
@@ -218,7 +208,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     .unwrap();
 
                     add_transaction(
-                        &db,
+                        &state.db,
                         in_token,
                         &(res.balance - res.initial_balance).to_string(),
                         TransactionDirection::Incoming,
@@ -233,7 +223,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 headers.get("X-CHANGE-AMOUNT"),
             ) {
                 let _ = add_credit(
-                    &db,
+                    &state.db,
                     change_token.to_str().unwrap(),
                     change_amount.to_str().unwrap(),
                 )
