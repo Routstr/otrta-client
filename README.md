@@ -159,6 +159,16 @@ to run in the background
 
 The user interface can be accessed at http://localhost:3332.
 
+### Using the Local OpenAI API Endpoint
+
+Once the client is running, you can connect your OpenAI-compatible tools and editors to:
+
+```
+http://localhost:3333
+```
+
+No API key is required when using this local endpoint.
+
 At present, the wallet is designed to accept eCash tokens from Minitbits wallets, though this will be updated in the future.
 
 Currently, the client utilizes an external [Wallet](https://github.com/cashubtc/nutshell)(V 0.16.5).
