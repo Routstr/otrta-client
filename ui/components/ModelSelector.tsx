@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, Cpu, Zap, Copy, CheckCircle2 } from 'lucide-react';
+import { Check, Zap, Copy, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -174,10 +174,6 @@ export function ModelSelector() {
                               </Button>
                             </div>
                           </CardTitle>
-                          <CardDescription className='mt-1 flex items-center text-xs'>
-                            <Cpu className='mr-1 h-3 w-3 flex-shrink-0' />
-                            <span className='truncate'>{model.provider}</span>
-                          </CardDescription>
                         </CardHeader>
                         <CardContent className='relative z-10 pt-0 pb-4'>
                           <div className='mt-2 flex items-center text-xs'>
