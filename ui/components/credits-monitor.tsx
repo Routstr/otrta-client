@@ -92,9 +92,9 @@ export function CreditsMonitor({
               <li>
                 Operations of only a fraction of one sat rounded up to 1 sat
               </li>
-              <li>For operations costing e.g. 1.6 sats, you only pay 1 sats</li>
+              <li>For operations costing e.g. 1.5 sats or less, you only pay 1 sats</li>
               <li>
-                For operations costing e.g. 1.7 sats or more, you pay 2 sats
+                For operations costing more than 1.5 sats, you pay 2 sats
               </li>
             </ul>
             <p className='mt-2'>

@@ -89,7 +89,7 @@ export default function NostrRegisterPage() {
                   <div className='flex h-8 w-8 items-center justify-center rounded-md'>
                     <ArrowUpCircleIcon className='size-6' />
                   </div>
-                  <span className='sr-only'>Chaima AI</span>
+                  <span className='sr-only'>Otrta AI</span>
                 </Link>
                 <h1 className='text-xl font-bold'>Create an Account</h1>
                 <div className='text-center text-sm'>

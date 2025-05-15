@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Chaima AI',
-  description: 'Chaima AI model management',
+  title: 'Otrta AI',
+  description: 'AI model management',
 };
 
 export default function RootLayout({
