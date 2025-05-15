@@ -3,6 +3,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { EcashRedeem } from '@/components/ecash-redeem';
 import { WalletBalance } from '@/components/wallet-balance';
+import { CollectSats } from '@/components/collect-sats';
 
 export default function Page() {
   return (
@@ -26,6 +27,9 @@ export default function Page() {
             </div>
             <div className='col-span-full lg:col-span-2'>
               <EcashRedeem />
+            </div>
+            <div className='col-span-full lg:col-span-2'>
+              <CollectSats />
             </div>
           </div>
         </div>
