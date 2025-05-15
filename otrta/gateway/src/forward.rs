@@ -1,11 +1,8 @@
 use crate::{
-    db::{
-        Pool,
-        credit::add_credit,
-        transaction::{TransactionDirection, add_transaction},
-    },
+    db::Pool,
     handlers::get_server_config,
     models::*,
+    wallet::{finalize_request, send_with_retry},
 };
 use axum::{
     Json,
@@ -21,10 +18,7 @@ use std::io;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use wallet::{
-    api::CashuWalletApi,
-    models::{ChatCompletionRequest, EmbeddingRequest, ImageGenerationRequest},
-};
+use wallet::models::{ChatCompletionRequest, EmbeddingRequest, ImageGenerationRequest};
 
 pub async fn forward_chat_completions(
     State(state): State<Arc<AppState>>,
@@ -147,24 +141,21 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.json(&body_data);
     }
 
-    let token_result = state
-        .wallet
-        .send(
-            state.default_sats_per_request as i64,
-            None,
-            None,
-            None,
-            None,
-        )
-        .await;
+    let token_result = send_with_retry(
+        &state.wallet,
+        state.default_sats_per_request as i64,
+        Some(3),
+    )
+    .await;
+
     let token = match token_result {
-        Ok(token) => token.token,
+        Ok(token) => token,
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
                     "error": {
-                        "message": format!("Failed to generate payment token: {}", e),
+                        "message": format!("Failed to generate payment token: {:?}", e),
                         "type": "payment_error",
                     }
                 })),
@@ -192,43 +183,16 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             }
 
             if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
-                let in_token = change_sats.to_str().unwrap();
-                if let Ok(res) = state
-                    .wallet
-                    .receive(Some(change_sats.to_str().unwrap()), None, None)
-                    .await
-                {
-                    add_transaction(
+                if let Ok(in_token) = change_sats.to_str() {
+                    finalize_request(
                         &state.db,
+                        &state.wallet,
                         &token,
-                        &state.default_sats_per_request.to_string(),
-                        TransactionDirection::Outgoing,
-                    )
-                    .await
-                    .unwrap();
-
-                    add_transaction(
-                        &state.db,
+                        state.default_sats_per_request as i64,
                         in_token,
-                        &(res.balance - res.initial_balance).to_string(),
-                        TransactionDirection::Incoming,
                     )
-                    .await
-                    .unwrap();
+                    .await;
                 }
-            }
-
-            if let (Some(change_token), Some(change_amount)) = (
-                headers.get("X-CHANGE-TOKEN"),
-                headers.get("X-CHANGE-AMOUNT"),
-            ) {
-                let _ = add_credit(
-                    &state.db,
-                    change_token.to_str().unwrap(),
-                    change_amount.to_str().unwrap(),
-                )
-                .await
-                .unwrap();
             }
 
             let response_headers = response.headers_mut().unwrap();
@@ -238,40 +202,16 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 }
             }
 
-            let (tx, rx) = mpsc::channel::<Result<Vec<u8>, io::Error>>(100);
-            let mut stream = resp.bytes_stream();
-
-            tokio::spawn(async move {
-                while let Some(item) = stream.next().await {
-                    match item {
-                        Ok(chunk) => {
-                            if tx.send(Ok(chunk.to_vec())).await.is_err() {
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            let _ = tx
-                                .send(Err(io::Error::new(
-                                    io::ErrorKind::Other,
-                                    format!("Error reading from upstream: {}", e),
-                                )))
-                                .await;
-                            break;
-                        }
-                    }
-                }
-            });
-
-            let stream = ReceiverStream::new(rx);
-
-            let mapped_stream = stream.map(|result| {
-                result.map(|bytes| {
-                    let bytes: axum::body::Bytes = bytes.into();
-                    bytes
+            let stream = resp.bytes_stream().map(|result| {
+                result.map_err(|e| {
+                    io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Error reading from upstream: {}", e),
+                    )
                 })
             });
 
-            let body = Body::from_stream(mapped_stream);
+            let body = Body::from_stream(stream);
 
             return response.body(body).unwrap_or_else(|e| {
                 eprintln!("Error creating streaming response: {}", e);
