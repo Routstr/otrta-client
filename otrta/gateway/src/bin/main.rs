@@ -4,8 +4,9 @@ use axum::{
 };
 use gateway::{
     connection::{DatabaseSettings, get_configuration},
-    forward, handlers,
+    handlers,
     models::AppState,
+    proxy::forward_any_request,
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
@@ -48,31 +49,14 @@ async fn main() {
         .route("/api/wallet/redeem", post(handlers::redeem_token))
         .route("/api/wallet/balance", get(handlers::get_balance))
         .route(
-            "/v1/chat/completions",
-            post(forward::forward_chat_completions),
-        )
-        .route("/chat/completions", post(forward::forward_chat_completions))
-        .route("/models", get(forward::forward_list_models))
-        .route("/models/{model_id}", get(forward::get_specific_model))
-        .route("/embeddings", post(forward::forward_embeddings))
-        .route(
-            "/images/generations",
-            post(forward::forward_image_generations),
-        )
-        .route("/v1/models", get(forward::forward_list_models))
-        .route("/v1/models/{model_id}", get(forward::get_specific_model))
-        .route("/v1/embeddings", post(forward::forward_embeddings))
-        .route(
-            "/v1/images/generations",
-            post(forward::forward_image_generations),
-        )
-        .route(
             "/api/server-config",
             get(handlers::get_current_server_config),
         )
         .route("/api/server-config", post(handlers::update_server_config))
         .route("/api/credits", get(handlers::get_all_credits))
         .route("/api/transactions", get(handlers::get_all_transactions))
+        .route("/{*path}", post(forward_any_request))
+        .route("/v1/{*path}", post(forward_any_request))
         .with_state(app_state)
         .layer(
             CorsLayer::new()

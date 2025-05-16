@@ -18,80 +18,24 @@ use std::io;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use wallet::models::{ChatCompletionRequest, EmbeddingRequest, ImageGenerationRequest};
 
-pub async fn forward_chat_completions(
+pub async fn forward_any_request(
+    Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(request): Json<ChatCompletionRequest>,
-) -> Response {
-    let is_streaming = request.stream.unwrap_or(false);
+    Json(body_data): Json<serde_json::Value>,
+) -> Response<Body> {
+    let endpoint_fn = |base_endpoint: &str| -> String { format!("{}/{}", base_endpoint, path) };
 
-    let endpoint_fn =
-        move |base_endpoint: &str| -> String { format!("{}/v1/chat/completions", base_endpoint) };
+    let is_post_request = body_data != serde_json::Value::Null;
 
-    let response = forward_request_with_payment_with_body(
-        headers,
-        &state,
-        endpoint_fn,
-        Some(request),
-        is_streaming,
-    )
-    .await;
+    let response = if is_post_request {
+        forward_request_with_payment_with_body(headers, &state, endpoint_fn, Some(body_data), false)
+            .await
+    } else {
+        forward_request(headers, &state.db, endpoint_fn).await
+    };
 
-    response.into_response()
-}
-
-pub async fn forward_list_models(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> Response {
-    let endpoint_fn = |base_endpoint: &str| -> String { format!("{}/v1/models", base_endpoint) };
-
-    let response = forward_request(headers, &state.db, endpoint_fn).await;
-
-    response.into_response()
-}
-
-pub async fn forward_embeddings(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(request): Json<EmbeddingRequest>,
-) -> Response {
-    let endpoint_fn =
-        |base_endpoint: &str| -> String { format!("{}/v1/embeddings", base_endpoint) };
-
-    let response =
-        forward_request_with_payment_with_body(headers, &state, endpoint_fn, Some(request), false)
-            .await;
-
-    response.into_response()
-}
-
-pub async fn forward_image_generations(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(request): Json<ImageGenerationRequest>,
-) -> Response {
-    let endpoint_fn =
-        |base_endpoint: &str| -> String { format!("{}/v1/images/generations", base_endpoint) };
-
-    let response =
-        forward_request_with_payment_with_body(headers, &state, endpoint_fn, Some(request), false)
-            .await;
-
-    response.into_response()
-}
-
-pub async fn get_specific_model(
-    Path(model_id): Path<String>,
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> Response {
-    let model_endpoint =
-        move |endpoint: &str| -> String { format!("{}/v1/models/{}", endpoint, model_id) };
-
-    let response = forward_request(headers, &state.db, model_endpoint).await;
     response.into_response()
 }
 
@@ -282,40 +226,16 @@ pub async fn forward_request(
                 }
             }
 
-            let (tx, rx) = mpsc::channel::<Result<Vec<u8>, io::Error>>(100);
-            let mut stream = resp.bytes_stream();
-
-            tokio::spawn(async move {
-                while let Some(item) = stream.next().await {
-                    match item {
-                        Ok(chunk) => {
-                            if tx.send(Ok(chunk.to_vec())).await.is_err() {
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            let _ = tx
-                                .send(Err(io::Error::new(
-                                    io::ErrorKind::Other,
-                                    format!("Error reading from upstream: {}", e),
-                                )))
-                                .await;
-                            break;
-                        }
-                    }
-                }
-            });
-
-            let stream = ReceiverStream::new(rx);
-
-            let mapped_stream = stream.map(|result| {
-                result.map(|bytes| {
-                    let bytes: axum::body::Bytes = bytes.into();
-                    bytes
+            let stream = resp.bytes_stream().map(|result| {
+                result.map_err(|e| {
+                    io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Error reading from upstream: {}", e),
+                    )
                 })
             });
 
-            let body = Body::from_stream(mapped_stream);
+            let body = Body::from_stream(stream);
 
             return response.body(body).unwrap_or_else(|e| {
                 eprintln!("Error creating streaming response: {}", e);
