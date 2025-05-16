@@ -16,8 +16,6 @@ use reqwest::Client;
 use serde_json::json;
 use std::io;
 use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
 
 pub async fn forward_any_request(
     Path(path): Path<String>,
