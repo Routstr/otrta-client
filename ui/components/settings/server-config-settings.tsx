@@ -132,7 +132,7 @@ export function ServerConfigSettings() {
             <div className='relative'>
               <Input
                 id='server-endpoint'
-                placeholder='https://ecash.io'
+                placeholder='https://ecash.otrta.io'
                 value={config.endpoint}
                 onChange={(e) => handleConfigChange('endpoint', e.target.value)}
                 className='pr-24'
