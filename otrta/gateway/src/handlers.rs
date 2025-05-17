@@ -29,12 +29,20 @@ pub async fn list_openai_models(
 pub async fn redeem_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Token>,
-) -> StatusCode {
-    if let Ok(_) = state.wallet.receive(Some(&payload.token), None, None).await {
-        return StatusCode::OK;
+) -> Json<TokenRedeemResponse> {
+    if let Ok(response) = state.wallet.receive(Some(&payload.token), None, None).await {
+        return Json(TokenRedeemResponse {
+            amount: Some(response.balance.to_string()),
+            success: true,
+            message: None,
+        });
     }
 
-    StatusCode::BAD_REQUEST
+    Json(TokenRedeemResponse {
+        amount: None,
+        success: false,
+        message: Some("mal formed Token".to_string()),
+    })
 }
 
 pub async fn get_balance(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
