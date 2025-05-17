@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, RefreshCw, AlertCircle, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -145,7 +144,7 @@ export function PendingTransactionsMonitor({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {Object.entries(data.pending).map(([key, transaction]) => (
+            {Object.entries(data.pending).map(([, transaction]) => (
               <TableRow key={transaction.time}>
                 <TableCell className='max-w-[300px]'>
                   <HoverCard>
