@@ -10,17 +10,6 @@ A privacy-focused payment gateway that enables anonymous micropayments using e-c
 
 Wallet Gateway is a privacy-focused payment gateway that enables anonymous micropayments using e-cash notes (also known as Cashu notes) for accessing Large Language Models via the OpenAI API. On the client side, it provides a Local Proxy that manages these notes using the Local Proxy Wallet. The Local Proxy modifies API requests to include the notes. On the server side, the 402 Server acts as a wrapper around the OpenAI API, handling note redemption, payment processing, and change generation with the help of the Server's Wallet.
 
-### Currently Supported Endpoints
-
-In the current state of development, only the following OpenAI-compatible endpoints are supported:
-
-- `GET /v1/models` - List available models
-- `GET /v1/models/{model_id}` - Get specific model details
-- `POST /v1/embeddings` - Generate embeddings
-- `POST /v1/images/generations` - Generate images
-
-Additional endpoints will be added in future releases.
-
 ### Key Features
 
 - **Anonymous AI Access**: Access OpenAI's language models without revealing your identity
