@@ -22,9 +22,7 @@ pub async fn forward_any_request_get(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> Response<Body> {
-    let endpoint_fn = |base_endpoint: &str| -> String { format!("{}/{}", base_endpoint, path) };
-
-    forward_request(headers, &state.db, endpoint_fn)
+    forward_request(headers, &state.db, &path)
         .await
         .into_response()
 }
@@ -35,24 +33,15 @@ pub async fn forward_any_request(
     headers: HeaderMap,
     Json(body_data): Json<serde_json::Value>,
 ) -> Response<Body> {
-    let endpoint_fn = |base_endpoint: &str| -> String { format!("{}/{}", base_endpoint, path) };
-
-    let is_post_request = body_data != serde_json::Value::Null;
-
-    let response = if is_post_request {
-        forward_request_with_payment_with_body(headers, &state, endpoint_fn, Some(body_data), false)
-            .await
-    } else {
-        forward_request(headers, &state.db, endpoint_fn).await
-    };
-
-    response.into_response()
+    forward_request_with_payment_with_body(headers, &state, &path, Some(body_data), false)
+        .await
+        .into_response()
 }
 
 pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     original_headers: HeaderMap,
     state: &Arc<AppState>,
-    endpoint_fn: impl Fn(&str) -> String,
+    path: &str,
     body: Option<T>,
     is_streaming: bool,
 ) -> Response<Body> {
@@ -83,7 +72,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     }
 
     let client = client_builder.build().unwrap();
-    let endpoint_url = endpoint_fn(&server_config.endpoint);
+    let endpoint_url = format!("{}/{}", &server_config.endpoint, path);
 
     let mut req_builder = if body.is_some() {
         client.post(endpoint_url)
@@ -188,11 +177,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     }
 }
 
-pub async fn forward_request(
-    original_headers: HeaderMap,
-    db: &Pool,
-    endpoint_fn: impl Fn(&str) -> String,
-) -> Response<Body> {
+pub async fn forward_request(original_headers: HeaderMap, db: &Pool, path: &str) -> Response<Body> {
     let server_config = if let Some(config) = get_server_config(&db).await {
         config
     } else {
@@ -212,7 +197,7 @@ pub async fn forward_request(
     let client_builder = Client::builder();
 
     let client = client_builder.build().unwrap();
-    let endpoint_url = endpoint_fn(&server_config.endpoint);
+    let endpoint_url = format!("{}/{}", &server_config.endpoint, path);
 
     let mut req_builder = client.get(endpoint_url);
 

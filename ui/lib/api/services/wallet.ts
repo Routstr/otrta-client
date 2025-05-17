@@ -33,7 +33,7 @@ export class WalletService {
     try {
       const response = await apiClient.post<RedeemTokenResponse>(
         '/api/wallet/redeem',
-        { token }
+        { token: token }
       );
 
       return response;
@@ -63,7 +63,7 @@ export class WalletService {
     try {
       const response = await apiClient.post<SendTokenResponse>(
         '/api/wallet/send',
-        { amount }
+        { amount: amount }
       );
 
       return response;
