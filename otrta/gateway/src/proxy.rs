@@ -17,6 +17,18 @@ use serde_json::json;
 use std::io;
 use std::sync::Arc;
 
+pub async fn forward_any_request_get(
+    Path(path): Path<String>,
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Response<Body> {
+    let endpoint_fn = |base_endpoint: &str| -> String { format!("{}/{}", base_endpoint, path) };
+
+    forward_request(headers, &state.db, endpoint_fn)
+        .await
+        .into_response()
+}
+
 pub async fn forward_any_request(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,

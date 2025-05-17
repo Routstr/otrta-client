@@ -6,7 +6,7 @@ use gateway::{
     connection::{DatabaseSettings, get_configuration},
     handlers,
     models::AppState,
-    proxy::forward_any_request,
+    proxy::{forward_any_request, forward_any_request_get},
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
@@ -61,6 +61,8 @@ async fn main() {
         .route("/api/transactions", get(handlers::get_all_transactions))
         .route("/{*path}", post(forward_any_request))
         .route("/v1/{*path}", post(forward_any_request))
+        .route("/{*path}", get(forward_any_request_get))
+        .route("/v1/{*path}", get(forward_any_request_get))
         .with_state(app_state)
         .layer(
             CorsLayer::new()
