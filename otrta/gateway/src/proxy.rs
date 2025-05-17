@@ -16,6 +16,7 @@ use reqwest::Client;
 use serde_json::json;
 use std::io;
 use std::sync::Arc;
+use wallet::api::CashuWalletApi;
 
 pub async fn forward_any_request_get(
     Path(path): Path<String>,
@@ -118,6 +119,18 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         Ok(resp) => {
             let status = resp.status();
             let headers = resp.headers().clone();
+
+            if status != StatusCode::OK {
+                if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
+                    if let Ok(in_token) = change_sats.to_str() {
+                        state.wallet.receive(Some(in_token), None, None).await;
+                    }
+                }
+                return Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(Body::from("Server Error"))
+                    .unwrap();
+            }
 
             let mut response = Response::builder().status(status);
 
