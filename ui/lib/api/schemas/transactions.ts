@@ -28,3 +28,18 @@ export type TransactionListParams = z.infer<typeof TransactionListParamsSchema>;
 export type TransactionListResponse = z.infer<
   typeof TransactionListResponseSchema
 >;
+
+export const PendingTransactionSchema = z.object({
+  amount: z.number(),
+  time: z.string().datetime(),
+  token: z.string(),
+  mint: z.string(),
+});
+
+export const TransactionPendingListSchema = z.object({
+  pending: z.record(PendingTransactionSchema),
+});
+
+export type TransactionPendingListResponseSchema = z.infer<
+  typeof TransactionPendingListSchema
+>;

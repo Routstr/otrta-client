@@ -29,20 +29,12 @@ pub async fn list_openai_models(
 pub async fn redeem_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Token>,
-) -> Json<TokenRedeemResponse> {
-    if let Ok(response) = state.wallet.receive(Some(&payload.token), None, None).await {
-        return Json(TokenRedeemResponse {
-            amount: Some(response.balance.to_string()),
-            success: true,
-            message: None,
-        });
+) -> StatusCode {
+    if let Ok(_) = state.wallet.receive(Some(&payload.token), None, None).await {
+        return StatusCode::OK;
     }
 
-    Json(TokenRedeemResponse {
-        amount: None,
-        success: false,
-        message: Some("mal formed Token".to_string()),
-    })
+    StatusCode::BAD_REQUEST
 }
 
 pub async fn get_balance(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
@@ -119,4 +111,8 @@ pub async fn get_all_transactions(
         Ok(response) => Ok(Json(response)),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
+}
+
+pub async fn get_pendings(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(json!({"pending": state.wallet.pending(None, None).await.unwrap().pending_token}))
 }

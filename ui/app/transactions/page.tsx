@@ -5,8 +5,8 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { TransactionsMonitor } from '@/components/transactions-monitor';
-import { CreditsMonitor } from '@/components/credits-monitor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PendingTransactionsMonitor } from '@/components/pending-transactions-monitor';
 
 export default function TransactionsPage() {
   const [activeTab, setActiveTab] = useState<string>('transactions');
@@ -34,15 +34,15 @@ export default function TransactionsPage() {
           >
             <TabsList className='mb-6 grid w-[400px] grid-cols-2'>
               <TabsTrigger value='transactions'>Transactions</TabsTrigger>
-              <TabsTrigger value='credits'>Credits</TabsTrigger>
+              <TabsTrigger value='pendings'>Pending</TabsTrigger>
             </TabsList>
 
             <TabsContent value='transactions'>
               <TransactionsMonitor refreshInterval={5000} />
             </TabsContent>
 
-            <TabsContent value='credits'>
-              <CreditsMonitor refreshInterval={5000} />
+            <TabsContent value='pendings'>
+              <PendingTransactionsMonitor refreshInterval={5000} />
             </TabsContent>
           </Tabs>
         </div>
