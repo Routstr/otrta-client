@@ -48,6 +48,7 @@ async fn main() {
         .route("/api/openai-models", get(handlers::list_openai_models))
         .route("/api/wallet/redeem", post(handlers::redeem_token))
         .route("/api/wallet/balance", get(handlers::get_balance))
+        .route("/api/wallet/send", post(handlers::send_token))
         .route(
             "/api/wallet/pending-transactions",
             get(handlers::get_pendings),

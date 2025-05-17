@@ -197,6 +197,11 @@ pub struct Token {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Amount {
+    pub amount: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenRedeemResponse {
     pub amount: Option<String>,
     pub success: bool,

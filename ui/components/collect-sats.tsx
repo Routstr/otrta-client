@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -60,7 +59,6 @@ export function CollectSats() {
   async function onSubmit(values: FormValues) {
     setIsSubmitting(true);
     try {
-      // Use the wallet service to generate a token
       const result = await WalletService.sendToken(Number(values.amount));
 
       if (result.token) {
@@ -104,9 +102,6 @@ export function CollectSats() {
           <SendIcon className='text-primary h-5 w-5' />
           <CardTitle>Send eCash</CardTitle>
         </div>
-        <CardDescription>
-          Generate a token to send eCash to someone
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {!generatedToken ? (

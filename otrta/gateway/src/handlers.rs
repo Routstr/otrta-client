@@ -13,7 +13,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Response,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
 use wallet::{api::CashuWalletApi, models::ServerConfig};
@@ -115,4 +115,47 @@ pub async fn get_all_transactions(
 
 pub async fn get_pendings(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     Json(json!({"pending": state.wallet.pending(None, None).await.unwrap().pending_token}))
+}
+
+#[derive(Deserialize)]
+pub struct SendTokenRequest {
+    amount: i64,
+}
+
+#[derive(Serialize)]
+pub struct SendTokenResponse {
+    token: String,
+    success: bool,
+    message: Option<String>,
+}
+
+pub async fn send_token(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SendTokenRequest>,
+) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match state
+        .wallet
+        .send(payload.amount, None, None, None, None)
+        .await
+    {
+        Ok(response) => Ok(Json(SendTokenResponse {
+            token: response.token,
+            success: true,
+            message: None,
+        })),
+        Err(e) => {
+            let error_msg = format!("Failed to generate token: {}", e);
+            eprintln!("{}", error_msg);
+
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": error_msg,
+                        "type": "token_generation_error",
+                    }
+                })),
+            ))
+        }
+    }
 }

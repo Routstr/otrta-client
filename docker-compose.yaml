@@ -9,8 +9,6 @@ services:
       - otrta-network
     ports:
       - 3332:3000
-    volumes:
-      - ./frontend/src:/code/src:ro
     restart: unless-stopped
 
   otrta-rust:
