@@ -43,7 +43,7 @@ async fn main() {
         "seed: {}, mint: {}",
         seed, configuration.application.mint_url
     );
-    let wallet = CashuWalletClient::new(&configuration.application.mint_url, &seed);
+    let wallet = CashuWalletClient::new(&configuration.application.mint_url, None);
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),

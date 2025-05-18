@@ -14,7 +14,7 @@ pub struct CashuWalletClient {
 }
 
 impl CashuWalletClient {
-    pub fn new(mint_url: &str, seed: Option<>&str) -> Self {
+    pub fn new(mint_url: &str, seed: Option<&str>) -> Self {
         let home_dir = home::home_dir().unwrap();
         let localstore = WalletRedbDatabase::new(&home_dir.join("cdk_wallet.redb")).unwrap();
         let s = Mnemonic::generate(12).unwrap();
