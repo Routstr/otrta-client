@@ -26,3 +26,5 @@ tokio-stream = "0.1.17"
 
 dotenv = "0.15"
 config = "0.15"
+
+derive_more = "2.0"

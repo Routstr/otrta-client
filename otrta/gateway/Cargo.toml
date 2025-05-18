@@ -36,4 +36,3 @@ dotenv = {workspace=true}
 bigdecimal = "0.4.8"
 
 wallet={path="../wallet"}
-cdk = "0.9"

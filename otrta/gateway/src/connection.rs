@@ -18,6 +18,7 @@ pub struct ApplicationSettings {
     pub connections: usize,
     pub wallet_url: String,
     pub default_sats_per_request: u32,
+    pub mint_url: String,
 }
 
 #[derive(Debug, serde::Deserialize, Clone)]

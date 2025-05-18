@@ -4,18 +4,19 @@ use axum::{
 };
 use gateway::{
     connection::{DatabaseSettings, get_configuration},
+    db::server_config::config_exists,
     handlers,
     models::AppState,
     proxy::{forward_any_request, forward_any_request_get},
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::sync::Arc;
+use std::{env, sync::Arc};
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use wallet::api::CashuWalletClient;
+use wallet::wallet::CashuWalletClient;
 
 #[tokio::main]
 async fn main() {
@@ -36,7 +37,13 @@ async fn main() {
         .run(&connection_pool)
         .await
         .unwrap();
-    let wallet = CashuWalletClient::new(&configuration.application.wallet_url);
+
+    let seed = env::var("OTRTA_SEED").unwrap();
+    println!(
+        "seed: {}, mint: {}",
+        seed, configuration.application.mint_url
+    );
+    let wallet = CashuWalletClient::new(&configuration.application.mint_url, &seed);
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),

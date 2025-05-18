@@ -16,7 +16,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
-use wallet::{api::CashuWalletApi, models::ServerConfig};
+use wallet::models::ServerConfig;
 
 pub async fn list_openai_models(
     State(state): State<Arc<AppState>>,
@@ -29,9 +29,10 @@ pub async fn redeem_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Token>,
 ) -> Json<TokenRedeemResponse> {
-    if let Ok(response) = state.wallet.receive(Some(&payload.token), None, None).await {
+    println!("toke: {}", payload.token);
+    if let Ok(response) = state.wallet.receive(&payload.token).await {
         return Json(TokenRedeemResponse {
-            amount: Some(response.balance.to_string()),
+            amount: Some(response.to_string()),
             success: true,
             message: None,
         });
@@ -45,7 +46,7 @@ pub async fn redeem_token(
 }
 
 pub async fn get_balance(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    Json(json!({"balance": state.wallet.balance().await.unwrap().balance.to_string()}))
+    Json(json!({"balance": state.wallet.balance().await.unwrap()}))
 }
 
 pub async fn update_server_config(
@@ -120,8 +121,8 @@ pub async fn get_all_transactions(
     }
 }
 
-pub async fn get_pendings(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    Json(json!({"pending": state.wallet.pending(None, None).await.unwrap().pending_token}))
+pub async fn get_pendings(State(_state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(json!({"pending": "test"}))
 }
 
 #[derive(Deserialize)]
@@ -140,18 +141,14 @@ pub async fn send_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match state
-        .wallet
-        .send(payload.amount, None, None, None, None)
-        .await
-    {
+    match state.wallet.send(payload.amount as u64).await {
         Ok(response) => Ok(Json(SendTokenResponse {
-            token: response.token,
+            token: response,
             success: true,
             message: None,
         })),
-        Err(e) => {
-            let error_msg = format!("Failed to generate token: {}", e);
+        Err(_e) => {
+            let error_msg = format!("Failed to generate token");
             eprintln!("{}", error_msg);
 
             Err((

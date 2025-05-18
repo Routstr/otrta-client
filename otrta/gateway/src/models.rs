@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use wallet::api::CashuWalletClient;
+use wallet::wallet::CashuWalletClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UserRole {
