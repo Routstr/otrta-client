@@ -1,4 +1,4 @@
-use wallet::api::{CashuWalletApi, CashuWalletClient};
+use cdk::wallet::{ReceiveOptions, SendOptions, Wallet};
 
 use crate::db::{
     Pool,
@@ -11,7 +11,7 @@ pub enum SendAmoundResponse {
 }
 
 pub async fn send_with_retry(
-    wallet: &CashuWalletClient,
+    wallet: &Wallet,
     amount: i64,
     retries: Option<i32>,
 ) -> Result<String, SendAmoundResponse> {
@@ -20,8 +20,13 @@ pub async fn send_with_retry(
     } else {
         3
     } {
-        if let Ok(token_result) = wallet.send(amount, None, None, None, None).await {
-            return Ok(token_result.token);
+        if let Ok(prepared_send) = wallet
+            .prepare_send((amount as u64).into(), SendOptions::default())
+            .await
+        {
+            if let Ok(token_result) = wallet.send(prepared_send, None).await {
+                return Ok(token_result.to_string());
+            }
         }
     }
 
@@ -32,12 +37,15 @@ pub async fn send_with_retry(
 
 pub async fn finalize_request(
     db: &Pool,
-    wallet: &CashuWalletClient,
+    wallet: &Wallet,
     token_send: &str,
     sats_send: i64,
     token_received: &str,
 ) {
-    if let Ok(res) = wallet.receive(Some(token_received), None, None).await {
+    if let Ok(res) = wallet
+        .receive(token_received, ReceiveOptions::default())
+        .await
+    {
         add_transaction(
             &db,
             token_send,
@@ -50,7 +58,7 @@ pub async fn finalize_request(
         add_transaction(
             &db,
             token_received,
-            &(res.balance - res.initial_balance).to_string(),
+            &res.to_string(),
             TransactionDirection::Incoming,
         )
         .await

@@ -257,6 +257,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33415e24172c1b7d6066f6d999545375ab8e1d95421d6784bdfff9496f292387"
 dependencies = [
  "bitcoin_hashes 0.13.0",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -465,9 +467,7 @@ dependencies = [
  "cbor-diag",
  "cdk-common",
  "ciborium",
- "futures",
  "getrandom 0.2.16",
- "jsonwebtoken",
  "lightning-invoice",
  "regex",
  "reqwest",
@@ -504,7 +504,6 @@ dependencies = [
  "thiserror 1.0.69",
  "tracing",
  "url",
- "uuid",
 ]
 
 [[package]]
@@ -1070,12 +1069,15 @@ dependencies = [
  "async-trait",
  "axum",
  "bigdecimal",
+ "bip39",
  "cdk",
+ "cdk-redb",
  "chrono",
  "config",
  "dotenv",
  "futures",
  "futures-util",
+ "home",
  "pgvector",
  "reqwest",
  "secrecy",
@@ -1092,7 +1094,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "wallet",
 ]
 
 [[package]]
@@ -1628,21 +1629,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonwebtoken"
-version = "9.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
-dependencies = [
- "base64 0.22.1",
- "js-sys",
- "pem",
- "ring",
- "serde",
- "serde_json",
- "simple_asn1",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2025,16 +2011,6 @@ name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
-
-[[package]]
-name = "pem"
-version = "3.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38af38e8470ac9dee3ce1bae1af9c1671fffc44ddfd8bd1d0a3445bf349a8ef3"
-dependencies = [
- "base64 0.22.1",
- "serde",
-]
 
 [[package]]
 name = "pem-rfc7468"
@@ -2849,18 +2825,6 @@ checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
 dependencies = [
  "digest",
  "rand_core 0.6.4",
-]
-
-[[package]]
-name = "simple_asn1"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "297f631f50729c8c99b84667867963997ec0b50f32b2a7dbcab828ef0541e8bb"
-dependencies = [
- "num-bigint",
- "num-traits",
- "thiserror 2.0.12",
- "time",
 ]
 
 [[package]]
@@ -3724,34 +3688,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "wallet"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "bip39",
- "cashu",
- "cdk",
- "cdk-redb",
- "chrono",
- "dotenv",
- "futures-util",
- "rand 0.9.1",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "tokio",
- "tokio-stream",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
 
 [[package]]
 name = "want"

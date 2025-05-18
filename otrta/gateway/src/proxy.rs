@@ -11,12 +11,12 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
+use cdk::wallet::ReceiveOptions;
 use futures_util::StreamExt;
 use reqwest::Client;
 use serde_json::json;
 use std::io;
 use std::sync::Arc;
-use wallet::api::CashuWalletApi;
 
 pub async fn forward_any_request_get(
     Path(path): Path<String>,
@@ -123,7 +123,13 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             if status != StatusCode::OK {
                 if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
                     if let Ok(in_token) = change_sats.to_str() {
-                        state.wallet.receive(Some(in_token), None, None).await;
+                        if let Err(err) = state
+                            .wallet
+                            .receive(in_token, ReceiveOptions::default())
+                            .await
+                        {
+                            tracing::error!("Could not receive change stats: {err}");
+                        };
                     }
                 }
                 return Response::builder()

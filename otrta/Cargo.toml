@@ -3,8 +3,7 @@
 resolver = "2"
 
 members = [
-    "wallet",
-    "gateway",
+    "gateway"
 ]
 
 [workspace.dependencies]

@@ -2,7 +2,7 @@ use crate::{
     db::{
         Pool,
         credit::{CreditListResponse, get_credits},
-        server_config::{ServerConfigRecord, create_config, get_default_config, update_config},
+        server_config::{ServerConfigRecord, get_default_config},
         transaction::{TransactionListResponse, get_transactions},
     },
     models::*,
@@ -13,10 +13,10 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Response,
 };
+use cdk::wallet::{ReceiveOptions, SendOptions};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
-use wallet::{api::CashuWalletApi, models::ServerConfig};
 
 pub async fn list_openai_models(
     State(state): State<Arc<AppState>>,
@@ -29,9 +29,13 @@ pub async fn redeem_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Token>,
 ) -> Json<TokenRedeemResponse> {
-    if let Ok(response) = state.wallet.receive(Some(&payload.token), None, None).await {
+    if let Ok(response) = state
+        .wallet
+        .receive(&payload.token, ReceiveOptions::default())
+        .await
+    {
         return Json(TokenRedeemResponse {
-            amount: Some(response.balance.to_string()),
+            amount: Some(response.to_string()),
             success: true,
             message: None,
         });
@@ -45,44 +49,7 @@ pub async fn redeem_token(
 }
 
 pub async fn get_balance(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    Json(json!({"balance": state.wallet.balance().await.unwrap().balance.to_string()}))
-}
-
-pub async fn update_server_config(
-    State(state): State<Arc<AppState>>,
-    Json(config): Json<ServerConfig>,
-) -> Result<Json<ServerConfig>, StatusCode> {
-    let db_config = get_server_config(&state.db.clone()).await;
-    if let Some(c) = db_config {
-        update_config(&state.db.clone(), c.id, &config)
-            .await
-            .unwrap();
-    } else {
-        create_config(&state.db.clone(), &config).await.unwrap();
-    }
-
-    let config = get_server_config(&state.db.clone()).await.unwrap();
-    Ok(Json(ServerConfig {
-        endpoint: config.endpoint,
-        api_key: config.api_key,
-    }))
-}
-
-pub async fn get_current_server_config(
-    State(state): State<Arc<AppState>>,
-) -> Result<Json<ServerConfig>, StatusCode> {
-    let config = get_server_config(&state.db.clone()).await;
-    if let Some(c) = config {
-        return Ok(Json(ServerConfig {
-            endpoint: c.endpoint,
-            api_key: c.api_key,
-        }));
-    }
-
-    return Ok(Json(ServerConfig {
-        endpoint: "".to_string(),
-        api_key: "".to_string(),
-    }));
+    Json(json!({"balance": state.wallet.total_balance().await.unwrap().to_string() }))
 }
 
 pub async fn get_server_config(db: &Pool) -> Option<ServerConfigRecord> {
@@ -121,7 +88,7 @@ pub async fn get_all_transactions(
 }
 
 pub async fn get_pendings(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    Json(json!({"pending": state.wallet.pending(None, None).await.unwrap().pending_token}))
+    Json(json!({"pending": state.wallet.total_pending_balance().await.unwrap()}))
 }
 
 #[derive(Deserialize)]
@@ -140,13 +107,15 @@ pub async fn send_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match state
+    let prepared_send = state
         .wallet
-        .send(payload.amount, None, None, None, None)
+        .prepare_send((payload.amount as u64).into(), SendOptions::default())
         .await
-    {
+        .unwrap();
+
+    match state.wallet.send(prepared_send, None).await {
         Ok(response) => Ok(Json(SendTokenResponse {
-            token: response.token,
+            token: response.to_string(),
             success: true,
             message: None,
         })),

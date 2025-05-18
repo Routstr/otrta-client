@@ -1,1 +1,5 @@
 otrta/target
+flake.nix
+flake.lock
+.pre-commit-config.yaml
+.DS_Store

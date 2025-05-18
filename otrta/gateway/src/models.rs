@@ -1,6 +1,6 @@
+use cdk::wallet::Wallet;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use wallet::api::CashuWalletClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UserRole {
@@ -234,5 +234,5 @@ pub struct RegisterResponse {
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_sats_per_request: u32,
-    pub wallet: CashuWalletClient,
+    pub wallet: Wallet,
 }

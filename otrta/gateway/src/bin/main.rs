@@ -2,6 +2,10 @@ use axum::{
     Router,
     routing::{get, post},
 };
+use bip39::Mnemonic;
+use cdk::nuts::CurrencyUnit;
+use cdk::wallet::Wallet;
+use cdk_redb::WalletRedbDatabase;
 use gateway::{
     connection::{DatabaseSettings, get_configuration},
     handlers,
@@ -15,7 +19,6 @@ use tower_http::{
     trace::TraceLayer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use wallet::api::CashuWalletClient;
 
 #[tokio::main]
 async fn main() {
@@ -36,7 +39,25 @@ async fn main() {
         .run(&connection_pool)
         .await
         .unwrap();
-    let wallet = CashuWalletClient::new(&configuration.application.wallet_url);
+
+    let home_dir = home::home_dir().unwrap();
+
+    // TODO: Set mint URL
+    // We can use a multimint wallet if we want to be able to accept ecash from multiple mints
+    let mint_url = "https://testnut.cashu.space";
+    let localstore = WalletRedbDatabase::new(&home_dir.join("cdk_wallet.redb")).unwrap();
+
+    // TODO: We can get this seed from config or write it to a file so a user can backup else where
+    let seed = Mnemonic::generate(12).unwrap().to_seed_normalized("");
+
+    let wallet = Wallet::new(
+        mint_url,
+        CurrencyUnit::Msat,
+        Arc::new(localstore),
+        &seed,
+        None,
+    )
+    .unwrap();
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),
@@ -53,11 +74,6 @@ async fn main() {
             "/api/wallet/pending-transactions",
             get(handlers::get_pendings),
         )
-        .route(
-            "/api/server-config",
-            get(handlers::get_current_server_config),
-        )
-        .route("/api/server-config", post(handlers::update_server_config))
         .route("/api/credits", get(handlers::get_all_credits))
         .route("/api/transactions", get(handlers::get_all_transactions))
         .route("/{*path}", post(forward_any_request))

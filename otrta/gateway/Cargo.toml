@@ -35,5 +35,7 @@ anyhow = "1.0"
 dotenv = {workspace=true}
 bigdecimal = "0.4.8"
 
-wallet={path="../wallet"}
-cdk = "0.9"
+cdk = { version = "0.9", default-features = false, features = ["wallet"] }
+cdk-redb = { version = "0.9.1", default-features = false, features = ["wallet"] }
+bip39 = { version = "2.1.0", features = ["rand"] }
+home = "0.5.11"
