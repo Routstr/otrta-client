@@ -13,7 +13,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Response,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{self, json};
 use std::sync::Arc;
 
@@ -122,18 +122,6 @@ pub async fn get_all_transactions(
 
 pub async fn get_pendings(State(_state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     Json(json!({"pending": "test"}))
-}
-
-#[derive(Deserialize)]
-pub struct SendTokenRequest {
-    amount: i64,
-}
-
-#[derive(Serialize)]
-pub struct SendTokenResponse {
-    token: String,
-    success: bool,
-    message: Option<String>,
 }
 
 pub async fn send_token(

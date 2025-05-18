@@ -2,9 +2,9 @@ use axum::{
     Router,
     routing::{get, post},
 };
+use ecash_402_wallet::wallet::CashuWalletClient;
 use gateway::{
     connection::{DatabaseSettings, get_configuration},
-    db::server_config::config_exists,
     handlers,
     models::AppState,
     proxy::{forward_any_request, forward_any_request_get},
@@ -16,7 +16,6 @@ use tower_http::{
     trace::TraceLayer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use wallet::wallet::CashuWalletClient;
 
 #[tokio::main]
 async fn main() {
