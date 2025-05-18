@@ -22,7 +22,7 @@ cashu = "0.9"
 anyhow = "1.0"
 
 derive_more = {version = "2.0", features = ["from"]}
-cdk = { version = "0.9", default-features = false, features = ["wallet"] }
-cdk-redb = { version = "0.9.1", default-features = false, features = ["wallet"] }
+cdk = { git = "https://github.com/cashubtc/cdk.git", branch = "main", default-features = false, features = ["wallet", "mint"] }
+cdk-redb = { git = "https://github.com/cashubtc/cdk.git", branch = "main", default-features = false, features = ["wallet"] }
 bip39 = { version = "2.1.0", features = ["rand"] }
 home = "0.5.11"

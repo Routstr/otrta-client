@@ -425,6 +425,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "cashu"
+version = "0.9.1"
+source = "git+https://github.com/cashubtc/cdk.git?branch=main#3920c6f9bc7e622e6e11f10434d97164aa0032bf"
+dependencies = [
+ "bitcoin",
+ "cbor-diag",
+ "ciborium",
+ "instant",
+ "lightning-invoice",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "strum",
+ "strum_macros",
+ "thiserror 1.0.69",
+ "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "cbor-diag"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -457,8 +480,7 @@ dependencies = [
 [[package]]
 name = "cdk"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8059bf75239f69c1ae8274bb51cdbf09e1f911cbeb2b9d57f129e9aab41da8ae"
+source = "git+https://github.com/cashubtc/cdk.git?branch=main#3920c6f9bc7e622e6e11f10434d97164aa0032bf"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -467,6 +489,7 @@ dependencies = [
  "cbor-diag",
  "cdk-common",
  "ciborium",
+ "futures",
  "getrandom 0.2.16",
  "lightning-invoice",
  "regex",
@@ -486,13 +509,12 @@ dependencies = [
 [[package]]
 name = "cdk-common"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66afb0cc87c6e9f77c2c7d8bdb841494760e5615ac556657fc41655cfbfd0be0"
+source = "git+https://github.com/cashubtc/cdk.git?branch=main#3920c6f9bc7e622e6e11f10434d97164aa0032bf"
 dependencies = [
  "anyhow",
  "async-trait",
  "bitcoin",
- "cashu",
+ "cashu 0.9.1 (git+https://github.com/cashubtc/cdk.git?branch=main)",
  "cbor-diag",
  "ciborium",
  "futures",
@@ -504,13 +526,13 @@ dependencies = [
  "thiserror 1.0.69",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
 name = "cdk-redb"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "342b3502914ae616292d29760afce31c2940b60937614530b0173b4c6295bb58"
+source = "git+https://github.com/cashubtc/cdk.git?branch=main#3920c6f9bc7e622e6e11f10434d97164aa0032bf"
 dependencies = [
  "async-trait",
  "cdk-common",
@@ -3712,7 +3734,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bip39",
- "cashu",
+ "cashu 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cdk",
  "cdk-redb",
  "chrono",

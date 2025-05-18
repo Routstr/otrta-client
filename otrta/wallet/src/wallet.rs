@@ -2,7 +2,6 @@ use crate::error::Result;
 use std::{str::FromStr, sync::Arc};
 
 use bip39::Mnemonic;
-use cashu::MintUrl;
 use cdk::wallet::{HttpClient, ReceiveOptions, SendOptions, Wallet, WalletBuilder};
 use cdk_redb::WalletRedbDatabase;
 
@@ -15,13 +14,13 @@ pub struct CashuWalletClient {
 }
 
 impl CashuWalletClient {
-    pub fn new(mint_url: &str, seed: &str) -> Self {
-        let seed = prepare_seed(seed);
-
+    pub fn new(mint_url: &str, seed: Option<>&str) -> Self {
         let home_dir = home::home_dir().unwrap();
         let localstore = WalletRedbDatabase::new(&home_dir.join("cdk_wallet.redb")).unwrap();
-
-        let mint_url = MintUrl::from_str(mint_url).unwrap();
+        let s = Mnemonic::generate(12).unwrap();
+        println!("{}", s);
+        let seed = s.to_seed_normalized("");
+        let mint_url = cdk::mint_url::MintUrl::from_str(mint_url).unwrap();
         let mut builder = WalletBuilder::new()
             .mint_url(mint_url.clone())
             .unit(cdk::nuts::CurrencyUnit::Sat)
@@ -57,7 +56,8 @@ impl CashuWalletClient {
     }
 
     pub async fn pending(&self) -> Result<String> {
-        let _pendings = self.wallet.get_pending_spent_proofs().await?;
+        let pendings = self.wallet.get_pending_spent_proofs().await?;
+        println!("{:?}", pendings);
         Ok("test".to_string())
     }
 }
