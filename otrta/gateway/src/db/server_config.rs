@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-use wallet::models::ServerConfig;
+
+use crate::models::ServerConfig;
 
 pub struct ServerConfigRecord {
     pub id: String,

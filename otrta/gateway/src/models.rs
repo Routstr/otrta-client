@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
+use ecash_402_wallet::wallet::CashuWalletClient;
 use serde::{Deserialize, Serialize};
-use wallet::wallet::CashuWalletClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UserRole {
@@ -235,4 +235,10 @@ pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_sats_per_request: u32,
     pub wallet: CashuWalletClient,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ServerConfig {
+    pub endpoint: String,
+    pub api_key: String,
 }

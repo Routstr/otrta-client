@@ -16,7 +16,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
-use wallet::models::ServerConfig;
 
 pub async fn list_openai_models(
     State(state): State<Arc<AppState>>,

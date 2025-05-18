@@ -1,5 +1,5 @@
 application:
-  mint_url: "https://mint.minibits.cash/Bitcoin"
+  mint_url: "https://ecashmint.otrta.io"
   port: 3333
   host: 0.0.0.0
   worker: 5

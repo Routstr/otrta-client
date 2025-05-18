@@ -122,7 +122,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             if status != StatusCode::OK {
                 if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
                     if let Ok(in_token) = change_sats.to_str() {
-                        state.wallet.receive(in_token).await;
+                        state.wallet.receive(in_token).await.unwrap();
                     }
                 }
                 return Response::builder()

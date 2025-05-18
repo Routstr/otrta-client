@@ -35,4 +35,4 @@ anyhow = "1.0"
 dotenv = {workspace=true}
 bigdecimal = "0.4.8"
 
-wallet={path="../wallet"}
+ecash-402-wallet = {workspace=true}

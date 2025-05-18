@@ -3,7 +3,6 @@
 resolver = "2"
 
 members = [
-    "wallet",
     "gateway",
 ]
 
@@ -23,6 +22,7 @@ uuid = { version = "1.7", features = ["v4", "serde"] }
 reqwest = { version = "0.12", features = ["json", "stream"] }
 futures-util = "0.3.31"
 tokio-stream = "0.1.17"
+ecash-402-wallet = "0.1"
 
 dotenv = "0.15"
 config = "0.15"
