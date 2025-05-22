@@ -177,9 +177,9 @@ This approach allows for efficient micropayments for AI services without losing 
 ### Next step
 
 - [ ] Multi Wallet support
-- [ ] Develop a Payment History feature to monitor ecash transactions
+- [x] Develop a Payment History feature to monitor ecash transactions
 - [ ] Implement server/service provider discovery (possibly via Nostr)
-- [ ] Enhance handling of amounts under 1 sat
+- [x] Enhance handling of amounts under 1 sat
 - [ ] Broaden the application of 402 payment for various scenarios
 
 ## Contributing
