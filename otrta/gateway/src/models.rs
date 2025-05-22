@@ -20,7 +20,7 @@ pub struct TokenRedeemResponse {
 
 pub struct AppState {
     pub db: sqlx::PgPool,
-    pub default_sats_per_request: u32,
+    pub default_msats_per_request: u32,
     pub wallet: CashuWalletClient,
 }
 

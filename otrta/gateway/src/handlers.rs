@@ -10,18 +10,15 @@ use crate::{
 use axum::{
     Json,
     extract::{Query, State},
-    http::{HeaderMap, StatusCode},
+    http::StatusCode,
     response::Response,
 };
 use serde::Deserialize;
 use serde_json::{self, json};
 use std::sync::Arc;
 
-pub async fn list_openai_models(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> Response {
-    crate::proxy::forward_request(headers, &state.db, "v1/models").await
+pub async fn list_openai_models(State(state): State<Arc<AppState>>) -> Response {
+    crate::proxy::forward_request(&state.db, "v1/models").await
 }
 
 pub async fn redeem_token(

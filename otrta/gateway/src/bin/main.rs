@@ -46,7 +46,7 @@ async fn main() {
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),
-        default_sats_per_request: configuration.application.default_sats_per_request,
+        default_msats_per_request: configuration.application.default_msats_per_request,
         wallet,
     });
 

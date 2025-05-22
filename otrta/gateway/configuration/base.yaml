@@ -1,8 +1,8 @@
 application:
-  mint_url: "https://ecashmint.otrta.io"
+  mint_url: "https://ecashmint.otrta.me"
   port: 3333
   host: 0.0.0.0
   worker: 5
   connections: 100
 
-  default_sats_per_request: 30
+  default_msats_per_request: 15000
