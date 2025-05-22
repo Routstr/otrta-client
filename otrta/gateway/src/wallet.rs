@@ -1,4 +1,4 @@
-use wallet::api::{CashuWalletApi, CashuWalletClient};
+use ecash_402_wallet::wallet::CashuWalletClient;
 
 use crate::db::{
     Pool,
@@ -20,8 +20,8 @@ pub async fn send_with_retry(
     } else {
         3
     } {
-        if let Ok(token_result) = wallet.send(amount, None, None, None, None).await {
-            return Ok(token_result.token);
+        if let Ok(token_result) = wallet.send(amount as u64).await {
+            return Ok(token_result);
         }
     }
 
@@ -37,7 +37,7 @@ pub async fn finalize_request(
     sats_send: i64,
     token_received: &str,
 ) {
-    if let Ok(res) = wallet.receive(Some(token_received), None, None).await {
+    if let Ok(res) = wallet.receive(token_received).await {
         add_transaction(
             &db,
             token_send,
@@ -50,7 +50,7 @@ pub async fn finalize_request(
         add_transaction(
             &db,
             token_received,
-            &(res.balance - res.initial_balance).to_string(),
+            &res.to_string(),
             TransactionDirection::Incoming,
         )
         .await

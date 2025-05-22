@@ -16,16 +16,12 @@ use reqwest::Client;
 use serde_json::json;
 use std::io;
 use std::sync::Arc;
-use wallet::api::CashuWalletApi;
 
 pub async fn forward_any_request_get(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
 ) -> Response<Body> {
-    forward_request(headers, &state.db, &path)
-        .await
-        .into_response()
+    forward_request(&state.db, &path).await.into_response()
 }
 
 pub async fn forward_any_request(
@@ -87,7 +83,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
     let token_result = send_with_retry(
         &state.wallet,
-        state.default_sats_per_request as i64,
+        state.default_msats_per_request as i64,
         Some(3),
     )
     .await;
@@ -123,7 +119,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             if status != StatusCode::OK {
                 if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
                     if let Ok(in_token) = change_sats.to_str() {
-                        state.wallet.receive(Some(in_token), None, None).await;
+                        state.wallet.receive(in_token).await.unwrap();
                     }
                 }
                 return Response::builder()
@@ -144,7 +140,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         &state.db,
                         &state.wallet,
                         &token,
-                        state.default_sats_per_request as i64,
+                        state.default_msats_per_request as i64,
                         in_token,
                     )
                     .await;
@@ -190,7 +186,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     }
 }
 
-pub async fn forward_request(original_headers: HeaderMap, db: &Pool, path: &str) -> Response<Body> {
+pub async fn forward_request(db: &Pool, path: &str) -> Response<Body> {
     let server_config = if let Some(config) = get_server_config(&db).await {
         config
     } else {
@@ -208,52 +204,39 @@ pub async fn forward_request(original_headers: HeaderMap, db: &Pool, path: &str)
     };
 
     let client_builder = Client::builder();
-
     let client = client_builder.build().unwrap();
+
     let endpoint_url = format!("{}/{}", &server_config.endpoint, path);
 
     let mut req_builder = client.get(endpoint_url);
-
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
-
-    if let Some(accept) = original_headers.get(header::ACCEPT) {
-        req_builder = req_builder.header(header::ACCEPT, accept);
-    }
 
     match req_builder.send().await {
         Ok(resp) => {
             let status = resp.status();
-            let headers = resp.headers().clone();
+            let response = Response::builder().status(status);
+            println!("response: {:?}", response);
 
-            let mut response = Response::builder().status(status);
-
-            let response_headers = response.headers_mut().unwrap();
-            for (name, value) in headers.iter() {
-                if name != "connection" && name != "transfer-encoding" {
-                    response_headers.insert(name, value.clone());
+            match resp.bytes().await {
+                Ok(bytes) => response.body(Body::from(bytes)).unwrap_or_else(|e| {
+                    eprintln!("Error creating response: {}", e);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Error creating response"))
+                        .unwrap()
+                }),
+                Err(e) => {
+                    eprintln!("Error reading response body: {}", e);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from(format!("Error reading response body: {}", e)))
+                        .unwrap()
                 }
             }
-
-            let stream = resp.bytes_stream().map(|result| {
-                result.map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("Error reading from upstream: {}", e),
-                    )
-                })
-            });
-
-            let body = Body::from_stream(stream);
-
-            return response.body(body).unwrap_or_else(|e| {
-                eprintln!("Error creating streaming response: {}", e);
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::from("Error creating streaming response"))
-                    .unwrap()
-            });
         }
         Err(error) => {
+            eprintln!("Error forwarding request: {}", error);
+
             let error_json = Json(json!({
                 "error": {
                     "message": format!("Error forwarding request: {}", error),

@@ -63,7 +63,7 @@ export function WalletBalance({
           <div className='py-6'>
             <div className='text-primary text-5xl font-bold tracking-tight'>
               {data?.balance.toLocaleString()}{' '}
-              <span className='text-3xl'>sats</span>
+              <span className='text-3xl'>msats</span>
             </div>
             <p className='text-muted-foreground mt-2 text-sm'>
               Updated {new Date().toLocaleTimeString()}

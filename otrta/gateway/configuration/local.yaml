@@ -1,7 +1,6 @@
 application:
   port: 3333
   host: 0.0.0.0
-  wallet_url: "http://localhost:3010"
 database:
   host: "127.0.0.1"
   port: 5433
