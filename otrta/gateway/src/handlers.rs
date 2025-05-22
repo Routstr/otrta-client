@@ -21,7 +21,7 @@ pub async fn list_openai_models(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> Response {
-    crate::proxy::forward_request(headers, &state.db, "/v1/models").await
+    crate::proxy::forward_request(headers, &state.db, "v1/models").await
 }
 
 pub async fn redeem_token(
