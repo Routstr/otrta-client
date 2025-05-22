@@ -1,16 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { TransactionsMonitor } from '@/components/transactions-monitor';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PendingTransactionsMonitor } from '@/components/pending-transactions-monitor';
 
 export default function TransactionsPage() {
-  const [activeTab, setActiveTab] = useState<string>('transactions');
-
   return (
     <SidebarProvider>
       <AppSidebar variant='inset' />
@@ -26,25 +21,9 @@ export default function TransactionsPage() {
             </p>
           </div>
 
-          <Tabs
-            defaultValue='transactions'
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className='w-full'
-          >
-            <TabsList className='mb-6 grid w-[400px] grid-cols-2'>
-              <TabsTrigger value='transactions'>Transactions</TabsTrigger>
-              <TabsTrigger value='pendings'>Pending</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value='transactions'>
-              <TransactionsMonitor refreshInterval={5000} />
-            </TabsContent>
-
-            <TabsContent value='pendings'>
-              <PendingTransactionsMonitor refreshInterval={5000} />
-            </TabsContent>
-          </Tabs>
+          <div className='w-full'>
+            <TransactionsMonitor refreshInterval={5000} />
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

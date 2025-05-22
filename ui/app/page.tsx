@@ -6,8 +6,6 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { EcashRedeem } from '@/components/ecash-redeem';
 import { WalletBalance } from '@/components/wallet-balance';
 import { CollectSats } from '@/components/collect-sats';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InfoIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@radix-ui/react-tabs';
 import { useState } from 'react';
 
@@ -30,33 +28,6 @@ export default function Page() {
             </p>
           </div>
 
-          <Alert className='mb-6 bg-blue-50'>
-            <InfoIcon className='h-4 w-4' />
-            <AlertTitle>Credit and Redemption Status</AlertTitle>
-            <AlertDescription className='text-sm'>
-              <p className='mt-1'>
-                The credit system handles payments that don&apos;t use whole
-                sats. Currently, we use a rounding approach for micropayments:
-              </p>
-              <ul className='mt-2 ml-4 list-disc'>
-                <li>
-                  Operations of only a fraction of one sat rounded up to 1 sat
-                </li>
-                <li>
-                  For operations costing e.g. 1.5 sats or less, you only pay 1
-                  sats
-                </li>
-                <li>
-                  For operations costing more than 1.5 sats, you pay 2 sats
-                </li>
-              </ul>
-              <p className='mt-2'>
-                This view will track your credit balance when partial sat
-                payments are supported.
-              </p>
-            </AlertDescription>
-          </Alert>
-
           <Tabs
             defaultValue='dashboard'
             value={activeTab}
@@ -75,7 +46,7 @@ export default function Page() {
                   value='redeem'
                   className='rounded-lg px-4 py-2 data-[state=active]:shadow-sm'
                 >
-                  Transaction
+                  Cashback
                 </TabsTrigger>
               </TabsList>
             </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ServerConfigSettings } from '@/components/settings/server-config-settings';
 import { SiteHeader } from '@/components/site-header';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -19,14 +18,9 @@ export default function SettingsPage() {
             <div className='flex items-center'>
               <h1 className='text-2xl font-bold tracking-tight'>Settings</h1>
             </div>
-            <Tabs defaultValue='server' className='w-full'>
-              <TabsList className='mb-4'>
-                <TabsTrigger value='server'>Server Configuration</TabsTrigger>
-              </TabsList>
-              <TabsContent value='server'>
-                <ServerConfigSettings />
-              </TabsContent>
-            </Tabs>
+            <div className='w-full'>
+              <ServerConfigSettings />
+            </div>
           </div>
         </div>
       </SidebarInset>

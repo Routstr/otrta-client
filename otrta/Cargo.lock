@@ -265,9 +265,9 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.32.6"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad8929a18b8e33ea6b3c09297b687baaa71fb1b97353243a3f1029fad5c59c5b"
+checksum = "ce6bc65742dea50536e35ad42492b234c27904a27f0abdcbce605015cb4ea026"
 dependencies = [
  "base58ck",
  "base64 0.21.7",
@@ -354,9 +354,9 @@ dependencies = [
 
 [[package]]
 name = "brotli"
-version = "8.0.1"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9991eea70ea4f293524138648e41ee89b0b2b12ddef3b255effa43c8056e0e0d"
+checksum = "cf19e729cdbd51af9a397fb9ef8ac8378007b797f8273cfbfdf45dcaa316167b"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
@@ -860,9 +860,9 @@ checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
 name = "ecash-402-wallet"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b6167b250fe6f75055ca064710f35dac98fbc966bb4fe8c2a8224548e88180a"
+checksum = "3a3ef28f0f850bf0c821059eb5e789b4ab3656262383e6f71def8c4b5edab605"
 dependencies = [
  "bip39",
  "cdk",
@@ -1744,12 +1744,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
-name = "lru-slab"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
-
-[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2216,9 +2210,9 @@ dependencies = [
 
 [[package]]
 name = "quinn"
-version = "0.11.8"
+version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "626214629cda6781b6dc1d316ba307189c85ba657213ce642d9c77670f8202c8"
+checksum = "c3bd15a6f2967aef83887dcb9fec0014580467e33720d073560cf015a5683012"
 dependencies = [
  "bytes",
  "cfg_aliases",
@@ -2236,13 +2230,12 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.12"
+version = "0.11.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49df843a9161c85bb8aae55f101bc0bac8bcafd637a620d9122fd7e0b2f7422e"
+checksum = "bcbafbbdbb0f638fe3f35f3c56739f77a8a1d070cb25603226c83339b391472b"
 dependencies = [
  "bytes",
  "getrandom 0.3.2",
- "lru-slab",
  "rand 0.9.1",
  "ring",
  "rustc-hash",
@@ -2257,9 +2250,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.12"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee4e529991f949c5e25755532370b8af5d114acae52326361d68d47af64aa842"
+checksum = "541d0f57c6ec747a90738a52741d3221f7960e8ac2f0ff4b1a63680e033b4ab5"
 dependencies = [
  "cfg_aliases",
  "libc",
@@ -3221,9 +3214,9 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.20.0"
+version = "3.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8a64e3985349f2441a1a9ef0b853f869006c3855f2cda6862a94d26ebb9d6a1"
+checksum = "7437ac7763b9b123ccf33c338a5cc1bac6f69b45a136c19bdd8a65e3916435bf"
 dependencies = [
  "fastrand",
  "getrandom 0.3.2",
