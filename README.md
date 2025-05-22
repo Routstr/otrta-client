@@ -84,9 +84,9 @@ This flowchart illustrates the fundamental challenge with Bitcoin micropayments 
 
 ## Our Solution
 
-Wallet Gateway addresses the micropayment challenge for AI services through an innovative approach using Cashu notes. This method allows us to process AI requests without requiring user identity tracking for amounts above 1 satoshi, as we can return change directly in the HTTP response. The low overhead cost of using Cashu notes makes it feasible to handle frequent, granular transactions efficiently.
+Wallet Gateway addresses the micropayment challenge for AI services through an innovative approach using millisatoshi (msat) precision Cashu mints. This method enables exact payments for API calls without rounding errors or ceiling effects, ensuring users pay precisely for what they consume.
 
-Wallet Gateway addresses the micropayment challenge for AI services through this innovative Cashu note-based approach:
+Wallet Gateway addresses the micropayment challenge for AI services through this millisatoshi-based approach:
 
 ```mermaid
 flowchart
@@ -94,26 +94,27 @@ flowchart
     B --> C{Process Payment}
     C --> D[Redeem Cashu note]
     C --> E[Execute OpenAI API Call]
-    C --> F[Calculate Change]
-    F --> G[Generate Change Cashu note]
-    G --> H[Return AI Response + Change Cashu note]
+    C --> F[Calculate Exact Cost in msats]
+    F --> G[Deduct Precise Amount]
+    G --> H[Return AI Response]
 ```
 
 ```mermaid
 flowchart LR
-    subgraph "Cashu note Lifecycle"
-    I[Initial Cashu note] --> J[Spent on OpenAI API]
-    J --> K[Remaining Value as New Cashu note]
-    K --> L[Used for Future LLM Requests]
+    subgraph "Millisatoshi Payment Precision"
+    I[User Cashu Wallet] --> J[Exact msat Payment]
+    J --> K[Precise OpenAI API Billing]
+    K --> L[No Rounding or Ceiling Effects]
     end
 ```
 
 This flowchart shows our solution:
 
-- The gateway processes incoming Cashu notes, taking only what's needed for the OpenAI API call
-- Unused value is preserved by creating a change Cashu note
-- The change Cashu note can be used for future LLM requests, preserving the full value
-- This enables effectively fractional satoshi payments by tracking remaining value across multiple AI service requests
+- The gateway processes incoming Cashu notes using millisatoshi precision
+- Payments are calculated to exact millisatoshi amounts based on actual API usage
+- Users pay precisely what they consume without rounding up to the nearest satoshi
+- No need for change or overpayment, as the system can handle fractional satoshi amounts directly
+- This enables true micropayments for AI services, perfect for high-volume, low-cost API calls
 
 ## Fee Management Options
 
