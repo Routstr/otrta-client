@@ -112,7 +112,7 @@ export function CollectSats() {
                 name='amount'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Amount (sats)</FormLabel>
+                    <FormLabel>Amount (msats)</FormLabel>
                     <FormControl>
                       <Input
                         type='number'
@@ -121,7 +121,7 @@ export function CollectSats() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Enter the amount of satoshis you want to send
+                      Enter the amount of (m)satoshis you want to send
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
