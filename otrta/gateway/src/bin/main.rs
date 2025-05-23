@@ -24,7 +24,7 @@ async fn main() {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG")
-                .unwrap_or_else(|_| "wallet_gateway=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "ecash-402-wallet=debug,tower_http=warning".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
