@@ -132,7 +132,7 @@ export function ServerConfigSettings() {
             <div className='relative'>
               <Input
                 id='server-endpoint'
-                placeholder='https://ecash.otrta.io'
+                placeholder='https://ecash.otrta.me'
                 value={config.endpoint}
                 onChange={(e) => handleConfigChange('endpoint', e.target.value)}
                 className='pr-24'
@@ -143,7 +143,7 @@ export function ServerConfigSettings() {
                 size='sm'
                 className='absolute top-0 right-0 h-full px-3 py-2 text-xs'
                 onClick={() =>
-                  handleConfigChange('endpoint', 'https://ecash.io')
+                  handleConfigChange('endpoint', 'https://ecash.otrta.me')
                 }
               >
                 Use Default
