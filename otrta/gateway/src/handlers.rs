@@ -119,7 +119,6 @@ pub async fn get_all_transactions(
 
 pub async fn get_pendings(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let proofs = state.wallet.pending().await.unwrap();
-    println!("pendings: {:?}", proofs);
     Json(json!({"pending": proofs}))
 }
 
@@ -148,4 +147,12 @@ pub async fn send_token(
             ))
         }
     }
+}
+
+pub async fn redeem_pendings(State(state): State<Arc<AppState>>) -> StatusCode {
+    if state.wallet.redeem_pendings().await.is_ok() {
+        return StatusCode::BAD_REQUEST;
+    }
+
+    StatusCode::OK
 }

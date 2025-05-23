@@ -174,6 +174,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             });
         }
         Err(error) => {
+            let _ = state.wallet.redeem_pendings().await;
+
             let error_json = Json(json!({
                 "error": {
                     "message": format!("Error forwarding request: {}", error),

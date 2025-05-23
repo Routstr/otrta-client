@@ -65,7 +65,10 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/openai-models", get(handlers::list_openai_models))
-        .route("/api/wallet/redeem", post(handlers::redeem_token))
+        .route(
+            "/api/wallet/redeem-pendings",
+            post(handlers::redeem_pendings),
+        )
         .route("/api/wallet/balance", get(handlers::get_balance))
         .route("/api/wallet/send", post(handlers::send_token))
         .route(
