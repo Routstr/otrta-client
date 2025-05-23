@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at\n        FROM server_config\n        ORDER BY created_at ASC\n        LIMIT 1\n        ",
+  "query": "\n        INSERT INTO server_config (id, endpoint, api_key, created_at)\n        VALUES ($1, $2, $3, NOW())\n        RETURNING id, endpoint, api_key, created_at, updated_at, seed\n        ",
   "describe": {
     "columns": [
       {
@@ -27,18 +27,28 @@
         "ordinal": 4,
         "name": "updated_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "seed",
+        "type_info": "Text"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
     },
     "nullable": [
       false,
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "f39e7ba284c742e883215277433d9bd94c5a1bf048e10362b468b67eb1d66b4f"
+  "hash": "3162f939955a1e8f84656f306fe2f69dc01f5a9c262b3f7c600c5e1733a9c97d"
 }

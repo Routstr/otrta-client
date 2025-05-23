@@ -4,5 +4,6 @@ CREATE TABLE server_config (
     endpoint TEXT NOT NULL,
     api_key TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ
+    updated_at TIMESTAMPTZ,
+    seed TEXT
 );

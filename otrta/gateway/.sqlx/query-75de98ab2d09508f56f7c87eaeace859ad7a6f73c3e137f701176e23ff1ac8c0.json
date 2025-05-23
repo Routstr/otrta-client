@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at\n        FROM server_config\n        ",
+  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at, seed\n        FROM server_config\n        ORDER BY created_at ASC\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -27,6 +27,11 @@
         "ordinal": 4,
         "name": "updated_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "seed",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -37,8 +42,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "43e61ee676bb6ddadf38f5af284bc613bec044add059438311d038611357f615"
+  "hash": "75de98ab2d09508f56f7c87eaeace859ad7a6f73c3e137f701176e23ff1ac8c0"
 }

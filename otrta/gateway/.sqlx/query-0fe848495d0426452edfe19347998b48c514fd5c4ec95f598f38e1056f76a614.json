@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at\n        FROM server_config\n        WHERE id = $1\n        ",
+  "query": "\n        UPDATE server_config\n        SET endpoint = $1, api_key = $2, updated_at = NOW()\n        WHERE id = $3\n        RETURNING id, endpoint, api_key, created_at, updated_at, seed\n        ",
   "describe": {
     "columns": [
       {
@@ -27,10 +27,17 @@
         "ordinal": 4,
         "name": "updated_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "seed",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
+        "Text",
+        "Text",
         "Text"
       ]
     },
@@ -39,8 +46,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "df7cd467173154665bcee87fb5c6290d6970fe37b2a2346d831102293234a7e0"
+  "hash": "0fe848495d0426452edfe19347998b48c514fd5c4ec95f598f38e1056f76a614"
 }
