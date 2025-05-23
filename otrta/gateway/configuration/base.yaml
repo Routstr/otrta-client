@@ -5,4 +5,4 @@ application:
   worker: 5
   connections: 100
 
-  default_msats_per_request: 50000
+  default_msats_per_request: 65536
