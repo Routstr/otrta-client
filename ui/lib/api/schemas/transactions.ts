@@ -31,13 +31,13 @@ export type TransactionListResponse = z.infer<
 
 export const PendingTransactionSchema = z.object({
   amount: z.number(),
-  time: z.string().datetime(),
   token: z.string(),
-  mint: z.string(),
+  time: z.string().datetime().optional(),
+  mint: z.string().optional(),
 });
 
 export const TransactionPendingListSchema = z.object({
-  pending: z.record(PendingTransactionSchema),
+  pending: z.array(PendingTransactionSchema),
 });
 
 export type TransactionPendingListResponseSchema = z.infer<
