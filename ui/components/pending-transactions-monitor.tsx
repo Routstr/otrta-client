@@ -137,7 +137,7 @@ export function PendingTransactionsMonitor({
           <TableHeader>
             <TableRow>
               <TableHead>Token</TableHead>
-              <TableHead>Amount (sats)</TableHead>
+              <TableHead>Amount (msats)</TableHead>
               <TableHead>Time</TableHead>
               <TableHead>Mint</TableHead>
               <TableHead>Actions</TableHead>

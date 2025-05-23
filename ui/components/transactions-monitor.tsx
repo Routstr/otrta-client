@@ -179,7 +179,7 @@ export function TransactionsMonitor({
             <TableRow>
               <TableHead>Token</TableHead>
               <TableHead>Direction</TableHead>
-              <TableHead>Amount (sats)</TableHead>
+              <TableHead>Amount (msats)</TableHead>
               <TableHead>Created At</TableHead>
             </TableRow>
           </TableHeader>
