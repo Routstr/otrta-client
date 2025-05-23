@@ -5,12 +5,13 @@ use axum::{
 use ecash_402_wallet::wallet::CashuWalletClient;
 use gateway::{
     connection::{DatabaseSettings, get_configuration},
-    handlers,
+    db::server_config::{create_with_seed, update_seed},
+    handlers::{self, get_server_config},
     models::AppState,
     proxy::{forward_any_request, forward_any_request_get},
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::{env, sync::Arc};
+use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -37,12 +38,24 @@ async fn main() {
         .await
         .unwrap();
 
-    let seed = env::var("OTRTA_SEED").unwrap();
-    println!(
-        "seed: {}, mint: {}",
-        seed, configuration.application.mint_url
-    );
-    let wallet = CashuWalletClient::new(&configuration.application.mint_url, None);
+    let config = get_server_config(&connection_pool).await;
+    let wallet = match config {
+        Some(config) => match config.seed {
+            Some(seed) => CashuWalletClient::from_seed(&configuration.application.mint_url, &seed),
+            None => {
+                let mut seed = String::new();
+                let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed);
+                update_seed(&connection_pool, &seed).await.unwrap();
+                wallet
+            }
+        },
+        None => {
+            let mut seed = String::new();
+            let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed);
+            create_with_seed(&connection_pool, &seed).await.unwrap();
+            wallet
+        }
+    };
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),
@@ -52,7 +65,10 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/openai-models", get(handlers::list_openai_models))
-        .route("/api/wallet/redeem", post(handlers::redeem_token))
+        .route(
+            "/api/wallet/redeem-pendings",
+            post(handlers::redeem_pendings),
+        )
         .route("/api/wallet/balance", get(handlers::get_balance))
         .route("/api/wallet/send", post(handlers::send_token))
         .route(

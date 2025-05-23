@@ -164,14 +164,6 @@ export function TransactionsMonitor({
       );
     }
 
-    if (!data?.data.length) {
-      return (
-        <div className='text-muted-foreground py-8 text-center'>
-          No transactions found matching your criteria.
-        </div>
-      );
-    }
-
     return (
       <div className='rounded-md border'>
         <Table>
@@ -184,7 +176,7 @@ export function TransactionsMonitor({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.data.map((transaction) => (
+            {data?.data.map((transaction) => (
               <TableRow key={transaction.id}>
                 <TableCell className='max-w-[300px]'>
                   <HoverCard>

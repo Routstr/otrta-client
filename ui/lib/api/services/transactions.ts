@@ -64,13 +64,10 @@ export class TransactionService {
     }
   }
 
-  static async redeemToken(token: string) {
+  static async redeemToken() {
     const localBaseUrl = ConfigurationService.getLocalBaseUrl();
     const response = await axios.post(
-      `${localBaseUrl}/api/wallet/redeem`,
-      {
-        token: token,
-      },
+      `${localBaseUrl}/api/wallet/redeem-pendings`,
       {
         headers: {
           'Content-Type': 'application/json',

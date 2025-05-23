@@ -71,8 +71,8 @@ export function PendingTransactionsMonitor({
     },
   });
 
-  const handleRedeemToken = (token: string) => {
-    redeemMutation.mutate(token);
+  const handleRedeemToken = () => {
+    redeemMutation.mutate();
   };
 
   return (
@@ -80,21 +80,36 @@ export function PendingTransactionsMonitor({
       <CardHeader className='pb-2'>
         <div className='flex items-center justify-between'>
           <CardTitle className='text-xl'>Pending Transactions</CardTitle>
-          <Button
-            variant='ghost'
-            size='icon'
-            onClick={() => refetch()}
-            disabled={isLoading || isFetching}
-            className='h-8 w-8'
-          >
-            <RefreshCw
-              className={cn(
-                'h-4 w-4',
-                (isFetching || isLoading) && 'animate-spin'
+          <div>
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={() => refetch()}
+              disabled={isLoading || isFetching}
+              className='h-8 w-8'
+            >
+              <RefreshCw
+                className={cn(
+                  'h-4 w-4',
+                  (isFetching || isLoading) && 'animate-spin'
+                )}
+              />
+              <span className='sr-only'>Refresh pending transactions</span>
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => handleRedeemToken()}
+              disabled={redeemMutation.isPending}
+            >
+              {redeemMutation.isPending ? (
+                <Loader2 className='mr-1 h-4 w-4 animate-spin' />
+              ) : (
+                <ArrowUpRight className='mr-1 h-4 w-4' />
               )}
-            />
-            <span className='sr-only'>Refresh pending transactions</span>
-          </Button>
+              Redeem
+            </Button>
+          </div>
         </div>
         <CardDescription>Manage unused sent tokens</CardDescription>
       </CardHeader>
@@ -122,7 +137,6 @@ export function PendingTransactionsMonitor({
       );
     }
 
-    console.log(data);
     if (!data || Object.entries(data?.pending).keys.length) {
       return (
         <div className='text-muted-foreground py-8 text-center'>
@@ -138,9 +152,7 @@ export function PendingTransactionsMonitor({
             <TableRow>
               <TableHead>Token</TableHead>
               <TableHead>Amount (msats)</TableHead>
-              <TableHead>Time</TableHead>
               <TableHead>Mint</TableHead>
-              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -164,28 +176,7 @@ export function PendingTransactionsMonitor({
                   {transaction.amount}
                 </TableCell>
                 <TableCell>{transaction.time}</TableCell>
-                <TableCell className='font-mono text-xs'>
-                  {transaction.mint}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    onClick={() => handleRedeemToken(transaction.token)}
-                    disabled={
-                      redeemMutation.isPending &&
-                      redeemMutation.variables === transaction.token
-                    }
-                  >
-                    {redeemMutation.isPending &&
-                    redeemMutation.variables === transaction.token ? (
-                      <Loader2 className='mr-1 h-4 w-4 animate-spin' />
-                    ) : (
-                      <ArrowUpRight className='mr-1 h-4 w-4' />
-                    )}
-                    Redeem
-                  </Button>
-                </TableCell>
+                <TableCell></TableCell>
               </TableRow>
             ))}
           </TableBody>

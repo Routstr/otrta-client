@@ -9,12 +9,13 @@ pub struct ServerConfigRecord {
     pub api_key: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
+    pub seed: Option<String>,
 }
 
 pub async fn get_all_configs(pool: &PgPool) -> Result<Vec<ServerConfigRecord>, sqlx::Error> {
     let configs = sqlx::query!(
         r#"
-        SELECT id, endpoint, api_key, created_at, updated_at
+        SELECT id, endpoint, api_key, created_at, updated_at, seed
         FROM server_config
         "#
     )
@@ -27,43 +28,17 @@ pub async fn get_all_configs(pool: &PgPool) -> Result<Vec<ServerConfigRecord>, s
         api_key: record.api_key,
         created_at: record.created_at,
         updated_at: record.updated_at,
+        seed: record.seed,
     })
     .collect();
 
     Ok(configs)
 }
 
-pub async fn get_config_by_id(
-    pool: &PgPool,
-    id: &str,
-) -> Result<Option<ServerConfigRecord>, sqlx::Error> {
-    let record = sqlx::query!(
-        r#"
-        SELECT id, endpoint, api_key, created_at, updated_at
-        FROM server_config
-        WHERE id = $1
-        "#,
-        id
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    match record {
-        Some(r) => Ok(Some(ServerConfigRecord {
-            id: r.id,
-            endpoint: r.endpoint,
-            api_key: r.api_key,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-        })),
-        None => Ok(None),
-    }
-}
-
 pub async fn get_default_config(pool: &PgPool) -> Result<Option<ServerConfigRecord>, sqlx::Error> {
     let record = sqlx::query!(
         r#"
-        SELECT id, endpoint, api_key, created_at, updated_at
+        SELECT id, endpoint, api_key, created_at, updated_at, seed
         FROM server_config
         ORDER BY created_at ASC
         LIMIT 1
@@ -79,6 +54,7 @@ pub async fn get_default_config(pool: &PgPool) -> Result<Option<ServerConfigReco
             api_key: r.api_key,
             created_at: r.created_at,
             updated_at: r.updated_at,
+            seed: r.seed,
         })),
         None => Ok(None),
     }
@@ -97,7 +73,7 @@ pub async fn create_config(
         r#"
         INSERT INTO server_config (id, endpoint, api_key, created_at)
         VALUES ($1, $2, $3, NOW())
-        RETURNING id, endpoint, api_key, created_at, updated_at
+        RETURNING id, endpoint, api_key, created_at, updated_at, seed
         "#,
         id,
         config.endpoint,
@@ -112,6 +88,7 @@ pub async fn create_config(
         api_key: record.api_key,
         created_at: record.created_at,
         updated_at: record.updated_at,
+        seed: record.seed,
     })
 }
 
@@ -125,7 +102,7 @@ pub async fn update_config(
         UPDATE server_config
         SET endpoint = $1, api_key = $2, updated_at = NOW()
         WHERE id = $3
-        RETURNING id, endpoint, api_key, created_at, updated_at
+        RETURNING id, endpoint, api_key, created_at, updated_at, seed
         "#,
         config.endpoint,
         config.api_key,
@@ -140,6 +117,7 @@ pub async fn update_config(
         api_key: record.api_key,
         created_at: record.created_at,
         updated_at: record.updated_at,
+        seed: record.seed,
     })
 }
 
@@ -189,4 +167,59 @@ impl ServerConfigRecord {
             api_key: self.api_key.clone(),
         }
     }
+}
+
+pub async fn update_seed(pool: &PgPool, seed: &str) -> Result<ServerConfigRecord, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        UPDATE server_config
+        SET seed = $1, updated_at = NOW()
+        RETURNING id, endpoint, api_key, created_at, updated_at, seed
+        "#,
+        seed
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(ServerConfigRecord {
+        id: record.id,
+        endpoint: record.endpoint,
+        api_key: record.api_key,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+        seed: record.seed,
+    })
+}
+
+pub async fn create_with_seed(
+    pool: &PgPool,
+    seed: &str,
+) -> Result<ServerConfigRecord, sqlx::Error> {
+    let id = format!(
+        "config_{}",
+        uuid::Uuid::new_v4().to_string().replace("-", "")
+    );
+
+    let record = sqlx::query!(
+        r#"
+        INSERT INTO server_config (id, endpoint, api_key, created_at, seed)
+        VALUES ($1, $2, $3, NOW(), $4)
+        RETURNING id, endpoint, api_key, created_at, updated_at, seed
+        "#,
+        id,
+        String::from(""),
+        String::from(""),
+        seed
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(ServerConfigRecord {
+        id: record.id,
+        endpoint: record.endpoint,
+        api_key: record.api_key,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+        seed: record.seed,
+    })
 }
