@@ -23,7 +23,7 @@ export default function Page() {
               Wallet Dashboard
             </h1>
             <p className='text-muted-foreground'>
-              Manage your wallet and redeem ecash tokens. Minimum 15000 msats
+              Manage your wallet and redeem ecash tokens. Minimum 50000 msats
               per request.
             </p>
           </div>
