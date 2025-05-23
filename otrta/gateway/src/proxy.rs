@@ -166,6 +166,13 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             let body = Body::from_stream(stream);
 
             return response.body(body).unwrap_or_else(|e| {
+                let state_clone = state.clone();
+                tokio::spawn(async move {
+                    if let Err(err) = state_clone.wallet.redeem_pendings().await {
+                        eprintln!("Error redeeming pendings: {:?}", err);
+                    }
+                });
+
                 eprintln!("Error creating streaming response: {}", e);
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
