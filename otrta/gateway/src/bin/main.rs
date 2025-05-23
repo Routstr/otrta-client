@@ -4,14 +4,14 @@ use axum::{
 };
 use ecash_402_wallet::wallet::CashuWalletClient;
 use gateway::{
-    connection::{DatabaseSettings, get_configuration},
+    connection::{DatabaseSettings, Settings, get_configuration},
     db::server_config::{create_with_seed, update_seed},
     handlers::{self, get_server_config},
     models::AppState,
     proxy::{forward_any_request, forward_any_request_get},
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::sync::Arc;
+use std::{env, sync::Arc};
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -38,24 +38,9 @@ async fn main() {
         .await
         .unwrap();
 
-    let config = get_server_config(&connection_pool).await;
-    let wallet = match config {
-        Some(config) => match config.seed {
-            Some(seed) => CashuWalletClient::from_seed(&configuration.application.mint_url, &seed),
-            None => {
-                let mut seed = String::new();
-                let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed);
-                update_seed(&connection_pool, &seed).await.unwrap();
-                wallet
-            }
-        },
-        None => {
-            let mut seed = String::new();
-            let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed);
-            create_with_seed(&connection_pool, &seed).await.unwrap();
-            wallet
-        }
-    };
+    let wallet = initialize_wallet(&connection_pool, &configuration)
+        .await
+        .unwrap();
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),
@@ -114,4 +99,40 @@ pub async fn get_connection_pool(configuration: &DatabaseSettings) -> Result<PgP
         .max_connections(configuration.connections)
         .connect_with(configuration.with_db())
         .await
+}
+
+async fn initialize_wallet(
+    connection_pool: &PgPool,
+    configuration: &Settings,
+) -> Result<CashuWalletClient, Box<dyn std::error::Error>> {
+    if let Ok(env_seed) = env::var("OTRTA_SEED") {
+        return Ok(CashuWalletClient::from_seed(
+            &configuration.application.mint_url,
+            &env_seed,
+        ));
+    }
+
+    let config = get_server_config(connection_pool).await;
+
+    match config {
+        Some(config) => {
+            if let Some(seed) = config.seed {
+                Ok(CashuWalletClient::from_seed(
+                    &configuration.application.mint_url,
+                    &seed,
+                ))
+            } else {
+                let mut seed = String::new();
+                let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed);
+                update_seed(connection_pool, &seed).await?;
+                Ok(wallet)
+            }
+        }
+        None => {
+            let mut seed = String::new();
+            let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed);
+            create_with_seed(connection_pool, &seed).await?;
+            Ok(wallet)
+        }
+    }
 }
