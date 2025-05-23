@@ -159,12 +159,6 @@ http://localhost:3333
 
 No API key is required when using this local endpoint.
 
-At present, the wallet is designed to accept eCash tokens from Minitbits wallets, though this will be updated in the future.
-
-Currently, the client utilizes an external [Wallet](https://github.com/cashubtc/nutshell)(V 0.16.5).
-
-Thank you to the creator of the Nutshell Wallet for their hard work!
-
 ### Cashu note Management Workflow
 
 1. **Get initial Cashu note**: Obtain a Cashu note from a Cashu mint
