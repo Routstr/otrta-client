@@ -36,28 +36,28 @@ sequenceDiagram
 
     C->>CW: 1. Prepare e-cash note for payment
     CW->>C: 2. Return the note
-    C->>S: 3. Request + eCash
-    S->>SW: 4. Process the payment
+    C->>S: 3. Request + X-PAYMENT-SATS header
+    S->>SW: 4. Process the payment from header
     SW->>S: 5. Extracted payment amount
     S->>S: 6. Execute requested operation
-    SW->>S: 7. Provide change
-    S-->>C: 8. Response + Change
-    C->>CW: 9. Store the change for future use
+    SW->>S: 7. Calculate change (if overpaid)
+    S-->>C: 8. Response + X-CHANGE-SATS header (if applicable)
+    C->>CW: 9. Store the change for future use (if received)
 ```
 
 In this workflow:
 
 1. The Local Proxy prepares a payment using the Local Proxy Wallet for an OpenAI API request
 2. The Local Proxy Wallet provides a valid e-cash note
-3. The Local Proxy sends the LLM request with the note to the 402 Server
-4. The 402 Server passes the note to the Server's Wallet for processing
+3. The Local Proxy sends the LLM request with the note in the `X-PAYMENT-SATS` header to the 402 Server
+4. The 402 Server extracts the payment from the header and passes it to the Server's Wallet for processing
 5. The Server's Wallet informs the 402 Server of the available amount
 6. The 402 Server forwards the request to OpenAI and processes the AI model response
-7. The Server's Wallet provides a change note based on actual usage
-8. The 402 Server sends the OpenAI response with the change
-9. The Local Proxy stores the change in the Local Proxy Wallet for future LLM requests
+7. The Server's Wallet calculates change if the payment exceeds the actual usage
+8. The 402 Server sends the OpenAI response with change in the `X-CHANGE-SATS` header (only if overpaid)
+9. The Local Proxy stores the change in the Local Proxy Wallet for future LLM requests (if change was provided)
 
-This approach maintains privacy while efficiently handling micropayments for AI services, as the 402 Server only extracts what's needed for the specific OpenAI API call and returns the remainder as change.
+This approach maintains privacy while efficiently handling micropayments for AI services. The 402 Server extracts the exact amount needed from the `X-PAYMENT-SATS` header for the specific OpenAI API call and returns any remainder via the `X-CHANGE-SATS` header only when overpayment occurs.
 
 ## The Micropayment Challenge for AI Services
 
@@ -86,35 +86,40 @@ This flowchart illustrates the fundamental challenge with Bitcoin micropayments 
 
 Wallet Gateway addresses the micropayment challenge for AI services through an innovative approach using millisatoshi (msat) precision Cashu mints. This method enables exact payments for API calls without rounding errors or ceiling effects, ensuring users pay precisely for what they consume.
 
+The system uses HTTP headers for seamless payment integration: clients send ecash notes via the `X-PAYMENT-SATS` header, and servers return change (when overpaid) via the `X-CHANGE-SATS` header.
+
 Wallet Gateway addresses the micropayment challenge for AI services through this millisatoshi-based approach:
 
 ```mermaid
 flowchart
-    A[LLM Request + Cashu note] --> B[Gateway]
+    A[LLM Request + X-PAYMENT-SATS header] --> B[Gateway]
     B --> C{Process Payment}
-    C --> D[Redeem Cashu note]
+    C --> D[Extract ecash from header]
     C --> E[Execute OpenAI API Call]
     C --> F[Calculate Exact Cost in msats]
-    F --> G[Deduct Precise Amount]
-    G --> H[Return AI Response]
+    F --> G{Payment > Cost?}
+    G -->|Yes| H[Return AI Response + X-CHANGE-SATS header]
+    G -->|No| I[Return AI Response only]
 ```
 
 ```mermaid
 flowchart LR
-    subgraph "Millisatoshi Payment Precision"
-    I[User Cashu Wallet] --> J[Exact msat Payment]
+    subgraph "Header-Based Payment Flow"
+    I[X-PAYMENT-SATS] --> J[Exact msat Payment Processing]
     J --> K[Precise OpenAI API Billing]
-    K --> L[No Rounding or Ceiling Effects]
+    K --> L{Overpayment?}
+    L -->|Yes| M[X-CHANGE-SATS header]
+    L -->|No| N[No change needed]
     end
 ```
 
 This flowchart shows our solution:
 
-- The gateway processes incoming Cashu notes using millisatoshi precision
+- Clients send ecash notes through the `X-PAYMENT-SATS` HTTP header for seamless integration
+- The gateway processes payments using millisatoshi precision for exact billing
 - Payments are calculated to exact millisatoshi amounts based on actual API usage
-- Users pay precisely what they consume without rounding up to the nearest satoshi
-- No need for change or overpayment, as the system can handle fractional satoshi amounts directly
-- This enables true micropayments for AI services, perfect for high-volume, low-cost API calls
+- Change is returned via `X-CHANGE-SATS` header only when the payment exceeds consumption
+- This enables true micropayments for AI services without rounding errors or overpayment waste
 
 ## Fee Management Options
 
@@ -162,11 +167,12 @@ No API key is required when using this local endpoint.
 ### Cashu note Management Workflow
 
 1. **Get initial Cashu note**: Obtain a Cashu note from a Cashu mint
-2. **Make OpenAI API request**: Send Cashu note with your LLM API request
-3. **Save change Cashu note**: Store the returned change Cashu note from the response
-4. **Use for next request**: Use the change Cashu note for subsequent AI service requests
+2. **Make OpenAI API request**: Send the Cashu note in the `X-PAYMENT-SATS` header with your LLM API request
+3. **Process response**: Receive the OpenAI response and check for `X-CHANGE-SATS` header
+4. **Save change (if any)**: Store any returned change Cashu note from the `X-CHANGE-SATS` header
+5. **Use for next request**: Use the change Cashu note in future `X-PAYMENT-SATS` headers for subsequent AI service requests
 
-This approach allows for efficient micropayments for AI services without losing value on small transactions.
+This approach allows for efficient micropayments for AI services. You only receive change when you overpay, preventing waste on small transactions.
 
 ### Next step
 
