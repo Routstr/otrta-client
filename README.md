@@ -136,6 +136,16 @@ There are two approaches to handling mint fees:
 - **Wallet**: Manages eCash (Cashu) notes and communication with mints
 - **Pay**: Handles cost calculation and payment verification for AI model usage
 
+### Cashu note Management Workflow
+
+1. **Get initial Cashu note**: Obtain a Cashu note from a Cashu mint
+2. **Make OpenAI API request**: Send the Cashu note in the `X-PAYMENT-SATS` header with your LLM API request
+3. **Process response**: Receive the OpenAI response and check for `X-CHANGE-SATS` header
+4. **Save change (if any)**: Store any returned change Cashu note from the `X-CHANGE-SATS` header
+5. **Use for next request**: Use the change Cashu note in future `X-PAYMENT-SATS` headers for subsequent AI service requests
+
+This approach allows for efficient micropayments for AI services. You only receive change when you overpay, preventing waste on small transactions.
+
 ## Getting Started
 
 ### Running the Client
@@ -164,17 +174,46 @@ Once the client is running, you can connect your OpenAI-compatible tools and edi
 http://localhost:3333
 ```
 
-No API key is required when using this local endpoint.
+**No API key is required when using this local endpoint**
 
-### Cashu note Management Workflow
+### Example API Request with Ecash Payment
 
-1. **Get initial Cashu note**: Obtain a Cashu note from a Cashu mint
-2. **Make OpenAI API request**: Send the Cashu note in the `X-PAYMENT-SATS` header with your LLM API request
-3. **Process response**: Receive the OpenAI response and check for `X-CHANGE-SATS` header
-4. **Save change (if any)**: Store any returned change Cashu note from the `X-CHANGE-SATS` header
-5. **Use for next request**: Use the change Cashu note in future `X-PAYMENT-SATS` headers for subsequent AI service requests
+Here's an example of how to make a request with ecash payment using curl:
 
-This approach allows for efficient micropayments for AI services. You only receive change when you overpay, preventing waste on small transactions.
+```bash
+curl -i -X POST https://ecash.otrta.me/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-PAYMENT-SATS: cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbeyJpZCI6IjAwOWExZjI5M2F..." \
+  -d '{
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "messages": [
+        {
+            "role": "user",
+            "content": "hello ecash"
+        }
+    ]
+  }'
+```
+
+**Example Response Headers:**
+```
+...
+X-CHANGE-SATS: cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbeyJpZCI6IjAwOWExZjI5M2F...
+...
+
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "Hello! I see you're using ecash for payment. How can I help you today?"
+      }
+    }
+  ]
+}
+```
+
+The `-i` flag ensures you see the response headers, including any `X-CHANGE-SATS` header with your change.
 
 ### Next step
 
