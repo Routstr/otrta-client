@@ -2,6 +2,8 @@
 
 **⚠️ IMPORTANT NOTE**: This README describes the project's end goal and vision. The current implementation is in early development, experimental, and not yet stable for production use. Features described here represent the intended functionality which is still being actively developed.
 
+**Millisatoshi Precision Support** - Both server and client now support millisatoshi (msat) micropayments for ultra-precise billing! No more rounding errors or overpayment waste - pay exactly what you consume down to the millisatoshi level.
+
 # Wallet Gateway
 
 A privacy-focused payment gateway that enables anonymous micropayments using e-cash notes (also known as Cashu notes) for accessing Large Language Models via the OpenAI API.
