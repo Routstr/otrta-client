@@ -176,6 +176,11 @@ http://localhost:3333
 
 **No API key is required when using this local endpoint**
 
+### Current Cashu Mint
+```
+ecashmint.otrta.me
+```
+
 ### Example API Request with Ecash Payment
 
 Here's an example of how to make a request with ecash payment using curl:
