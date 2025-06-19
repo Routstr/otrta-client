@@ -55,6 +55,7 @@ async fn main() {
             post(handlers::redeem_pendings),
         )
         .route("/api/wallet/balance", get(handlers::get_balance))
+        .route("/api/wallet/redeem", post(handlers::redeem_token))
         .route("/api/wallet/send", post(handlers::send_token))
         .route(
             "/api/wallet/pending-transactions",
