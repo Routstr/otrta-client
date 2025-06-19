@@ -860,9 +860,9 @@ checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
 name = "ecash-402-wallet"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80d2d83ea098f198d65f953760fac59b93ac91ee102614bdf9b05a8f38aa4b80"
+checksum = "d4dc9ceb3f290875d4a10c5c48d18cbc1f809782d6f95b8cc1d47194a577d54b"
 dependencies = [
  "bip39",
  "cdk",

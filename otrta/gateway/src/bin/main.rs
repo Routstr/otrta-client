@@ -107,10 +107,9 @@ async fn initialize_wallet(
     configuration: &Settings,
 ) -> Result<CashuWalletClient, Box<dyn std::error::Error>> {
     if let Ok(env_seed) = env::var("OTRTA_SEED") {
-        return Ok(CashuWalletClient::from_seed(
-            &configuration.application.mint_url,
-            &env_seed,
-        ));
+        return Ok(
+            CashuWalletClient::from_seed(&configuration.application.mint_url, &env_seed).unwrap(),
+        );
     }
 
     let config = get_server_config(connection_pool).await;
@@ -118,20 +117,22 @@ async fn initialize_wallet(
     match config {
         Some(config) => {
             if let Some(seed) = config.seed {
-                Ok(CashuWalletClient::from_seed(
-                    &configuration.application.mint_url,
-                    &seed,
-                ))
+                Ok(
+                    CashuWalletClient::from_seed(&configuration.application.mint_url, &seed)
+                        .unwrap(),
+                )
             } else {
                 let mut seed = String::new();
-                let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed);
+                let wallet =
+                    CashuWalletClient::new(&configuration.application.mint_url, &mut seed).unwrap();
                 update_seed(connection_pool, &seed).await?;
                 Ok(wallet)
             }
         }
         None => {
             let mut seed = String::new();
-            let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed);
+            let wallet =
+                CashuWalletClient::new(&configuration.application.mint_url, &mut seed).unwrap();
             create_with_seed(connection_pool, &seed).await?;
             Ok(wallet)
         }
