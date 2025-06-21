@@ -105,7 +105,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     };
 
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
-    req_builder = req_builder.header("X-PAYMENT-SATS", &token);
+    req_builder = req_builder.header("X-Cashu", &token);
 
     if let Some(accept) = original_headers.get(header::ACCEPT) {
         req_builder = req_builder.header(header::ACCEPT, accept);
@@ -134,7 +134,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 response = response.header(header::CONTENT_TYPE, "text/event-stream");
             }
 
-            if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
+            if let Some(change_sats) = headers.get("X-Cashu") {
                 if let Ok(in_token) = change_sats.to_str() {
                     finalize_request(
                         &state.db,

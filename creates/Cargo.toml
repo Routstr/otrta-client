@@ -3,8 +3,16 @@
 resolver = "2"
 
 members = [
-    "gateway",
+    "otrta", "otrta-cli", "otrta-ui", "otrta-wallet",
 ]
+
+[workspace.package]
+edition = "2024"
+version = "1.0.0"
+authors = ["thefux <npub1ygjd597hdwu8larprmhj893d5p832j5mhejpx40ukezgudvayg9qeklajc>"]
+license = "Apache-2.0"
+repository = "https://github.com/ecash-402/ecash-402-routstr"
+description = "llm ecash 402 payment"
 
 [workspace.dependencies]
 tokio = {version = "1.44", features=["full"]}
