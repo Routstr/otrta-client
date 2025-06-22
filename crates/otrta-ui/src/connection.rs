@@ -14,8 +14,6 @@ pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
-    pub worker: usize,
-    pub connections: usize,
     pub default_msats_per_request: u32,
     pub mint_url: String,
 }
@@ -58,13 +56,12 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     println!("{:?}", std::env::current_dir());
     let configuration_directory = base_path.join("configuration");
 
-    // Detect the running environment.
-    // Default to `local` if unspecified.
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT.");
     let environment_filename = format!("{}.yaml", environment.as_str());
+
     let settings = config::Config::builder()
         .add_source(config::File::from(
             configuration_directory.join("base.yaml"),
@@ -72,19 +69,70 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .add_source(config::File::from(
             configuration_directory.join(environment_filename),
         ))
-        // Add in settings from environment variables (with a prefix of APP and '__' as separator)
-        // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
         .add_source(
             config::Environment::with_prefix("APP")
                 .prefix_separator("_")
-                .separator("__"),
+                .separator("__")
+                .try_parsing(true)
+                .ignore_empty(true),
+        )
+        .add_source(
+            config::Environment::with_prefix("OTRTA")
+                .prefix_separator("_")
+                .separator("__")
+                .try_parsing(true)
+                .ignore_empty(true),
+        )
+        .add_source(
+            config::Environment::default()
+                .try_parsing(true)
+                .ignore_empty(true)
+                .source(Some({
+                    let mut env_map = std::collections::HashMap::new();
+
+                    if let Ok(val) = std::env::var("DB_HOST") {
+                        env_map.insert("database__host".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("DB_PORT") {
+                        env_map.insert("database__port".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("DB_USERNAME") {
+                        env_map.insert("database__username".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("DB_PASSWORD") {
+                        env_map.insert("database__password".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("DB_NAME") {
+                        env_map.insert("database__database_name".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("DB_REQUIRE_SSL") {
+                        env_map.insert("database__require_ssl".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("DB_CONNECTIONS") {
+                        env_map.insert("database__connections".to_string(), val);
+                    }
+
+                    if let Ok(val) = std::env::var("PORT") {
+                        env_map.insert("application__port".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("HOST") {
+                        env_map.insert("application__host".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("MINT_URL") {
+                        env_map.insert("application__mint_url".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("DEFAULT_MSATS") {
+                        env_map.insert("application__default_msats_per_request".to_string(), val);
+                    }
+
+                    env_map
+                })),
         )
         .build()?;
 
     settings.try_deserialize::<Settings>()
 }
 
-/// The possible runtime environment for our application.
 pub enum Environment {
     Local,
     Production,

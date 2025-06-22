@@ -31,8 +31,9 @@ pgvector = { version = "0.4", features = [ "postgres", "sqlx" ] }
 async-trait = "0.1"
 futures = "0.3"
 
-
+config = "0.15"
 dotenv = "0.15"
+secrecy = {version = "0.10", features = ["serde"]}
 
 otrta-wallet = { path = "../otrta-wallet"}
 otrta = { path = "../otrta"}

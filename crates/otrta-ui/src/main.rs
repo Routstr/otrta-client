@@ -2,8 +2,9 @@ use axum::{
     routing::{get, post},
     Router,
 };
+mod connection;
+use connection::{get_configuration, DatabaseSettings, Settings};
 use otrta::{
-    connection::{get_configuration, DatabaseSettings, Settings},
     db::server_config::{create_with_seed, update_seed},
     handlers::{self, get_server_config},
     models::AppState,
