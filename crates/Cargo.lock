@@ -341,19 +341,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
 
 [[package]]
-name = "bigdecimal"
-version = "0.4.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a22f228ab7a1b23027ccc6c350b72868017af7ea8356fbdf19f8d991c690013"
-dependencies = [
- "autocfg",
- "libm",
- "num-bigint",
- "num-integer",
- "num-traits",
-]
-
-[[package]]
 name = "bip39"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -514,30 +501,6 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cashu"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb68fc6c8eb1673017504c82686b5d107f6fa5d0436e831654b1995fa69fad5d"
-dependencies = [
- "bitcoin",
- "cbor-diag",
- "ciborium",
- "instant",
- "lightning-invoice 0.32.0",
- "once_cell",
- "regex",
- "serde",
- "serde_json",
- "serde_with",
- "strum",
- "strum_macros",
- "thiserror 1.0.69",
- "tracing",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "cashu"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aec0e4f2f9f70db1cd2e1c0c0dc49fa61ae4d6f9aad970ded184f801bbb76b3"
@@ -546,7 +509,7 @@ dependencies = [
  "cbor-diag",
  "ciborium",
  "instant",
- "lightning-invoice 0.33.2",
+ "lightning-invoice",
  "once_cell",
  "regex",
  "serde",
@@ -601,36 +564,6 @@ dependencies = [
 
 [[package]]
 name = "cdk"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "073532ce5fe1262992310b68da51e8160a37e38c9c534d6d08f9f79412d52d87"
-dependencies = [
- "anyhow",
- "async-trait",
- "bech32 0.9.1",
- "bitcoin",
- "cbor-diag",
- "cdk-common 0.9.2",
- "ciborium",
- "futures",
- "getrandom 0.2.16",
- "lightning-invoice 0.32.0",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "serde_with",
- "sync_wrapper 0.1.2",
- "thiserror 1.0.69",
- "tokio",
- "tokio-tungstenite",
- "tracing",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "cdk"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5636cb9ea37398beb34933ff00f6ebea5a795130e14446de690c515b18467790"
@@ -641,12 +574,12 @@ dependencies = [
  "bech32 0.9.1",
  "bitcoin",
  "cbor-diag",
- "cdk-common 0.10.1",
+ "cdk-common",
  "cdk-signatory",
  "ciborium",
  "futures",
  "getrandom 0.2.16",
- "lightning-invoice 0.33.2",
+ "lightning-invoice",
  "regex",
  "reqwest",
  "serde",
@@ -656,30 +589,6 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tokio-tungstenite",
- "tracing",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "cdk-common"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cefd2775c6e8c77c5aa3558e9713ad71cad9d16b9e2eed26e051666be8e8339d"
-dependencies = [
- "anyhow",
- "async-trait",
- "bitcoin",
- "cashu 0.9.2",
- "cbor-diag",
- "ciborium",
- "futures",
- "instant",
- "lightning-invoice 0.32.0",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror 1.0.69",
  "tracing",
  "url",
  "uuid",
@@ -694,12 +603,12 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bitcoin",
- "cashu 0.10.1",
+ "cashu",
  "cbor-diag",
  "ciborium",
  "futures",
  "instant",
- "lightning-invoice 0.33.2",
+ "lightning-invoice",
  "serde",
  "serde_json",
  "serde_with",
@@ -711,30 +620,13 @@ dependencies = [
 
 [[package]]
 name = "cdk-redb"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9db73caac8953ac14633d64c1699fb2851a5f998d709c1d900b546f3c69089f5"
-dependencies = [
- "async-trait",
- "cdk-common 0.9.2",
- "lightning-invoice 0.32.0",
- "redb",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "cdk-redb"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2b83dd14d9427eb66cc3d500b565bf1b06fd2277059f97f1a8ddb98f92e10cd"
 dependencies = [
  "async-trait",
- "cdk-common 0.10.1",
- "lightning-invoice 0.33.2",
+ "cdk-common",
+ "lightning-invoice",
  "redb",
  "serde",
  "serde_json",
@@ -753,7 +645,7 @@ dependencies = [
  "async-trait",
  "bip39",
  "bitcoin",
- "cdk-common 0.10.1",
+ "cdk-common",
  "clap",
  "getrandom 0.2.16",
  "home",
@@ -1183,20 +1075,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
-name = "ecash-402-wallet"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4dc9ceb3f290875d4a10c5c48d18cbc1f809782d6f95b8cc1d47194a577d54b"
-dependencies = [
- "bip39",
- "cdk 0.9.2",
- "cdk-redb 0.9.2",
- "derive_more",
- "home",
- "serde",
-]
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1425,38 +1303,6 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
-]
-
-[[package]]
-name = "gateway"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum",
- "bigdecimal",
- "chrono",
- "config",
- "dotenv",
- "ecash-402-wallet",
- "futures",
- "futures-util",
- "pgvector",
- "reqwest",
- "secrecy",
- "serde",
- "serde-aux",
- "serde_json",
- "sqlx",
- "thiserror 2.0.12",
- "time",
- "tokio",
- "tokio-stream",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]
@@ -2074,37 +1920,14 @@ dependencies = [
 
 [[package]]
 name = "lightning-invoice"
-version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90ab9f6ea77e20e3129235e62a2e6bd64ed932363df104e864ee65ccffb54a8f"
-dependencies = [
- "bech32 0.9.1",
- "bitcoin",
- "lightning-types 0.1.0",
- "serde",
-]
-
-[[package]]
-name = "lightning-invoice"
 version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11209f386879b97198b2bfc9e9c1e5d42870825c6bd4376f17f95357244d6600"
 dependencies = [
  "bech32 0.11.0",
  "bitcoin",
- "lightning-types 0.2.0",
+ "lightning-types",
  "serde",
-]
-
-[[package]]
-name = "lightning-types"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1083b8d9137000edf3bfcb1ff011c0d25e0cdd2feb98cc21d6765e64a494148f"
-dependencies = [
- "bech32 0.9.1",
- "bitcoin",
- "hex-conservative 0.2.1",
 ]
 
 [[package]]
@@ -2502,22 +2325,77 @@ dependencies = [
 ]
 
 [[package]]
+name = "otrta"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "chrono",
+ "config",
+ "futures",
+ "futures-util",
+ "otrta-wallet",
+ "pgvector",
+ "reqwest",
+ "secrecy",
+ "serde",
+ "serde-aux",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.12",
+ "time",
+ "tokio",
+ "tokio-stream",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "otrta-cli"
 version = "1.0.0"
 
 [[package]]
 name = "otrta-ui"
 version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "chrono",
+ "derive_more",
+ "dotenv",
+ "futures",
+ "futures-util",
+ "otrta",
+ "otrta-wallet",
+ "pgvector",
+ "reqwest",
+ "serde",
+ "serde-aux",
+ "serde_json",
+ "sqlx",
+ "time",
+ "tokio",
+ "tokio-stream",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
 
 [[package]]
 name = "otrta-wallet"
 version = "1.0.0"
 dependencies = [
  "bip39",
- "cdk 0.10.1",
- "cdk-redb 0.10.1",
+ "cdk",
+ "cdk-redb",
  "chrono",
  "derive_more",
+ "futures-util",
  "home",
  "nostr-sdk",
  "serde",
@@ -2607,9 +2485,9 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "pest"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "198db74531d58c70a361c42201efde7e2591e976d518caf7662a47dc5720e7b6"
+checksum = "1db05f56d34358a8b1066f67cbb203ee3e7ed2ba674a6263a1d5ec6db2204323"
 dependencies = [
  "memchr",
  "thiserror 2.0.12",
@@ -2618,9 +2496,9 @@ dependencies = [
 
 [[package]]
 name = "pest_derive"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d725d9cfd79e87dccc9341a2ef39d1b6f6353d68c4b33c177febbe1a402c97c5"
+checksum = "bb056d9e8ea77922845ec74a1c4e8fb17e7c218cc4fc11a15c5d25e189aa40bc"
 dependencies = [
  "pest",
  "pest_generator",
@@ -2628,9 +2506,9 @@ dependencies = [
 
 [[package]]
 name = "pest_generator"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db7d01726be8ab66ab32f9df467ae8b1148906685bbe75c82d1e65d7f5b3f841"
+checksum = "87e404e638f781eb3202dc82db6760c8ae8a1eeef7fb3fa8264b2ef280504966"
 dependencies = [
  "pest",
  "pest_meta",
@@ -2641,11 +2519,10 @@ dependencies = [
 
 [[package]]
 name = "pest_meta"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f9f832470494906d1fca5329f8ab5791cc60beb230c74815dff541cbd2b5ca0"
+checksum = "edd1101f170f5903fde0914f899bb503d9ff5271d7ba76bbb70bea63690cc0d5"
 dependencies = [
- "once_cell",
  "pest",
  "sha2",
 ]
@@ -3425,9 +3302,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "0.6.8"
+version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87607cb1398ed59d48732e575a4c28a7a8ebf2454b964fe3f224f2afc07909e1"
+checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
 dependencies = [
  "serde",
 ]
@@ -4116,9 +3993,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.21"
+version = "0.8.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "900f6c86a685850b1bc9f6223b20125115ee3f31e01207d81655bbcc0aea9231"
+checksum = "dc1beb996b9d83529a9e75c17a1686767d148d70663143c7854d8b4a09ced362"
 dependencies = [
  "serde",
  "serde_spanned",
@@ -4128,18 +4005,18 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "0.6.9"
+version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3da5db5a963e24bc68be8b17b6fa82814bb22ee8660f192bb182771d498f09a3"
+checksum = "22cddaf88f4fbc13c51aebbf5f8eceb5c7c5a9da2ac40a13519eb5b0a0e8f11c"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "toml_edit"
-version = "0.22.25"
+version = "0.22.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10558ed0bd2a1562e630926a2d1f0b98c827da99fabd3fe20920a59642504485"
+checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
 dependencies = [
  "indexmap 2.9.0",
  "serde",
@@ -4926,9 +4803,9 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 
 [[package]]
 name = "winnow"
-version = "0.7.7"
+version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cb8234a863ea0e8cd7284fcdd4f145233eb00fee02bbdd9861aec44e6477bc5"
+checksum = "74c7b26e3480b707944fc872477815d29a8e429d2f93a1ce000f5fa84a15cbcd"
 dependencies = [
  "memchr",
 ]
@@ -4956,9 +4833,9 @@ checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
 
 [[package]]
 name = "yaml-rust2"
-version = "0.10.1"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "818913695e83ece1f8d2a1c52d54484b7b46d0f9c06beeb2649b9da50d9b512d"
+checksum = "4ce2a4ff45552406d02501cea6c18d8a7e50228e7736a872951fe2fe75c91be7"
 dependencies = [
  "arraydeque",
  "encoding_rs",

@@ -1,26 +1,25 @@
 [package]
-name = "gateway"
+name = "otrta"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tokio = {workspace=true}
-serde = {workspace=true}
-serde_json = {workspace=true}
-serde-aux = {workspace=true}
-axum = {workspace=true}
-tower = {workspace=true}
-tower-http = {workspace=true}
-tracing = {workspace=true}
-tracing-subscriber = {workspace=true}
-time = {workspace=true}
-chrono = {workspace=true}
-uuid = {workspace=true}
-reqwest = {workspace=true}
-futures-util = {workspace=true}
-tokio-stream = {workspace=true}
+tokio = {version = "1.44", features=["full"]}
+serde = {version = "1.0", features = ["derive"]}
+serde_json = "1.0"
+serde-aux = "4.7"
+axum = { version = "0.8", features = ["json"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.7", features = ["v4", "serde"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures-util = "0.3.31"
+tokio-stream = "0.1.17"
 
-# Database dependencies
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate"] }
 pgvector = { version = "0.4", features = [ "postgres", "sqlx" ] }
 async-trait = "0.1"
@@ -28,11 +27,6 @@ thiserror = "2.0"
 futures = "0.3"
 
 secrecy = {version = "0.10", features = ["serde"]}
-config = {workspace=true}
+config = "0.15"
 
-anyhow = "1.0"
-
-dotenv = {workspace=true}
-bigdecimal = "0.4.8"
-
-ecash-402-wallet = {workspace=true}
+otrta-wallet = {path = "../otrta-wallet/"}

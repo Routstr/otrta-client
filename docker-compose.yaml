@@ -14,7 +14,7 @@ services:
   otrta-rust:
     container_name: otrta-rust
     build:
-      context: otrta
+      context: crates
       dockerfile: Dockerfile.client
     environment:
       - RUST_LOG=debug

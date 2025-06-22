@@ -1,4 +1,4 @@
-use ecash_402_wallet::wallet::CashuWalletClient;
+use otrta_wallet::wallet::CashuWalletClient;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
