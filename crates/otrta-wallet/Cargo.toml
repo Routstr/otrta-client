@@ -9,9 +9,9 @@ description.workspace = true
 
 [dependencies]
 serde = {version = "1.0", features = ["derive"]}
+serde_json = "1.0"
 derive_more = {version = "2.0", features = ["from"]}
-cdk = { version="0.10", default-features = false, features = ["wallet", "mint"] }
-cdk-redb = { version="0.10", default-features = false, features = ["wallet"] }
+cdk = { version="0.10", default-features = false, features = [] }
 bip39 = { version = "2.1.0", features = ["rand"] }
 home = "0.5.11"
 
