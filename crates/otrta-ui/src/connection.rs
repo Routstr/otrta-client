@@ -62,13 +62,28 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .expect("Failed to parse APP_ENVIRONMENT.");
     let environment_filename = format!("{}.yaml", environment.as_str());
 
-    let settings = config::Config::builder()
-        .add_source(config::File::from(
-            configuration_directory.join("base.yaml"),
-        ))
-        .add_source(config::File::from(
-            configuration_directory.join(environment_filename),
-        ))
+    let mut config_builder = config::Config::builder();
+
+    let base_config_path = configuration_directory.join("base.yaml");
+    if base_config_path.exists() {
+        println!("Loading base configuration from: {:?}", base_config_path);
+        config_builder = config_builder.add_source(config::File::from(base_config_path));
+    } else {
+        println!("Base configuration file not found, using environment variables and defaults");
+    }
+
+    let env_config_path = configuration_directory.join(&environment_filename);
+    if env_config_path.exists() {
+        println!(
+            "Loading environment configuration from: {:?}",
+            env_config_path
+        );
+        config_builder = config_builder.add_source(config::File::from(env_config_path));
+    } else {
+        println!("Environment configuration file '{}' not found, using environment variables and defaults", environment_filename);
+    }
+
+    let settings = config_builder
         .add_source(
             config::Environment::with_prefix("APP")
                 .prefix_separator("_")
@@ -90,6 +105,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
                 .source(Some({
                     let mut env_map = std::collections::HashMap::new();
 
+                    // Database mappings (DB_* pattern) - for additional fields not covered by POSTGRES_*
                     if let Ok(val) = std::env::var("DB_HOST") {
                         env_map.insert("database__host".to_string(), val);
                     }
@@ -112,6 +128,24 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
                         env_map.insert("database__connections".to_string(), val);
                     }
 
+                    // PostgreSQL standard environment variables (POSTGRES_* pattern)
+                    if let Ok(val) = std::env::var("POSTGRES_HOST") {
+                        env_map.insert("database__host".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("POSTGRES_PORT") {
+                        env_map.insert("database__port".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("POSTGRES_USER") {
+                        env_map.insert("database__username".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("POSTGRES_PASSWORD") {
+                        env_map.insert("database__password".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("POSTGRES_DB") {
+                        env_map.insert("database__database_name".to_string(), val);
+                    }
+
+                    // Application mappings (simple pattern)
                     if let Ok(val) = std::env::var("PORT") {
                         env_map.insert("application__port".to_string(), val);
                     }

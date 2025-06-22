@@ -2352,10 +2352,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "otrta-cli"
-version = "1.0.0"
-
-[[package]]
 name = "otrta-ui"
 version = "1.0.0"
 dependencies = [

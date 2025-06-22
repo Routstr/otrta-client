@@ -3,7 +3,7 @@
 resolver = "2"
 
 members = [
-    "otrta", "otrta-cli", "otrta-ui", "otrta-wallet",
+    "otrta", "otrta-ui", "otrta-wallet",
 ]
 
 [workspace.package]
