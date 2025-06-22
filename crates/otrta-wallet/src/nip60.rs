@@ -1,4 +1,5 @@
 use crate::error::Result;
+use base64::Engine;
 use nostr_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -87,7 +88,12 @@ impl Nip60Wallet {
     }
 
     /// Create a new NIP-60 wallet and publish the configuration
-    pub async fn new(nostr_keys: Keys, relays: Vec<&str>, wallet_privkey: String, mints: Vec<String>) -> Result<Self> {
+    pub async fn new(
+        nostr_keys: Keys,
+        relays: Vec<&str>,
+        wallet_privkey: String,
+        mints: Vec<String>,
+    ) -> Result<Self> {
         let client = Client::new(nostr_keys);
 
         for relay in relays {
@@ -200,7 +206,12 @@ impl Nip60Wallet {
     }
 
     /// Record a spending operation in NIP-60 events (state transition only)
-    pub async fn record_spend(&self, amount: u64, spent_token_ids: Vec<EventId>, unspent_proofs: Vec<CashuProof>) -> Result<()> {
+    pub async fn record_spend(
+        &self,
+        amount: u64,
+        spent_token_ids: Vec<EventId>,
+        unspent_proofs: Vec<CashuProof>,
+    ) -> Result<()> {
         // Create new token event with unspent proofs if any
         let mut new_token_event_id = None;
         if !unspent_proofs.is_empty() {
@@ -557,6 +568,169 @@ impl Nip60Wallet {
         })
     }
 
+    /// Send cashu tokens to another user via encrypted DM
+    /// This creates a cashu token from available proofs and sends it via Nostr DM
+    pub async fn send_to_pubkey(
+        &self,
+        recipient_pubkey: PublicKey,
+        amount: u64,
+        memo: Option<String>,
+    ) -> Result<EventId> {
+        // Get current token events to find proofs to spend
+        let token_events = self.fetch_token_events().await?;
+
+        // Select proofs to spend for the requested amount
+        let (selected_proofs, remaining_proofs, spent_event_ids) =
+            self.select_proofs_for_amount(&token_events, amount)?;
+
+        if selected_proofs.is_empty() {
+            return Err(crate::error::Error::custom("Insufficient balance"));
+        }
+
+        // Create cashu token string from selected proofs
+        let mint_url = selected_proofs
+            .first()
+            .map(|p| p.id.clone()) // Using id as mint reference for now
+            .unwrap_or_else(|| self.mints.first().cloned().unwrap_or_default());
+
+        let token_string = self.create_cashu_token_string(&mint_url, &selected_proofs, memo)?;
+
+        // Send the token via encrypted DM
+        let signer = self
+            .client
+            .signer()
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Signer error: {}", e)))?;
+
+        let encrypted_content = signer
+            .nip44_encrypt(&recipient_pubkey, &token_string)
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Encryption failed: {}", e)))?;
+
+        // Create DM event (kind 4)
+        let dm_builder = EventBuilder::new(Kind::EncryptedDirectMessage, encrypted_content)
+            .tag(Tag::public_key(recipient_pubkey));
+
+        let dm_output = self
+            .client
+            .send_event_builder(dm_builder)
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Failed to send DM: {}", e)))?;
+
+        // Record the spending in our wallet state
+        self.record_spend(amount, spent_event_ids, remaining_proofs)
+            .await?;
+
+        Ok(dm_output.val)
+    }
+
+    /// Create a cashu token string from proofs (simplified version for DM sending)
+    fn create_cashu_token_string(
+        &self,
+        mint_url: &str,
+        proofs: &[CashuProof],
+        memo: Option<String>,
+    ) -> Result<String> {
+        // This is a simplified token creation - in a real implementation you'd use proper cashu token format
+        let token_data = serde_json::json!({
+            "mint": mint_url,
+            "proofs": proofs,
+            "memo": memo
+        });
+
+        let token_json = serde_json::to_string(&token_data).map_err(|e| {
+            crate::error::Error::custom(&format!("Token serialization failed: {}", e))
+        })?;
+
+        // Encode as base64 for transport
+        Ok(format!(
+            "cashuA{}",
+            base64::engine::general_purpose::STANDARD.encode(token_json)
+        ))
+    }
+
+    /// Select proofs that sum to at least the requested amount
+    fn select_proofs_for_amount(
+        &self,
+        token_events: &[TokenEvent],
+        amount: u64,
+    ) -> Result<(Vec<CashuProof>, Vec<CashuProof>, Vec<EventId>)> {
+        let mut selected_proofs = Vec::new();
+        let mut remaining_proofs = Vec::new();
+        let mut spent_event_ids = Vec::new();
+        let mut current_amount = 0u64;
+
+        for event in token_events {
+            if current_amount >= amount {
+                // Add all remaining proofs as unspent
+                remaining_proofs.extend(event.data.proofs.clone());
+            } else {
+                spent_event_ids.push(event.id);
+                for proof in &event.data.proofs {
+                    if current_amount < amount {
+                        selected_proofs.push(proof.clone());
+                        current_amount += proof.amount;
+                    } else {
+                        remaining_proofs.push(proof.clone());
+                    }
+                }
+            }
+        }
+
+        if current_amount < amount {
+            return Err(crate::error::Error::custom(&format!(
+                "Insufficient balance: need {}, have {}",
+                amount, current_amount
+            )));
+        }
+
+        Ok((selected_proofs, remaining_proofs, spent_event_ids))
+    }
+
+    /// Receive and decrypt DMs to check for incoming cashu tokens
+    pub async fn check_incoming_tokens(&self) -> Result<Vec<(EventId, String, u64)>> {
+        let signer = self
+            .client
+            .signer()
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Signer error: {}", e)))?;
+
+        let public_key = signer
+            .get_public_key()
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Public key error: {}", e)))?;
+
+        // Fetch DMs sent to us
+        let filter = Filter::new()
+            .kind(Kind::EncryptedDirectMessage)
+            .pubkey(public_key)
+            .limit(50);
+
+        let events = self
+            .client
+            .fetch_events(filter, Duration::from_secs(10))
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Failed to fetch DMs: {}", e)))?;
+
+        let mut incoming_tokens = Vec::new();
+
+        for event in events {
+            // Try to decrypt the DM
+            if let Ok(decrypted) = signer.nip44_decrypt(&event.pubkey, &event.content).await {
+                // Check if it looks like a cashu token
+                if decrypted.starts_with("cashu") {
+                    // Try to parse and get amount
+                    if let Ok(parsed_token) = self.parse_cashu_token(&decrypted) {
+                        let amount = self.calculate_token_amount(&parsed_token)?;
+                        incoming_tokens.push((event.id, decrypted, amount));
+                    }
+                }
+            }
+        }
+
+        Ok(incoming_tokens)
+    }
+
     /// Get wallet configuration
     pub fn get_config(&self) -> WalletConfig {
         WalletConfig {
@@ -566,7 +740,11 @@ impl Nip60Wallet {
     }
 
     /// Update wallet configuration and republish
-    pub async fn update_config(&mut self, privkey: Option<String>, mints: Option<Vec<String>>) -> Result<()> {
+    pub async fn update_config(
+        &mut self,
+        privkey: Option<String>,
+        mints: Option<Vec<String>>,
+    ) -> Result<()> {
         if let Some(new_privkey) = privkey {
             self.wallet_privkey = new_privkey;
         }

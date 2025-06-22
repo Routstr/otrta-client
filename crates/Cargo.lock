@@ -2237,6 +2237,7 @@ dependencies = [
 name = "otrta-wallet"
 version = "1.0.0"
 dependencies = [
+ "base64 0.22.1",
  "bip39",
  "cdk",
  "chrono",
