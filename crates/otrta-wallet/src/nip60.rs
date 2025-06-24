@@ -578,9 +578,9 @@ impl Nip60Wallet {
     ) -> Result<EventId> {
         // Get current token events to find proofs to spend
         let token_events = self.fetch_token_events().await?;
-
+        
         // Select proofs to spend for the requested amount
-        let (selected_proofs, remaining_proofs, spent_event_ids) =
+        let (selected_proofs, remaining_proofs, spent_event_ids) = 
             self.select_proofs_for_amount(&token_events, amount)?;
 
         if selected_proofs.is_empty() {
@@ -592,7 +592,7 @@ impl Nip60Wallet {
             .first()
             .map(|p| p.id.clone()) // Using id as mint reference for now
             .unwrap_or_else(|| self.mints.first().cloned().unwrap_or_default());
-
+            
         let token_string = self.create_cashu_token_string(&mint_url, &selected_proofs, memo)?;
 
         // Send the token via encrypted DM
@@ -620,6 +620,54 @@ impl Nip60Wallet {
         // Record the spending in our wallet state
         self.record_spend(amount, spent_event_ids, remaining_proofs)
             .await?;
+
+        Ok(dm_output.val)
+    }
+
+    /// Send cashu tokens to yourself via encrypted DM (useful for testing)
+    pub async fn send_to_self(&self, amount: u64, memo: Option<String>) -> Result<EventId> {
+        let signer = self
+            .client
+            .signer()
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Signer error: {}", e)))?;
+
+        let public_key = signer
+            .get_public_key()
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Public key error: {}", e)))?;
+
+        self.send_to_pubkey(public_key, amount, memo).await
+    }
+
+    /// Send a raw cashu token string to yourself via DM (for topup/testing)
+    pub async fn send_token_string_to_self(&self, token_string: &str) -> Result<EventId> {
+        let signer = self
+            .client
+            .signer()
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Signer error: {}", e)))?;
+
+        let public_key = signer
+            .get_public_key()
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Public key error: {}", e)))?;
+
+        // Send the token string directly via encrypted DM
+        let encrypted_content = signer
+            .nip44_encrypt(&public_key, token_string)
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Encryption failed: {}", e)))?;
+
+        // Create DM event (kind 4)
+        let dm_builder = EventBuilder::new(Kind::EncryptedDirectMessage, encrypted_content)
+            .tag(Tag::public_key(public_key));
+
+        let dm_output = self
+            .client
+            .send_event_builder(dm_builder)
+            .await
+            .map_err(|e| crate::error::Error::custom(&format!("Failed to send DM: {}", e)))?;
 
         Ok(dm_output.val)
     }

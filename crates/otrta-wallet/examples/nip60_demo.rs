@@ -12,8 +12,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("It only manages proofs as Nostr events - no actual cashu operations!");
 
     let keys = Keys::generate();
+    let public_key = keys.public_key();
     println!("\nGenerated Nostr keys:");
-    println!("  Public key: {}", keys.public_key());
+    println!("  Public key: {}", public_key);
     println!("  Secret key: {}", keys.secret_key().display_secret());
 
     let relays = vec!["wss://relay.damus.io", "wss://relay.snort.social"];
@@ -60,6 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let config = wallet.get_config();
     println!("  Mints: {:?}", config.mints);
     println!("  P2PK privkey configured: {}", !config.privkey.is_empty());
+    println!("  Your public key: {}", public_key.to_hex());
 
     // Interactive operations
     loop {
@@ -72,9 +74,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("6. Get wallet stats");
         println!("7. Send tokens via encrypted DM");
         println!("8. Check for incoming token DMs");
-        println!("9. Show example NIP-60 operations");
-        println!("10. Exit");
-        print!("Enter your choice (1-10): ");
+        println!("9. Send test token to yourself");
+        println!("10. Paste token and send to yourself (topup)");
+        println!("11. Show example NIP-60 operations");
+        println!("12. Exit");
+        print!("Enter your choice (1-12): ");
         io::stdout().flush()?;
 
         let mut input = String::new();
@@ -282,6 +286,95 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
             }
             "9" => {
+                let balance = wallet.calculate_balance().await.unwrap_or(0);
+                if balance == 0 {
+                    println!("❌ No balance available to send. Record some received tokens first!");
+                    continue;
+                }
+
+                print!("Enter amount to send (sats): ");
+                io::stdout().flush()?;
+                let mut amount_input = String::new();
+                io::stdin().read_line(&mut amount_input)?;
+
+                if let Ok(amount) = amount_input.trim().parse::<u64>() {
+                    if amount > balance {
+                        println!(
+                            "❌ Insufficient balance. Have: {} sats, Need: {} sats",
+                            balance, amount
+                        );
+                        continue;
+                    }
+
+                    print!("Enter optional memo: ");
+                    io::stdout().flush()?;
+                    let mut memo_input = String::new();
+                    io::stdin().read_line(&mut memo_input)?;
+                    let memo = if memo_input.trim().is_empty() {
+                        None
+                    } else {
+                        Some(memo_input.trim().to_string())
+                    };
+
+                    println!("📤 Sending {} sats to yourself...", amount);
+                    match wallet.send_to_self(amount, memo).await {
+                        Ok(dm_id) => {
+                            println!("✅ Tokens sent successfully!");
+                            println!("📧 DM Event ID: {}", dm_id);
+                            println!("🔐 Token encrypted and sent to yourself");
+                            println!("📝 Spending recorded in your wallet state");
+                        }
+                        Err(e) => println!("❌ Failed to send: {:?}", e),
+                    }
+                } else {
+                    println!("❌ Invalid amount");
+                }
+            }
+            "10" => {
+                print!("Enter cashu token to paste and send to yourself: ");
+                io::stdout().flush()?;
+                let mut token_input = String::new();
+                io::stdin().read_line(&mut token_input)?;
+
+                let token = token_input.trim();
+                if !token.is_empty() {
+                    // First parse the token to get its details
+                    match wallet.parse_cashu_token(token) {
+                        Ok(parsed_token) => {
+                            let total_amount: u64 = parsed_token
+                                .proofs()
+                                .iter()
+                                .map(|proof| proof.amount.to_string().parse::<u64>().unwrap())
+                                .sum();
+
+                            println!(
+                                "📋 Parsed token: {} sats from {}",
+                                total_amount,
+                                parsed_token.mint_url().unwrap()
+                            );
+                            println!("📤 Sending this token to yourself via DM...");
+
+                            // Send the original token string to yourself via DM
+                            match wallet.send_token_string_to_self(token).await {
+                                Ok(dm_id) => {
+                                    println!("✅ Token sent to yourself successfully!");
+                                    println!("📧 DM Event ID: {}", dm_id);
+                                    println!("🔐 Token encrypted and sent via DM");
+                                    println!("💡 Now use option 8 to check for incoming DMs and accept it!");
+                                }
+                                Err(e) => println!("❌ Failed to send: {:?}", e),
+                            }
+                        }
+                        Err(e) => {
+                            println!("❌ Failed to parse token: {:?}", e);
+                            println!("💡 Make sure you're pasting a valid cashu token string");
+                        }
+                    }
+                } else {
+                    println!("❌ Empty token");
+                }
+            }
+            "11" => {
                 println!("\n📚 NIP-60 Implementation Features:");
                 println!("==================================");
                 println!("✅ Wallet Configuration Events (kind 17375):");
@@ -311,12 +404,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 println!("💡 This implements the complete NIP-60 specification!");
                 println!("🔗 Spec: https://nips.nostr.com/60");
             }
-            "10" => {
+            "12" => {
                 println!("👋 Goodbye! Your wallet state is preserved in Nostr events.");
                 println!("🌐 You can restore it anytime with your Nostr keys.");
                 break;
             }
-            _ => println!("❌ Invalid choice. Please enter 1-10."),
+            _ => println!("❌ Invalid choice. Please enter 1-12."),
         }
     }
 
