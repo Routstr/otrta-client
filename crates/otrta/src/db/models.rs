@@ -38,6 +38,54 @@ pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Err
     Ok(models)
 }
 
+pub async fn get_model(
+    pool: &PgPool,
+    model_name: &str,
+) -> Result<Option<ModelRecord>, sqlx::Error> {
+    let record = sqlx::query!(
+        r#"
+        SELECT id, name, input_cost, output_cost, min_cash_per_request, 
+               min_cost_per_request, provider, soft_deleted, model_type, 
+               description, context_length, is_free, created_at, updated_at, last_seen_at
+        FROM models
+        WHERE name = $1
+        "#,
+        model_name
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(record.map(|r| ModelRecord {
+        id: r.id,
+        name: r.name,
+        input_cost: r.input_cost,
+        output_cost: r.output_cost,
+        min_cash_per_request: r.min_cash_per_request,
+        min_cost_per_request: r.min_cost_per_request,
+        provider: r.provider,
+        soft_deleted: r.soft_deleted.unwrap_or(false),
+        model_type: r.model_type,
+        description: r.description,
+        context_length: r.context_length,
+        is_free: r.is_free.unwrap_or(false),
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        last_seen_at: r.last_seen_at,
+    }))
+}
+
+pub async fn delete_all_models(pool: &PgPool) -> Result<i64, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM models
+        "#
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() as i64)
+}
+
 pub async fn upsert_model(
     pool: &PgPool,
     model: &ProxyModelFromApi,
@@ -188,19 +236,7 @@ pub async fn get_bitcoin_price_in_usd() -> Result<f64, Box<dyn std::error::Error
         }
     }
 
-    // Default fallback price if all APIs fail
     Ok(60000.0)
-}
-
-fn convert_usd_to_sats(usd_amount: f64, btc_price_usd: f64) -> i64 {
-    if btc_price_usd <= 0.0 {
-        return 0;
-    }
-
-    let sats_per_usd = 100_000_000.0 / btc_price_usd; // 100M sats per BTC
-    let sats = usd_amount * sats_per_usd;
-
-    sats.round() as i64
 }
 
 pub fn models_to_proxy_models(models: Vec<ModelRecord>) -> Vec<ProxyModel> {

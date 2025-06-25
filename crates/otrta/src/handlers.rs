@@ -1,10 +1,7 @@
 use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
-        models::{
-            get_all_models, get_bitcoin_price_in_usd, mark_models_as_removed,
-            models_to_proxy_models, upsert_model,
-        },
+        models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
         server_config::{create_config, get_default_config, update_config, ServerConfigRecord},
         transaction::{get_transactions, TransactionListResponse},
         Pool,
@@ -17,7 +14,7 @@ use axum::{
     response::Response,
     Json,
 };
-use chrono::Utc;
+
 use serde::Deserialize;
 use serde_json::{self, json};
 use std::sync::Arc;
@@ -119,43 +116,45 @@ pub async fn refresh_models_from_proxy(
         }
     };
 
-    // Track refresh time for marking removed models
-    let refresh_time = Utc::now();
-    let models_added = 0;
-    let mut models_updated = 0;
+    // Delete all existing models first
+    let deleted_count = match delete_all_models(&state.db).await {
+        Ok(count) => count,
+        Err(e) => {
+            eprintln!("Failed to delete existing models: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to delete existing models",
+                        "type": "database_error"
+                    }
+                })),
+            ));
+        }
+    };
 
-    // Upsert each model (store directly as received from API)
+    let mut models_added = 0;
+
+    // Insert all new models
     for proxy_model in &proxy_models {
         match upsert_model(&state.db, proxy_model).await {
             Ok(_) => {
-                models_updated += 1;
+                models_added += 1;
             }
             Err(e) => {
-                eprintln!("Failed to upsert model {}: {}", proxy_model.name, e);
+                eprintln!("Failed to insert model {}: {}", proxy_model.name, e);
             }
         }
     }
 
-    // Mark models not in the response as removed
-    let current_model_names: Vec<String> = proxy_models.iter().map(|m| m.name.clone()).collect();
-
-    let models_marked_removed =
-        match mark_models_as_removed(&state.db, &current_model_names, refresh_time).await {
-            Ok(count) => count as i32,
-            Err(e) => {
-                eprintln!("Failed to mark removed models: {}", e);
-                0
-            }
-        };
-
     Ok(Json(RefreshModelsResponse {
         success: true,
-        models_updated,
+        models_updated: 0,
         models_added,
-        models_marked_removed,
+        models_marked_removed: deleted_count as i32,
         message: Some(format!(
-            "Successfully refreshed {} models, marked {} as removed",
-            models_updated, models_marked_removed
+            "Successfully deleted {} existing models and added {} new models",
+            deleted_count, models_added
         )),
     }))
 }

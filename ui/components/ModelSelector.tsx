@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, Zap, Copy, CheckCircle2, RefreshCw, DollarSign } from 'lucide-react';
+import { Check, Zap, Copy, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ProxyModel } from '@/lib/api/schemas/models';
@@ -119,7 +119,11 @@ export function ModelSelector() {
   };
 
   // Copy model name to clipboard
-  const copyModelName = (event: React.MouseEvent, modelName: string, modelId?: string) => {
+  const copyModelName = (
+    event: React.MouseEvent,
+    modelName: string,
+    modelId?: string
+  ) => {
     event.stopPropagation();
 
     navigator.clipboard
@@ -158,25 +162,25 @@ export function ModelSelector() {
     <div className='space-y-6'>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className='flex items-center justify-between'>
             <div>
               <CardTitle>Model Selection</CardTitle>
               <CardDescription>
                 Choose a model to use with your application
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <div className="flex gap-1">
+            <div className='flex gap-2'>
+              <div className='flex gap-1'>
                 <Button
                   variant={activeTab === 'proxy' ? 'default' : 'outline'}
-                  size="sm"
+                  size='sm'
                   onClick={() => setActiveTab('proxy')}
                 >
                   Proxy Models
                 </Button>
                 <Button
                   variant={activeTab === 'openai' ? 'default' : 'outline'}
-                  size="sm"
+                  size='sm'
                   onClick={() => setActiveTab('openai')}
                 >
                   OpenAI Models
@@ -186,13 +190,13 @@ export function ModelSelector() {
                 <Button
                   onClick={() => refreshMutation.mutate()}
                   disabled={refreshMutation.isPending}
-                  size="sm"
-                  variant="outline"
+                  size='sm'
+                  variant='outline'
                 >
                   {refreshMutation.isPending ? (
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <RefreshCw className='mr-2 h-4 w-4 animate-spin' />
                   ) : (
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <RefreshCw className='mr-2 h-4 w-4' />
                   )}
                   Refresh
                 </Button>
@@ -215,188 +219,209 @@ export function ModelSelector() {
               </div>
             ) : (
               <div className='w-full'>
-                {Object.entries(groupedProxyModels).map(([provider, modelGroup]) => (
-                  <div key={provider} className='mb-6 w-full'>
-                    <h3 className='mb-3 text-lg font-semibold'>
-                      {provider} Models
-                    </h3>
-                    <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-                      {modelGroup.map((model, index) => (
-                        <Card
-                          key={getProxyModelKey(model, index)}
-                          className={cn(
-                            'relative w-full overflow-hidden transition-all duration-300',
-                            hoveredModelId === model.name &&
-                              '-translate-y-1 transform shadow-lg',
-                            model.soft_deleted && 'opacity-60'
-                          )}
-                          onMouseEnter={() => handleModelHover(model.name)}
-                          onMouseLeave={() => handleModelHover(null)}
-                        >
-                          {hoveredModelId === model.name && (
-                            <div className='via-primary/5 animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent to-transparent' />
-                          )}
-                          <CardHeader className='relative z-10 pb-2'>
-                            <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
-                              <div className='group inline-block max-w-[80%] truncate font-medium'>
-                                <span className='truncate'>{model.name}</span>
-                                {model.description && (
-                                  <div className='text-muted-foreground truncate text-xs font-normal'>
-                                    {model.description}
+                {Object.entries(groupedProxyModels).map(
+                  ([provider, modelGroup]) => (
+                    <div key={provider} className='mb-6 w-full'>
+                      <h3 className='mb-3 text-lg font-semibold'>
+                        {provider} Models
+                      </h3>
+                      <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                        {modelGroup.map((model, index) => (
+                          <Card
+                            key={getProxyModelKey(model, index)}
+                            className={cn(
+                              'relative w-full overflow-hidden transition-all duration-300',
+                              hoveredModelId === model.name &&
+                                '-translate-y-1 transform shadow-lg',
+                              model.soft_deleted && 'opacity-60'
+                            )}
+                            onMouseEnter={() => handleModelHover(model.name)}
+                            onMouseLeave={() => handleModelHover(null)}
+                          >
+                            {hoveredModelId === model.name && (
+                              <div className='via-primary/5 animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent to-transparent' />
+                            )}
+                            <CardHeader className='relative z-10 pb-2'>
+                              <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
+                                <div className='group inline-block max-w-[80%] truncate font-medium'>
+                                  <span className='truncate'>{model.name}</span>
+                                  {model.description && (
+                                    <div className='text-muted-foreground truncate text-xs font-normal'>
+                                      {model.description}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className='flex items-center space-x-1'>
+                                  {model.is_free && (
+                                    <span className='text-xs font-medium text-green-500'>
+                                      FREE
+                                    </span>
+                                  )}
+                                  {model.soft_deleted && (
+                                    <span className='text-xs font-medium text-red-500'>
+                                      REMOVED
+                                    </span>
+                                  )}
+                                  <Button
+                                    variant='ghost'
+                                    size='icon'
+                                    className='ml-1 h-6 w-6'
+                                    onClick={(e) =>
+                                      copyModelName(e, model.name)
+                                    }
+                                    title='Copy model name'
+                                  >
+                                    {copiedModelId === model.name ? (
+                                      <CheckCircle2 className='h-4 w-4 text-green-500' />
+                                    ) : (
+                                      <Copy className='h-4 w-4' />
+                                    )}
+                                  </Button>
+                                </div>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className='relative z-10 pt-0 pb-4'>
+                              <div className='space-y-2'>
+                                <div className='flex items-center text-xs'>
+                                  <Zap className='mr-1 h-3 w-3 flex-shrink-0 text-amber-500' />
+                                  <span className='break-words'>
+                                    {model.model_type || 'Unknown Type'}
+                                  </span>
+                                </div>
+                                {model.context_length && (
+                                  <div className='text-muted-foreground text-xs'>
+                                    Context:{' '}
+                                    {model.context_length.toLocaleString()}{' '}
+                                    tokens
                                   </div>
                                 )}
+                                <div className='space-y-1'>
+                                  <div className='flex items-center justify-between text-xs'>
+                                    <span className='text-muted-foreground'>
+                                      Input:
+                                    </span>
+                                    <span className='font-medium'>
+                                      {formatMsatCost(model.input_cost)}/1M
+                                      tokens
+                                    </span>
+                                  </div>
+                                  <div className='flex items-center justify-between text-xs'>
+                                    <span className='text-muted-foreground'>
+                                      Output:
+                                    </span>
+                                    <span className='font-medium'>
+                                      {formatMsatCost(model.output_cost)}/1M
+                                      tokens
+                                    </span>
+                                  </div>
+                                  <div className='flex items-center justify-between text-xs'>
+                                    <span className='text-muted-foreground'>
+                                      Min charge:
+                                    </span>
+                                    <span className='font-medium'>
+                                      {formatMsatCost(
+                                        model.min_cost_per_request ??
+                                          model.min_cash_per_request
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                              <div className='flex items-center space-x-1'>
-                                {model.is_free && (
-                                  <span className="text-green-500 text-xs font-medium">FREE</span>
-                                )}
-                                {model.soft_deleted && (
-                                  <span className="text-red-500 text-xs font-medium">REMOVED</span>
-                                )}
-                                <Button
-                                  variant='ghost'
-                                  size='icon'
-                                  className='ml-1 h-6 w-6'
-                                  onClick={(e) => copyModelName(e, model.name)}
-                                  title='Copy model name'
-                                >
-                                  {copiedModelId === model.name ? (
-                                    <CheckCircle2 className='h-4 w-4 text-green-500' />
-                                  ) : (
-                                    <Copy className='h-4 w-4' />
-                                  )}
-                                </Button>
-                              </div>
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className='relative z-10 pt-0 pb-4'>
-                            <div className="space-y-2">
-                              <div className='flex items-center text-xs'>
-                                <Zap className='mr-1 h-3 w-3 flex-shrink-0 text-amber-500' />
-                                <span className='break-words'>
-                                  {model.model_type || 'Unknown Type'}
-                                </span>
-                              </div>
-                              {model.context_length && (
-                                <div className='text-xs text-muted-foreground'>
-                                  Context: {model.context_length.toLocaleString()} tokens
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )
+          ) : // OpenAI Models Tab
+          isLoadingModels ? (
+            <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className='h-40 w-full' />
+              ))}
+            </div>
+          ) : modelsError ? (
+            <div className='p-4 text-center text-red-500'>
+              Error loading models: {String(modelsError)}
+            </div>
+          ) : (
+            <div className='w-full'>
+              {Object.entries(groupedModels).map(([type, modelGroup]) => (
+                <div key={type} className='mb-6 w-full'>
+                  <h3 className='mb-3 text-lg font-semibold'>
+                    {type.charAt(0).toUpperCase() + type.slice(1)} Models
+                  </h3>
+                  <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                    {modelGroup.map((model, index) => (
+                      <Card
+                        key={getModelKey(model, index)}
+                        className={cn(
+                          'relative w-full overflow-hidden transition-all duration-300',
+                          hoveredModelId === model.id &&
+                            '-translate-y-1 transform shadow-lg',
+                          selectedModelId === model.id && 'ring-primary ring-2'
+                        )}
+                        onMouseEnter={() => handleModelHover(model.id)}
+                        onMouseLeave={() => handleModelHover(null)}
+                      >
+                        {hoveredModelId === model.id && (
+                          <div className='via-primary/5 animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent to-transparent' />
+                        )}
+                        <CardHeader className='relative z-10 pb-2'>
+                          <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
+                            <div className='group inline-block max-w-[80%] truncate font-medium'>
+                              <span className='truncate'>{model.name}</span>
+                              {model.id !== model.name && (
+                                <div className='text-muted-foreground truncate text-xs font-normal'>
+                                  {model.id}
                                 </div>
                               )}
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-muted-foreground">Input:</span>
-                                  <span className="font-medium">
-                                    {formatMsatCost(model.input_cost)}/1M tokens
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-muted-foreground">Output:</span>
-                                  <span className="font-medium">
-                                    {formatMsatCost(model.output_cost)}/1M tokens
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-muted-foreground">Min charge:</span>
-                                  <span className="font-medium">
-                                    {formatMsatCost(model.min_cash_per_request)}
-                                  </span>
-                                </div>
-                              </div>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            // OpenAI Models Tab
-            isLoadingModels ? (
-              <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Skeleton key={i} className='h-40 w-full' />
-                ))}
-              </div>
-            ) : modelsError ? (
-              <div className='p-4 text-center text-red-500'>
-                Error loading models: {String(modelsError)}
-              </div>
-            ) : (
-              <div className='w-full'>
-                {Object.entries(groupedModels).map(([type, modelGroup]) => (
-                  <div key={type} className='mb-6 w-full'>
-                    <h3 className='mb-3 text-lg font-semibold'>
-                      {type.charAt(0).toUpperCase() + type.slice(1)} Models
-                    </h3>
-                    <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-                      {modelGroup.map((model, index) => (
-                        <Card
-                          key={getModelKey(model, index)}
-                          className={cn(
-                            'relative w-full overflow-hidden transition-all duration-300',
-                            hoveredModelId === model.id &&
-                              '-translate-y-1 transform shadow-lg',
-                            selectedModelId === model.id && 'ring-primary ring-2'
-                          )}
-                          onMouseEnter={() => handleModelHover(model.id)}
-                          onMouseLeave={() => handleModelHover(null)}
-                        >
-                          {hoveredModelId === model.id && (
-                            <div className='via-primary/5 animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent to-transparent' />
-                          )}
-                          <CardHeader className='relative z-10 pb-2'>
-                            <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
-                              <div className='group inline-block max-w-[80%] truncate font-medium'>
-                                <span className='truncate'>{model.name}</span>
-                                {model.id !== model.name && (
-                                  <div className='text-muted-foreground truncate text-xs font-normal'>
-                                    {model.id}
-                                  </div>
+                            <div className='flex items-center space-x-1'>
+                              {selectedModelId === model.id && (
+                                <Check className='text-primary h-5 w-5 flex-shrink-0' />
+                              )}
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                className='ml-1 h-6 w-6'
+                                onClick={(e) =>
+                                  copyModelName(e, model.name, model.id)
+                                }
+                                title='Copy model name'
+                              >
+                                {copiedModelId === model.id ? (
+                                  <CheckCircle2 className='h-4 w-4 text-green-500' />
+                                ) : (
+                                  <Copy className='h-4 w-4' />
                                 )}
-                              </div>
-                              <div className='flex items-center space-x-1'>
-                                {selectedModelId === model.id && (
-                                  <Check className='text-primary h-5 w-5 flex-shrink-0' />
-                                )}
-                                <Button
-                                  variant='ghost'
-                                  size='icon'
-                                  className='ml-1 h-6 w-6'
-                                  onClick={(e) => copyModelName(e, model.name, model.id)}
-                                  title='Copy model name'
-                                >
-                                  {copiedModelId === model.id ? (
-                                    <CheckCircle2 className='h-4 w-4 text-green-500' />
-                                  ) : (
-                                    <Copy className='h-4 w-4' />
-                                  )}
-                                </Button>
-                              </div>
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className='relative z-10 pt-0 pb-4'>
-                            <div className='mt-2 flex items-center text-xs'>
-                              <Zap className='mr-1 h-3 w-3 flex-shrink-0 text-amber-500' />
-                              <span className='break-words'>
-                                {type === 'chat'
-                                  ? 'Chat Completion'
-                                  : type === 'embedding'
-                                    ? 'Text Embedding'
-                                    : type === 'image'
-                                      ? 'Image Generation'
-                                      : 'API Model'}
-                              </span>
+                              </Button>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className='relative z-10 pt-0 pb-4'>
+                          <div className='mt-2 flex items-center text-xs'>
+                            <Zap className='mr-1 h-3 w-3 flex-shrink-0 text-amber-500' />
+                            <span className='break-words'>
+                              {type === 'chat'
+                                ? 'Chat Completion'
+                                : type === 'embedding'
+                                  ? 'Text Embedding'
+                                  : type === 'image'
+                                    ? 'Image Generation'
+                                    : 'API Model'}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

@@ -1,21 +1,28 @@
 use crate::{
-    db::Pool,
+    db::{models::get_model, Pool},
     handlers::get_server_config,
     models::*,
     wallet::{finalize_request, send_with_retry},
 };
 use axum::{
-    Json,
     body::Body,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
+    Json,
 };
 use futures_util::StreamExt;
 use reqwest::Client;
 use serde_json::json;
 use std::io;
 use std::sync::Arc;
+
+#[derive(serde::Deserialize)]
+struct OpenAIRequest {
+    model: String,
+    #[serde(flatten)]
+    other: serde_json::Value,
+}
 
 pub async fn forward_any_request_get(
     Path(path): Path<String>,
@@ -77,35 +84,66 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         client.get(endpoint_url)
     };
 
+    let model_name = if let Some(body_data) = &body {
+        if let Ok(openai_request) = serde_json::from_value::<OpenAIRequest>(
+            serde_json::to_value(body_data).unwrap_or_default(),
+        ) {
+            Some(openai_request.model)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let is_free_model = if let Some(ref model_name) = model_name {
+        match get_model(&state.db, model_name).await {
+            Ok(Some(model)) => model.is_free,
+            Ok(None) => false, // Model not found, assume not free for safety
+            Err(_) => false,   // Database error, assume not free for safety
+        }
+    } else {
+        false
+    };
+
     if let Some(body_data) = body {
         req_builder = req_builder.json(&body_data);
     }
 
-    let token_result = send_with_retry(
-        &state.wallet,
-        state.default_msats_per_request as i64,
-        Some(3),
-    )
-    .await;
+    // Generate payment token only if model is not free
+    let token = if is_free_model {
+        String::new() // Empty string for free models
+    } else {
+        let token_result = send_with_retry(
+            &state.wallet,
+            state.default_msats_per_request as i64,
+            Some(3),
+        )
+        .await;
 
-    let token = match token_result {
-        Ok(token) => token,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": {
-                        "message": format!("Failed to generate payment token: {:?}", e),
-                        "type": "payment_error",
-                    }
-                })),
-            )
-                .into_response();
+        match token_result {
+            Ok(token) => token,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {
+                            "message": format!("Failed to generate payment token: {:?}", e),
+                            "type": "payment_error",
+                        }
+                    })),
+                )
+                    .into_response();
+            }
         }
     };
 
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
-    req_builder = req_builder.header("X-Cashu", &token);
+
+    // Only add X-Cashu header if we have a token (non-free model)
+    if !token.is_empty() {
+        req_builder = req_builder.header("X-Cashu", &token);
+    }
 
     if let Some(accept) = original_headers.get(header::ACCEPT) {
         req_builder = req_builder.header(header::ACCEPT, accept);
@@ -117,9 +155,12 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             let headers = resp.headers().clone();
 
             if status != StatusCode::OK {
-                if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
-                    if let Ok(in_token) = change_sats.to_str() {
-                        state.wallet.receive(in_token).await.unwrap();
+                // Only handle payment headers for non-free models
+                if !is_free_model && !token.is_empty() {
+                    if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
+                        if let Ok(in_token) = change_sats.to_str() {
+                            state.wallet.receive(in_token).await.unwrap();
+                        }
                     }
                 }
                 return Response::builder()
@@ -134,16 +175,19 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 response = response.header(header::CONTENT_TYPE, "text/event-stream");
             }
 
-            if let Some(change_sats) = headers.get("X-Cashu") {
-                if let Ok(in_token) = change_sats.to_str() {
-                    finalize_request(
-                        &state.db,
-                        &state.wallet,
-                        &token,
-                        state.default_msats_per_request as i64,
-                        in_token,
-                    )
-                    .await;
+            // Only handle payment finalization for non-free models
+            if !is_free_model && !token.is_empty() {
+                if let Some(change_sats) = headers.get("X-Cashu") {
+                    if let Ok(in_token) = change_sats.to_str() {
+                        finalize_request(
+                            &state.db,
+                            &state.wallet,
+                            &token,
+                            state.default_msats_per_request as i64,
+                            in_token,
+                        )
+                        .await;
+                    }
                 }
             }
 
@@ -181,7 +225,10 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             });
         }
         Err(error) => {
-            let _ = state.wallet.redeem_pendings().await;
+            // Only redeem pendings for non-free models
+            if !is_free_model && !token.is_empty() {
+                let _ = state.wallet.redeem_pendings().await;
+            }
 
             let error_json = Json(json!({
                 "error": {
@@ -224,7 +271,6 @@ pub async fn forward_request(db: &Pool, path: &str) -> Response<Body> {
         Ok(resp) => {
             let status = resp.status();
             let response = Response::builder().status(status);
-            println!("response: {:?}", response);
 
             match resp.bytes().await {
                 Ok(bytes) => response.body(Body::from(bytes)).unwrap_or_else(|e| {
