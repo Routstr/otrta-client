@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use otrta_wallet::wallet::CashuWalletClient;
 use serde::{Deserialize, Serialize};
 
@@ -39,5 +40,64 @@ pub struct SendTokenRequest {
 pub struct SendTokenResponse {
     pub token: String,
     pub success: bool,
+    pub message: Option<String>,
+}
+
+// Model structures for the proxy models endpoint
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProxyModel {
+    pub name: String,
+    pub input_cost: i64,         // Cost per 1M tokens in sats
+    pub output_cost: i64,        // Cost per 1M tokens in sats  
+    pub min_cash_per_request: i64, // Minimum charge per request in sats
+    pub min_cost_per_request: Option<i64>, // Alternative minimum cost per request in sats
+    pub provider: Option<String>,
+    pub soft_deleted: Option<bool>,
+    pub model_type: Option<String>,
+    pub description: Option<String>,
+    pub context_length: Option<i32>,
+    pub is_free: Option<bool>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProxyModelFromApi {
+    pub name: String,
+    pub input_cost: Option<f64>,  // Cost per 1M tokens in sats (as f64 from API)
+    pub output_cost: Option<f64>, // Cost per 1M tokens in sats (as f64 from API)
+    pub min_cash_per_request: Option<f64>, // Minimum charge per request in sats (as f64 from API)
+    pub min_cost_per_request: Option<f64>, // Alternative minimum cost per request in sats (as f64 from API)
+    pub provider: Option<String>,
+    pub soft_deleted: Option<bool>,
+    pub model_type: Option<String>,
+    pub description: Option<String>,
+    pub context_length: Option<i32>,
+    pub is_free: Option<bool>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ModelRecord {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub input_cost: i64,         // Cost per 1M tokens in sats
+    pub output_cost: i64,        // Cost per 1M tokens in sats
+    pub min_cash_per_request: i64, // Minimum charge per request in sats
+    pub min_cost_per_request: Option<i64>, // Alternative minimum cost per request in sats
+    pub provider: Option<String>,
+    pub soft_deleted: bool,
+    pub model_type: Option<String>,
+    pub description: Option<String>,
+    pub context_length: Option<i32>,
+    pub is_free: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub last_seen_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize)]
+pub struct RefreshModelsResponse {
+    pub success: bool,
+    pub models_updated: i32,
+    pub models_added: i32,
+    pub models_marked_removed: i32,
     pub message: Option<String>,
 }

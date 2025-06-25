@@ -51,6 +51,11 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/openai-models", get(handlers::list_openai_models))
+        .route("/api/proxy/models", get(handlers::get_proxy_models))
+        .route(
+            "/api/proxy/models/refresh",
+            post(handlers::refresh_models_from_proxy),
+        )
         .route(
             "/api/wallet/redeem-pendings",
             post(handlers::redeem_pendings),

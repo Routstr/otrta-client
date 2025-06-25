@@ -1,29 +1,23 @@
 [package]
 name = "otrta"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
-tokio = {version = "1.44", features=["full"]}
-serde = {version = "1.0", features = ["derive"]}
+async-trait = "0.1"
+axum = "0.8"
+bigdecimal = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+dotenv = "0.15"
+futures-util = "0.3"
+otrta-wallet = { path = "../otrta-wallet" }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+rust_decimal = { version = "1.33", features = ["serde-float"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde-aux = "4.7"
-axum = { version = "0.8", features = ["json"] }
-tower = "0.5"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "rust_decimal", "bigdecimal"] }
+tokio = { version = "1.0", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
-chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1.7", features = ["v4", "serde"] }
-reqwest = { version = "0.12", features = ["json", "stream"] }
-futures-util = "0.3.31"
-tokio-stream = "0.1.17"
-
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate"] }
-pgvector = { version = "0.4", features = [ "postgres", "sqlx" ] }
-async-trait = "0.1"
-thiserror = "2.0"
-futures = "0.3"
-
-otrta-wallet = {path = "../otrta-wallet/"}
+uuid = { version = "1.6", features = ["v4", "serde"] }
