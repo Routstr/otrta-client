@@ -2,10 +2,10 @@
 CREATE TABLE models (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
-    input_cost BIGINT NOT NULL DEFAULT 0, -- Cost per 1M tokens in sats
-    output_cost BIGINT NOT NULL DEFAULT 0, -- Cost per 1M tokens in sats
-    min_cash_per_request BIGINT NOT NULL DEFAULT 0, -- Minimum charge per request in sats
-    min_cost_per_request BIGINT, -- Alternative minimum cost per request in sats
+    input_cost BIGINT NOT NULL DEFAULT 0, -- Cost per 1M tokens in msat
+    output_cost BIGINT NOT NULL DEFAULT 0, -- Cost per 1M tokens in msat
+    min_cash_per_request BIGINT NOT NULL DEFAULT 0, -- Minimum charge per request in msat
+    min_cost_per_request BIGINT, -- Alternative minimum cost per request in msat
     provider TEXT,
     soft_deleted BOOLEAN DEFAULT false,
     model_type TEXT,

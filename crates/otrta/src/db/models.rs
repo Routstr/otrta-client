@@ -42,7 +42,7 @@ pub async fn upsert_model(
     pool: &PgPool,
     model: &ProxyModelFromApi,
 ) -> Result<ModelRecord, sqlx::Error> {
-    // Store the model data directly as received from API (already in sats)
+    // Store the model data directly as received from API (already in msat)
     let input_cost = model.input_cost.unwrap_or(0.0) as i64;
     let output_cost = model.output_cost.unwrap_or(0.0) as i64;
     let min_cash_per_request = model.min_cash_per_request.unwrap_or(0.0) as i64;

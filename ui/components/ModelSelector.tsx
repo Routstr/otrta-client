@@ -98,12 +98,10 @@ export function ModelSelector() {
     }, {});
   }, [proxyModels]);
 
-  // Format satoshi cost for display
-  const formatSatsCost = (sats: number) => {
-    if (sats === 0) return 'Free';
-    if (sats < 1000) return `${sats} sats`;
-    if (sats < 1000000) return `${(sats / 1000).toFixed(1)}k sats`;
-    return `${(sats / 1000000).toFixed(1)}M sats`;
+  // Format millisatoshi cost for display
+  const formatMsatCost = (msats: number) => {
+    if (msats === 0) return 'Free';
+    return `${Math.round(msats).toLocaleString()} msat`;
   };
 
   // Create a unique key for a model to avoid duplicate key issues
@@ -288,19 +286,19 @@ export function ModelSelector() {
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="text-muted-foreground">Input:</span>
                                   <span className="font-medium">
-                                    {formatSatsCost(model.input_cost)}/1M tokens
+                                    {formatMsatCost(model.input_cost)}/1M tokens
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="text-muted-foreground">Output:</span>
                                   <span className="font-medium">
-                                    {formatSatsCost(model.output_cost)}/1M tokens
+                                    {formatMsatCost(model.output_cost)}/1M tokens
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="text-muted-foreground">Min charge:</span>
                                   <span className="font-medium">
-                                    {formatSatsCost(model.min_cash_per_request)}
+                                    {formatMsatCost(model.min_cash_per_request)}
                                   </span>
                                 </div>
                               </div>
