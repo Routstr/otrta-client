@@ -157,7 +157,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             if status != StatusCode::OK {
                 // Only handle payment headers for non-free models
                 if !is_free_model && !token.is_empty() {
-                    if let Some(change_sats) = headers.get("X-CHANGE-SATS") {
+                    if let Some(change_sats) = headers.get("X-Cashu") {
                         if let Ok(in_token) = change_sats.to_str() {
                             state.wallet.receive(in_token).await.unwrap();
                         }
