@@ -25,6 +25,27 @@ export function useProviders() {
   };
 }
 
+export function useDefaultProvider() {
+  const {
+    data: defaultProvider,
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ['defaultProvider'],
+    queryFn: async () => {
+      return await ProviderService.getDefaultProvider();
+    },
+  });
+
+  return {
+    defaultProvider,
+    isLoading,
+    error,
+    refetch,
+  };
+}
+
 export function useSetDefaultProvider() {
   const queryClient = useQueryClient();
 
@@ -32,6 +53,7 @@ export function useSetDefaultProvider() {
     mutationFn: (providerId: number) => ProviderService.setDefaultProvider(providerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['providers'] });
+      queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
       toast.success('Default provider updated successfully');
     },
     onError: (error) => {
@@ -48,6 +70,7 @@ export function useCreateCustomProvider() {
     mutationFn: (request: CreateCustomProviderRequest) => ProviderService.createCustomProvider(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['providers'] });
+      queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
       toast.success('Custom provider created successfully');
     },
     onError: (error: unknown) => {
@@ -71,6 +94,7 @@ export function useDeleteCustomProvider() {
     mutationFn: (providerId: number) => ProviderService.deleteCustomProvider(providerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['providers'] });
+      queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
       toast.success('Custom provider deleted successfully');
     },
     onError: (error) => {

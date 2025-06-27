@@ -2,7 +2,7 @@ use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
         models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
-        provider::{get_all_providers, get_provider_by_id, set_default_provider, refresh_providers_from_nostr, create_custom_provider, delete_custom_provider, ProviderListResponse, RefreshProvidersResponse, CreateCustomProviderRequest},
+        provider::{get_all_providers, get_provider_by_id, get_default_provider, set_default_provider, refresh_providers_from_nostr, create_custom_provider, delete_custom_provider, ProviderListResponse, RefreshProvidersResponse, CreateCustomProviderRequest},
         server_config::{create_config, get_default_config, update_config, ServerConfigRecord},
         transaction::{get_transactions, TransactionListResponse},
         Pool,
@@ -506,6 +506,26 @@ pub async fn delete_custom_provider_handler(
                 Json(json!({
                     "error": {
                         "message": "Failed to delete custom provider",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn get_default_provider_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Option<crate::db::provider::Provider>>, (StatusCode, Json<serde_json::Value>)> {
+    match get_default_provider(&state.db).await {
+        Ok(provider) => Ok(Json(provider)),
+        Err(e) => {
+            eprintln!("Failed to get default provider: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to get default provider",
                         "type": "database_error"
                     }
                 })),

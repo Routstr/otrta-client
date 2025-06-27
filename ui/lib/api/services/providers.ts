@@ -52,6 +52,15 @@ export class ProviderService {
     }
   }
 
+  static async getDefaultProvider(): Promise<Provider | null> {
+    try {
+      return await apiClient.get<Provider | null>('/api/providers/default');
+    } catch (error) {
+      console.error('Error fetching default provider:', error);
+      throw error;
+    }
+  }
+
   static async setDefaultProvider(id: number): Promise<Provider> {
     try {
       return await apiClient.post<Provider>(`/api/providers/${id}/set-default`, {});

@@ -51,6 +51,18 @@ pub async fn get_all_providers(db: &Pool) -> Result<Vec<Provider>, sqlx::Error> 
     Ok(providers)
 }
 
+pub async fn get_default_provider(db: &Pool) -> Result<Option<Provider>, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, created_at, updated_at 
+         FROM providers 
+         WHERE is_default = TRUE"
+    )
+    .fetch_optional(db)
+    .await?;
+
+    Ok(provider)
+}
+
 pub async fn get_provider_by_id(db: &Pool, id: i32) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
         "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, created_at, updated_at 
@@ -141,16 +153,18 @@ pub async fn upsert_provider(
     Ok(provider)
 }
 
-pub async fn refresh_providers_from_nostr(db: &Pool) -> Result<RefreshProvidersResponse, Box<dyn std::error::Error>> {
+pub async fn refresh_providers_from_nostr(
+    db: &Pool,
+) -> Result<RefreshProvidersResponse, Box<dyn std::error::Error>> {
     // This is a placeholder for now - in a real implementation, you would:
     // 1. Connect to Nostr relays
     // 2. Query for provider announcements using specific event kinds
     // 3. Parse the provider data from the events
     // 4. Update the database with fresh data
-    
+
     // For now, we'll simulate updating the existing providers with new follower/zap counts
     let mut providers_updated = 0;
-    
+
     // Simulate fetching updated data from Nostr (only update non-custom providers)
     let mock_updates = vec![
         (1, 1300, 92000),  // Lightning Labs Provider
@@ -159,7 +173,7 @@ pub async fn refresh_providers_from_nostr(db: &Pool) -> Result<RefreshProvidersR
         (4, 720, 34800),   // Breez Provider
         (5, 1500, 82000),  // Alby Provider
     ];
-    
+
     for (id, new_followers, new_zaps) in mock_updates {
         match sqlx::query(
             "UPDATE providers SET followers = $1, zaps = $2, updated_at = NOW() WHERE id = $3 AND is_custom = FALSE"
@@ -180,11 +194,14 @@ pub async fn refresh_providers_from_nostr(db: &Pool) -> Result<RefreshProvidersR
             }
         }
     }
-    
+
     Ok(RefreshProvidersResponse {
         success: true,
         providers_updated,
         providers_added: 0,
-        message: Some(format!("Updated {} providers from Nostr marketplace", providers_updated)),
+        message: Some(format!(
+            "Updated {} providers from Nostr marketplace",
+            providers_updated
+        )),
     })
-} 
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useProviders } from '@/lib/hooks/useProviders';
+import { useDefaultProvider } from '@/lib/hooks/useProviders';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 export function DefaultProviderCard() {
-  const { providers, isLoading, error } = useProviders();
+  const { defaultProvider, isLoading, error } = useDefaultProvider();
   const [mintsExpanded, setMintsExpanded] = useState(false);
-  
-  const defaultProvider = providers.find(provider => provider.is_default);
 
   const toggleMintsExpanded = () => {
     setMintsExpanded(prev => !prev);

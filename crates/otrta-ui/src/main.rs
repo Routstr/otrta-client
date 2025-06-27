@@ -54,6 +54,7 @@ async fn main() {
         .route("/api/proxy/models", get(handlers::get_proxy_models))
         .route("/api/providers", get(handlers::get_providers))
         .route("/api/providers", post(handlers::create_custom_provider_handler))
+        .route("/api/providers/default", get(handlers::get_default_provider_handler))
         .route("/api/providers/{id}", get(handlers::get_provider))
         .route("/api/providers/{id}", delete(handlers::delete_custom_provider_handler))
         .route(
