@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ServerConfigSettings } from '@/components/settings/server-config-settings';
+import { NostrWalletSettings } from '@/components/settings/nostr-wallet-settings';
 import { SiteHeader } from '@/components/site-header';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -19,7 +19,7 @@ export default function SettingsPage() {
               <h1 className='text-2xl font-bold tracking-tight'>Settings</h1>
             </div>
             <div className='w-full'>
-              <ServerConfigSettings />
+              <NostrWalletSettings />
             </div>
           </div>
         </div>
