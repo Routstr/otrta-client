@@ -1,6 +1,5 @@
 use crate::{
-    db::{models::get_model, Pool},
-    handlers::get_server_config,
+    db::{models::get_model, provider::get_default_provider, Pool},
     models::*,
     wallet::{finalize_request, send_with_retry},
 };
@@ -21,7 +20,7 @@ use std::sync::Arc;
 struct OpenAIRequest {
     model: String,
     #[serde(flatten)]
-    other: serde_json::Value,
+    _other: serde_json::Value,
 }
 
 pub async fn forward_any_request_get(
@@ -49,17 +48,17 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     body: Option<T>,
     is_streaming: bool,
 ) -> Response<Body> {
-    let server_config = if let Some(config) = get_server_config(&state.db).await {
+    let server_config = if let Ok(Some(config)) = get_default_provider(&state.db).await {
         config
     } else {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({
                 "error": {
-                    "message": "Server configuration missing. Cannot process request without a configured endpoint.",
+                    "message": "Default provider missing. Cannot process request without a configured endpoint.",
                     "type": "server_error",
                     "param": null,
-                    "code": "server_config_missing"
+                    "code": "default_provider_missing"
                 }
             })),
         ).into_response();
@@ -76,7 +75,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     }
 
     let client = client_builder.build().unwrap();
-    let endpoint_url = format!("{}/{}", &server_config.endpoint, path);
+    let endpoint_url = format!("{}/{}", &server_config.url, path);
 
     let mut req_builder = if body.is_some() {
         client.post(endpoint_url)
@@ -243,17 +242,17 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 }
 
 pub async fn forward_request(db: &Pool, path: &str) -> Response<Body> {
-    let server_config = if let Some(config) = get_server_config(&db).await {
+    let server_config = if let Ok(Some(config)) = get_default_provider(&db).await {
         config
     } else {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({
                 "error": {
-                    "message": "Server configuration missing. Cannot process request without a configured endpoint.",
+                    "message": "Default provider missing. Cannot process request without a configured endpoint.",
                     "type": "server_error",
                     "param": null,
-                    "code": "server_config_missing"
+                    "code": "default_provider_missing"
                 }
             })),
         ).into_response();
@@ -262,7 +261,7 @@ pub async fn forward_request(db: &Pool, path: &str) -> Response<Body> {
     let client_builder = Client::builder();
     let client = client_builder.build().unwrap();
 
-    let endpoint_url = format!("{}/{}", &server_config.endpoint, path);
+    let endpoint_url = format!("{}/{}", &server_config.url, path);
 
     let mut req_builder = client.get(endpoint_url);
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
