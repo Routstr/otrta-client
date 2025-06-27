@@ -6,6 +6,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { EcashRedeem } from '@/components/ecash-redeem';
 import { WalletBalance } from '@/components/wallet-balance';
 import { CollectSats } from '@/components/collect-sats';
+import { DefaultProviderCard } from '@/components/default-provider-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@radix-ui/react-tabs';
 import { useState } from 'react';
 
@@ -52,12 +53,15 @@ export default function Page() {
             </div>
 
             <TabsContent value='dashboard' className='mt-0'>
-              <div className='grid gap-6 md:grid-cols-3'>
-                <div className='col-span-full md:col-span-1'>
-                  <WalletBalance refreshInterval={5000} />
-                </div>
-                <div className='col-span-full md:col-span-2'>
-                  <EcashRedeem />
+              <div className='space-y-6'>
+                <DefaultProviderCard />
+                <div className='grid gap-6 md:grid-cols-3'>
+                  <div className='col-span-full md:col-span-1'>
+                    <WalletBalance refreshInterval={5000} />
+                  </div>
+                  <div className='col-span-full md:col-span-2'>
+                    <EcashRedeem />
+                  </div>
                 </div>
               </div>
             </TabsContent>

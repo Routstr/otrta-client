@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
-import { ExternalLinkIcon, ZapIcon, UsersIcon, ShieldIcon, CheckIcon, RefreshCwIcon, Plus, AlertTriangle, Eye, Trash2 } from 'lucide-react';
+import { Copy, ZapIcon, UsersIcon, ShieldIcon, CheckIcon, RefreshCwIcon, Plus, AlertTriangle, Eye, Trash2, ChevronDown, ChevronUp, CoinsIcon, ExternalLinkIcon } from 'lucide-react';
 import { ProviderService } from '@/lib/api/services/providers';
 import { toast } from 'sonner';
 import { useState } from 'react';
@@ -25,6 +25,7 @@ export default function ProvidersPage() {
   const deleteCustomProvider = useDeleteCustomProvider();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [expandedMints, setExpandedMints] = useState<Set<number>>(new Set());
 
   const handleSetDefault = async (providerId: number) => {
     await setDefaultProvider.mutateAsync(providerId);
@@ -32,6 +33,27 @@ export default function ProvidersPage() {
 
   const handleDeleteCustomProvider = async (providerId: number) => {
     await deleteCustomProvider.mutateAsync(providerId);
+  };
+
+  const toggleMintsExpanded = (providerId: number) => {
+    setExpandedMints(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(providerId)) {
+        newSet.delete(providerId);
+      } else {
+        newSet.add(providerId);
+      }
+      return newSet;
+    });
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Mint URL copied to clipboard');
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
   };
 
   const handleRefresh = async () => {
@@ -233,18 +255,58 @@ export default function ProvidersPage() {
                       </div>
                     </div>
 
-                    <div className='flex items-center justify-between'>
-                      <div className='flex items-center gap-2'>
-                        <Badge variant='outline'>
-                          {provider.mints.length} mint{provider.mints.length !== 1 ? 's' : ''}
-                        </Badge>
-                        {provider.use_onion && (
-                          <Badge variant='secondary' className='flex items-center gap-1'>
-                            <ShieldIcon className='h-3 w-3' />
-                            Tor
-                          </Badge>
-                        )}
+                    <div className='space-y-2'>
+                      <div className='flex items-center justify-between'>
+                        <div className='flex items-center gap-2'>
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            onClick={() => toggleMintsExpanded(provider.id)}
+                            className='flex items-center gap-2 h-7 px-2 text-xs'
+                          >
+                            <CoinsIcon className='h-3 w-3' />
+                            {provider.mints.length} mint{provider.mints.length !== 1 ? 's' : ''}
+                            {expandedMints.has(provider.id) ? (
+                              <ChevronUp className='h-3 w-3' />
+                            ) : (
+                              <ChevronDown className='h-3 w-3' />
+                            )}
+                          </Button>
+                          {provider.use_onion && (
+                            <Badge variant='secondary' className='flex items-center gap-1 text-xs'>
+                              <ShieldIcon className='h-3 w-3' />
+                              Tor
+                            </Badge>
+                          )}
+                        </div>
                       </div>
+                      
+                      {expandedMints.has(provider.id) && provider.mints.length > 0 && (
+                        <div className='bg-muted/50 rounded-lg p-3 space-y-2'>
+                          <div className='text-xs font-medium text-muted-foreground mb-2'>
+                            Supported Mints:
+                          </div>
+                                                     <div className='space-y-1'>
+                             {provider.mints.map((mint, index) => (
+                               <div key={index} className='flex items-center gap-2 text-xs group'>
+                                 <div className='w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0' />
+                                 <span className='truncate font-mono text-muted-foreground flex-1'>
+                                   {mint}
+                                 </span>
+                                 <Button
+                                   variant='ghost'
+                                   size='sm'
+                                   onClick={() => copyToClipboard(mint)}
+                                   className='h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity'
+                                   title='Copy mint URL'
+                                 >
+                                   <Copy className='h-3 w-3' />
+                                 </Button>
+                               </div>
+                             ))}
+                           </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className='text-xs text-muted-foreground'>
