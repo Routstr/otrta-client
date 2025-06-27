@@ -6,6 +6,7 @@ import {
   LayoutDashboardIcon,
   SettingsIcon,
   HistoryIcon,
+  CoinsIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -44,6 +45,11 @@ const data = {
       title: 'Models',
       url: '/models',
       icon: DatabaseIcon,
+    },
+    {
+      title: 'Mints',
+      url: '/mints',
+      icon: CoinsIcon,
     },
     {
       title: 'Settings',
