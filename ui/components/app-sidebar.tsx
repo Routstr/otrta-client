@@ -5,8 +5,8 @@ import {
   LayoutDashboardIcon,
   SettingsIcon,
   HistoryIcon,
-  CoinsIcon,
   ServerIcon,
+  DatabaseIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -47,9 +47,9 @@ const data = {
       icon: ServerIcon,
     },
     {
-      title: 'Mints',
-      url: '/mints',
-      icon: CoinsIcon,
+      title: 'Models',
+      url: '/models',
+      icon: DatabaseIcon,
     },
     {
       title: 'Settings',
