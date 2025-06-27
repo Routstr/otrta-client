@@ -1,5 +1,10 @@
 import { apiClient } from '../client';
-import { Model, ModelWithSettings, ProxyModel, RefreshModelsResponse } from '../schemas/models';
+import {
+  Model,
+  ModelWithSettings,
+  ProxyModel,
+  RefreshModelsResponse,
+} from '../schemas/models';
 import { z } from 'zod';
 
 export const OpenAIModelObjectSchema = z.object({
@@ -84,7 +89,10 @@ export class ModelService {
 
   static async refreshModels(): Promise<RefreshModelsResponse> {
     try {
-      const response = await apiClient.post<RefreshModelsResponse>('/api/proxy/models/refresh', {});
+      const response = await apiClient.post<RefreshModelsResponse>(
+        '/api/proxy/models/refresh',
+        {}
+      );
       return response;
     } catch (error) {
       console.error('Error refreshing models:', error);
