@@ -1,5 +1,6 @@
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import Image from 'next/image';
 
 export function SiteHeader() {
   return (
@@ -10,7 +11,16 @@ export function SiteHeader() {
           orientation='vertical'
           className='mx-2 data-[orientation=vertical]:h-4'
         />
-        <h1 className='text-base font-medium'>otrta</h1>
+        <div className='flex items-center gap-2'>
+          <Image
+            src='/otrta.svg'
+            alt='OTRTA Logo'
+            width={32}
+            height={32}
+            className='rounded-lg dark:invert'
+          />
+          <h1 className='text-base font-medium'>otrta</h1>
+        </div>
       </div>
     </header>
   );

@@ -84,7 +84,7 @@ export class ModelService {
 
   static async refreshModels(): Promise<RefreshModelsResponse> {
     try {
-      const response = await apiClient.post<RefreshModelsResponse>('/api/proxy/models/refresh');
+      const response = await apiClient.post<RefreshModelsResponse>('/api/proxy/models/refresh', {});
       return response;
     } catch (error) {
       console.error('Error refreshing models:', error);
