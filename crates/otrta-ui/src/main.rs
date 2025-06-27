@@ -1,5 +1,5 @@
 use axum::{
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 mod connection;
@@ -53,7 +53,9 @@ async fn main() {
         .route("/api/openai-models", get(handlers::list_openai_models))
         .route("/api/proxy/models", get(handlers::get_proxy_models))
         .route("/api/providers", get(handlers::get_providers))
+        .route("/api/providers", post(handlers::create_custom_provider_handler))
         .route("/api/providers/{id}", get(handlers::get_provider))
+        .route("/api/providers/{id}", delete(handlers::delete_custom_provider_handler))
         .route(
             "/api/providers/{id}/set-default",
             post(handlers::set_provider_default),

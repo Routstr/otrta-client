@@ -3,39 +3,63 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { useProviders, useSetDefaultProvider } from '@/lib/hooks/useProviders';
+import { useProviders, useSetDefaultProvider, useDeleteCustomProvider } from '@/lib/hooks/useProviders';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
-import { ExternalLinkIcon, ZapIcon, UsersIcon, ShieldIcon, CheckIcon, RefreshCwIcon } from 'lucide-react';
+import { ExternalLinkIcon, ZapIcon, UsersIcon, ShieldIcon, CheckIcon, RefreshCwIcon, Plus, AlertTriangle, Eye, Trash2 } from 'lucide-react';
 import { ProviderService } from '@/lib/api/services/providers';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { AddCustomProviderForm } from '@/components/add-custom-provider-form';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 export default function ProvidersPage() {
   const { providers, isLoading, error, refetch } = useProviders();
   const setDefaultProvider = useSetDefaultProvider();
+  const deleteCustomProvider = useDeleteCustomProvider();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
 
-  const handleSetDefault = (providerId: number) => {
-    setDefaultProvider.mutate(providerId);
+  const handleSetDefault = async (providerId: number) => {
+    await setDefaultProvider.mutateAsync(providerId);
   };
 
-  const handleRefreshProviders = async () => {
+  const handleDeleteCustomProvider = async (providerId: number) => {
+    await deleteCustomProvider.mutateAsync(providerId);
+  };
+
+  const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await ProviderService.refreshProviders();
+      const response = await ProviderService.refreshProviders();
       await refetch();
-      toast.success('Providers refreshed from Nostr marketplace');
+      toast.success(response.message || 'Providers refreshed successfully');
     } catch (error) {
-      console.error('Failed to refresh providers:', error);
+      console.error('Refresh failed:', error);
       toast.error('Failed to refresh providers');
     } finally {
       setIsRefreshing(false);
     }
   };
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load providers. Please try again later.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -50,15 +74,37 @@ export default function ProvidersPage() {
                 Select a provider from the Nostr marketplace to forward your requests
               </p>
             </div>
-            <Button
-              onClick={handleRefreshProviders}
-              disabled={isRefreshing}
-              variant='outline'
-              className='flex items-center gap-2'
-            >
-              <RefreshCwIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              {isRefreshing ? 'Refreshing...' : 'Refresh from Nostr'}
-            </Button>
+            <div className='flex gap-3'>
+              <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Custom Provider
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Add Custom Provider</DialogTitle>
+                    <DialogDescription>
+                      Create a custom Nostr marketplace provider
+                    </DialogDescription>
+                  </DialogHeader>
+                  <AddCustomProviderForm
+                    onSuccess={() => setShowAddForm(false)}
+                    onCancel={() => setShowAddForm(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                variant='outline'
+                className='flex items-center gap-2'
+              >
+                <RefreshCwIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh from Nostr'}
+              </Button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -79,14 +125,6 @@ export default function ProvidersPage() {
                 </Card>
               ))}
             </div>
-          ) : error ? (
-            <Card>
-              <CardContent className='text-center py-8'>
-                <p className='text-muted-foreground'>
-                  Failed to load providers. Please try again later.
-                </p>
-              </CardContent>
-            </Card>
           ) : providers.length === 0 ? (
             <Card>
               <CardContent className='text-center py-8'>
@@ -108,11 +146,27 @@ export default function ProvidersPage() {
                 >
                   <CardHeader className='pb-3'>
                     <div className='flex items-start justify-between'>
-                      <div className='flex-1'>
-                        <CardTitle className='text-lg font-semibold'>
-                          {provider.name}
-                        </CardTitle>
-                        <CardDescription className='mt-1'>
+                      <div className='flex-1 min-w-0'>
+                        <div className='flex items-start gap-2 mb-1'>
+                          <CardTitle className='text-lg font-semibold truncate'>
+                            {provider.name}
+                          </CardTitle>
+                          <div className='flex gap-1 flex-shrink-0'>
+                            {provider.is_default && (
+                              <Badge className='bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 text-xs'>
+                                <CheckIcon className='h-3 w-3 mr-1' />
+                                Default
+                              </Badge>
+                            )}
+                            {provider.is_custom && (
+                              <Badge variant='outline' className='border-blue-500 text-blue-600 dark:text-blue-400 text-xs'>
+                                <Eye className='h-3 w-3 mr-1' />
+                                Custom
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <CardDescription>
                           <a
                             href={provider.url}
                             target='_blank'
@@ -126,11 +180,37 @@ export default function ProvidersPage() {
                           </a>
                         </CardDescription>
                       </div>
-                      {provider.is_default && (
-                        <Badge className='bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'>
-                          <CheckIcon className='h-3 w-3 mr-1' />
-                          Default
-                        </Badge>
+                      {provider.is_custom && (
+                        <div className='flex-shrink-0 ml-2'>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 h-8 w-8 p-0"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Custom Provider</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete &quot;{provider.name}&quot;? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteCustomProvider(provider.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       )}
                     </div>
                   </CardHeader>

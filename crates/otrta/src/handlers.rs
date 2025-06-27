@@ -2,7 +2,7 @@ use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
         models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
-        provider::{get_all_providers, get_provider_by_id, set_default_provider, refresh_providers_from_nostr, ProviderListResponse, RefreshProvidersResponse},
+        provider::{get_all_providers, get_provider_by_id, set_default_provider, refresh_providers_from_nostr, create_custom_provider, delete_custom_provider, ProviderListResponse, RefreshProvidersResponse, CreateCustomProviderRequest},
         server_config::{create_config, get_default_config, update_config, ServerConfigRecord},
         transaction::{get_transactions, TransactionListResponse},
         Pool,
@@ -410,6 +410,103 @@ pub async fn refresh_providers(
                     "error": {
                         "message": "Failed to refresh providers from Nostr marketplace",
                         "type": "refresh_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn create_custom_provider_handler(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<CreateCustomProviderRequest>,
+) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
+    // Validate the request
+    if request.name.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "Provider name cannot be empty",
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    if request.url.trim().is_empty() || !request.url.starts_with("http") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "Provider URL must be a valid HTTP(S) URL",
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    match create_custom_provider(&state.db, request).await {
+        Ok(provider) => Ok(Json(provider)),
+        Err(e) => {
+            eprintln!("Failed to create custom provider: {}", e);
+            // Check if it's a unique constraint violation
+            if e.to_string().contains("duplicate key value violates unique constraint") {
+                Err((
+                    StatusCode::CONFLICT,
+                    Json(json!({
+                        "error": {
+                            "message": "A provider with this URL already exists",
+                            "type": "duplicate_error"
+                        }
+                    })),
+                ))
+            } else {
+                Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {
+                            "message": "Failed to create custom provider",
+                            "type": "database_error"
+                        }
+                    })),
+                ))
+            }
+        }
+    }
+}
+
+pub async fn delete_custom_provider_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match delete_custom_provider(&state.db, id).await {
+        Ok(deleted) => {
+            if deleted {
+                Ok(Json(json!({
+                    "success": true,
+                    "message": "Custom provider deleted successfully"
+                })))
+            } else {
+                Err((
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": "Custom provider not found or cannot be deleted",
+                            "type": "not_found"
+                        }
+                    })),
+                ))
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to delete custom provider {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to delete custom provider",
+                        "type": "database_error"
                     }
                 })),
             ))

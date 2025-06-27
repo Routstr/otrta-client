@@ -9,6 +9,7 @@ export interface Provider {
   followers: number;
   zaps: number;
   is_default: boolean;
+  is_custom: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +24,13 @@ export interface RefreshProvidersResponse {
   providers_updated: number;
   providers_added: number;
   message?: string;
+}
+
+export interface CreateCustomProviderRequest {
+  name: string;
+  url: string;
+  mints: string[];
+  use_onion: boolean;
 }
 
 export class ProviderService {
@@ -58,6 +66,24 @@ export class ProviderService {
       return await apiClient.post<RefreshProvidersResponse>('/api/providers/refresh', {});
     } catch (error) {
       console.error('Error refreshing providers:', error);
+      throw error;
+    }
+  }
+
+  static async createCustomProvider(request: CreateCustomProviderRequest): Promise<Provider> {
+    try {
+      return await apiClient.post<Provider>('/api/providers', request as unknown as Record<string, unknown>);
+    } catch (error) {
+      console.error('Error creating custom provider:', error);
+      throw error;
+    }
+  }
+
+  static async deleteCustomProvider(id: number): Promise<{ success: boolean; message: string }> {
+    try {
+      return await apiClient.delete<{ success: boolean; message: string }>(`/api/providers/${id}`);
+    } catch (error) {
+      console.error(`Error deleting custom provider ${id}:`, error);
       throw error;
     }
   }
