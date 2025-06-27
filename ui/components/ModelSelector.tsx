@@ -178,13 +178,6 @@ export function ModelSelector() {
                 >
                   Proxy Models
                 </Button>
-                <Button
-                  variant={activeTab === 'openai' ? 'default' : 'outline'}
-                  size='sm'
-                  onClick={() => setActiveTab('openai')}
-                >
-                  OpenAI Models
-                </Button>
               </div>
               {activeTab === 'proxy' && (
                 <Button
