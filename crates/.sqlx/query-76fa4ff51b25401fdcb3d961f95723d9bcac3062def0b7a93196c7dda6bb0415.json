@@ -1,0 +1,104 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, name, input_cost, output_cost, min_cash_per_request, \n               min_cost_per_request, provider, soft_deleted, model_type, \n               description, context_length, is_free, created_at, updated_at, last_seen_at\n        FROM models\n        ORDER BY name ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "input_cost",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "output_cost",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "min_cash_per_request",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "min_cost_per_request",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "provider",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "soft_deleted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "model_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "context_length",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "is_free",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 13,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 14,
+        "name": "last_seen_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "76fa4ff51b25401fdcb3d961f95723d9bcac3062def0b7a93196c7dda6bb0415"
+}

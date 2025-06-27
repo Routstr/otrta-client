@@ -2,6 +2,7 @@ use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
         models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
+        provider::{get_all_providers, get_provider_by_id, set_default_provider, refresh_providers_from_nostr, ProviderListResponse, RefreshProvidersResponse},
         server_config::{create_config, get_default_config, update_config, ServerConfigRecord},
         transaction::{get_transactions, TransactionListResponse},
         Pool,
@@ -9,7 +10,7 @@ use crate::{
     models::*,
 };
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::Response,
     Json,
@@ -293,4 +294,125 @@ pub async fn redeem_pendings(State(state): State<Arc<AppState>>) -> StatusCode {
     }
 
     StatusCode::OK
+}
+
+// Provider handlers
+pub async fn get_providers(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ProviderListResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match get_all_providers(&state.db).await {
+        Ok(providers) => {
+            let total = providers.len() as i32;
+            Ok(Json(ProviderListResponse { providers, total }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get providers: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve providers",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn get_provider(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
+    match get_provider_by_id(&state.db, id).await {
+        Ok(Some(provider)) => Ok(Json(provider)),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "Provider not found",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Failed to get provider {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve provider",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn set_provider_default(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
+    match set_default_provider(&state.db, id).await {
+        Ok(_) => {
+            // Return the updated provider
+            match get_provider_by_id(&state.db, id).await {
+                Ok(Some(provider)) => Ok(Json(provider)),
+                Ok(None) => Err((
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": "Provider not found",
+                            "type": "not_found"
+                        }
+                    })),
+                )),
+                Err(e) => {
+                    eprintln!("Failed to get updated provider {}: {}", id, e);
+                    Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "error": {
+                                "message": "Failed to retrieve updated provider",
+                                "type": "database_error"
+                            }
+                        })),
+                    ))
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to set default provider {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to set default provider",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn refresh_providers(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<RefreshProvidersResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match refresh_providers_from_nostr(&state.db).await {
+        Ok(response) => Ok(Json(response)),
+        Err(e) => {
+            eprintln!("Failed to refresh providers: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to refresh providers from Nostr marketplace",
+                        "type": "refresh_error"
+                    }
+                })),
+            ))
+        }
+    }
 }

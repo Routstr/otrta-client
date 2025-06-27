@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE models \n        SET soft_deleted = true, updated_at = NOW()\n        WHERE name = ANY($1) AND (last_seen_at IS NULL OR last_seen_at < $2)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6403cac4f85b2b7f878dc584015083d154c14b21db58c4df918c01c998bc61cd"
+}

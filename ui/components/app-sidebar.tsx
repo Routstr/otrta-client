@@ -2,11 +2,11 @@
 
 import * as React from 'react';
 import {
-  DatabaseIcon,
   LayoutDashboardIcon,
   SettingsIcon,
   HistoryIcon,
   CoinsIcon,
+  ServerIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -42,9 +42,9 @@ const data = {
       icon: HistoryIcon,
     },
     {
-      title: 'Models',
-      url: '/models',
-      icon: DatabaseIcon,
+      title: 'Providers',
+      url: '/providers',
+      icon: ServerIcon,
     },
     {
       title: 'Mints',

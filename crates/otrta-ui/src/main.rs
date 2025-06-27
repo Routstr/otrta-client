@@ -52,6 +52,13 @@ async fn main() {
     let app = Router::new()
         .route("/api/openai-models", get(handlers::list_openai_models))
         .route("/api/proxy/models", get(handlers::get_proxy_models))
+        .route("/api/providers", get(handlers::get_providers))
+        .route("/api/providers/{id}", get(handlers::get_provider))
+        .route(
+            "/api/providers/{id}/set-default",
+            post(handlers::set_provider_default),
+        )
+        .route("/api/providers/refresh", post(handlers::refresh_providers))
         .route(
             "/api/proxy/models/refresh",
             post(handlers::refresh_models_from_proxy),
