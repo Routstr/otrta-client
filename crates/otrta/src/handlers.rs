@@ -2,7 +2,12 @@ use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
         models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
-        provider::{get_all_providers, get_provider_by_id, get_default_provider, set_default_provider, refresh_providers_from_nostr, create_custom_provider, delete_custom_provider, ProviderListResponse, RefreshProvidersResponse, CreateCustomProviderRequest},
+        provider::{
+            create_custom_provider, delete_custom_provider, get_all_providers,
+            get_default_provider, get_provider_by_id, refresh_providers_from_nostr,
+            set_default_provider, CreateCustomProviderRequest, ProviderListResponse,
+            RefreshProvidersResponse,
+        },
         server_config::{create_config, get_default_config, update_config, ServerConfigRecord},
         transaction::{get_transactions, TransactionListResponse},
         Pool,
@@ -50,7 +55,7 @@ pub async fn get_proxy_models(
 pub async fn refresh_models_from_proxy(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<RefreshModelsResponse>, (StatusCode, Json<serde_json::Value>)> {
-    let server_config = if let Some(config) = get_server_config(&state.db).await {
+    let server_config = if let Ok(Some(config)) = get_default_provider(&state.db).await {
         config
     } else {
         return Err((
@@ -67,11 +72,10 @@ pub async fn refresh_models_from_proxy(
     };
 
     let client = reqwest::Client::new();
-    let endpoint_url = format!("{}/proxy/models", &server_config.endpoint);
+    let endpoint_url = format!("{}/proxy/models", &server_config.url);
 
     let proxy_models_response = match client
         .get(&endpoint_url)
-        .header("Authorization", format!("Bearer {}", server_config.api_key))
         .timeout(std::time::Duration::from_secs(30))
         .send()
         .await
@@ -451,7 +455,9 @@ pub async fn create_custom_provider_handler(
         Err(e) => {
             eprintln!("Failed to create custom provider: {}", e);
             // Check if it's a unique constraint violation
-            if e.to_string().contains("duplicate key value violates unique constraint") {
+            if e.to_string()
+                .contains("duplicate key value violates unique constraint")
+            {
                 Err((
                     StatusCode::CONFLICT,
                     Json(json!({
