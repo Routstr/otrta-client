@@ -95,30 +95,36 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         None
     };
 
-    let is_free_model = if let Some(ref model_name) = model_name {
-        match get_model(&state.db, model_name).await {
-            Ok(Some(model)) => model.is_free,
-            Ok(None) => false, // Model not found, assume not free for safety
-            Err(_) => false,   // Database error, assume not free for safety
+    let model = if let Some(ref model_name) = model_name {
+        if let Ok(m) = get_model(&state.db, &model_name).await {
+            m
+        } else {
+            None
         }
     } else {
-        false
+        None
+    };
+
+    let is_free_model = match model.clone() {
+        Some(model) => model.is_free,
+        None => false,
     };
 
     if let Some(body_data) = body {
         req_builder = req_builder.json(&body_data);
     }
 
-    // Generate payment token only if model is not free
+    let cost = match model {
+        Some(model) => model
+            .min_cost_per_request
+            .unwrap_or_else(|| state.default_msats_per_request as i64),
+        None => state.default_msats_per_request as i64,
+    };
+
     let token = if is_free_model {
-        String::new() // Empty string for free models
+        String::new()
     } else {
-        let token_result = send_with_retry(
-            &state.wallet,
-            state.default_msats_per_request as i64,
-            Some(3),
-        )
-        .await;
+        let token_result = send_with_retry(&state.wallet, cost, Some(3)).await;
 
         match token_result {
             Ok(token) => token,
@@ -139,7 +145,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
 
-    // Only add X-Cashu header if we have a token (non-free model)
     if !token.is_empty() {
         req_builder = req_builder.header("X-Cashu", &token);
     }
@@ -178,14 +183,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             if !is_free_model && !token.is_empty() {
                 if let Some(change_sats) = headers.get("X-Cashu") {
                     if let Ok(in_token) = change_sats.to_str() {
-                        finalize_request(
-                            &state.db,
-                            &state.wallet,
-                            &token,
-                            state.default_msats_per_request as i64,
-                            in_token,
-                        )
-                        .await;
+                        finalize_request(&state.db, &state.wallet, &token, cost, in_token).await;
                     }
                 }
             }
