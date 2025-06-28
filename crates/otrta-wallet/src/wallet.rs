@@ -31,11 +31,17 @@ impl CashuWalletClient {
     }
 
     pub async fn send(&self, amount: u64) -> Result<String> {
+        let options = SendOptions {
+            include_fee: true,
+            ..Default::default()
+        };
+
         let prepared_send = self
             .wallet
-            .prepare_send((amount as u64).into(), SendOptions::default())
+            .prepare_send((amount as u64).into(), options)
             .await
             .unwrap();
+
         Ok(self
             .wallet
             .send(prepared_send, None)
