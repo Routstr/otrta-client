@@ -2,7 +2,9 @@ use axum::{
     routing::{delete, get, post},
     Router,
 };
+mod background;
 mod connection;
+use background::BackgroundJobRunner;
 use connection::{get_configuration, DatabaseSettings, Settings};
 use otrta::{
     db::server_config::{create_with_seed, update_seed},
@@ -49,14 +51,26 @@ async fn main() {
         wallet,
     });
 
+    let job_runner = BackgroundJobRunner::new(Arc::clone(&app_state));
+    job_runner.start_all_jobs().await;
+
     let app = Router::new()
         .route("/api/openai-models", get(handlers::list_openai_models))
         .route("/api/proxy/models", get(handlers::get_proxy_models))
         .route("/api/providers", get(handlers::get_providers))
-        .route("/api/providers", post(handlers::create_custom_provider_handler))
-        .route("/api/providers/default", get(handlers::get_default_provider_handler))
+        .route(
+            "/api/providers",
+            post(handlers::create_custom_provider_handler),
+        )
+        .route(
+            "/api/providers/default",
+            get(handlers::get_default_provider_handler),
+        )
         .route("/api/providers/{id}", get(handlers::get_provider))
-        .route("/api/providers/{id}", delete(handlers::delete_custom_provider_handler))
+        .route(
+            "/api/providers/{id}",
+            delete(handlers::delete_custom_provider_handler),
+        )
         .route(
             "/api/providers/{id}/set-default",
             post(handlers::set_provider_default),

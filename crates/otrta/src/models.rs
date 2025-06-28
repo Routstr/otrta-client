@@ -93,7 +93,7 @@ pub struct ModelRecord {
     pub last_seen_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct RefreshModelsResponse {
     pub success: bool,
     pub models_updated: i32,
