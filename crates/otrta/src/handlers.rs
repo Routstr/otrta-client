@@ -168,20 +168,19 @@ pub async fn redeem_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Token>,
 ) -> Json<TokenRedeemResponse> {
-    println!("{}", payload.token);
-    if let Ok(response) = state.wallet.receive(&payload.token).await {
-        return Json(TokenRedeemResponse {
-            amount: Some(response.to_string()),
+    println!("{}", payload.token.trim());
+    match state.wallet.receive(&payload.token.trim()).await {
+        Ok(payload) => Json(TokenRedeemResponse {
+            amount: Some(payload.to_string()),
             success: true,
             message: None,
-        });
+        }),
+        Err(e) => Json(TokenRedeemResponse {
+            amount: None,
+            success: false,
+            message: Some(format!("mal formed Token: {:?}", e)),
+        }),
     }
-
-    Json(TokenRedeemResponse {
-        amount: None,
-        success: false,
-        message: Some("mal formed Token".to_string()),
-    })
 }
 
 pub async fn get_balance(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {

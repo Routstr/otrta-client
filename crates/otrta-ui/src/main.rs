@@ -8,13 +8,13 @@ use background::BackgroundJobRunner;
 use connection::{get_configuration, DatabaseSettings, Settings};
 use ecash_402_wallet::wallet::CashuWalletClient;
 use otrta::{
-    db::server_config::{create_with_seed, update_seed},
+    db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
     proxy::{forward_any_request, forward_any_request_get},
 };
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::{env, sync::Arc};
+use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -137,21 +137,32 @@ async fn initialize_wallet(
     configuration: &Settings,
     db_name: &str,
 ) -> Result<CashuWalletClient, Box<dyn std::error::Error>> {
-    if let Ok(env_seed) = env::var("OTRTA_SEED") {
-        return Ok(CashuWalletClient::from_seed(
+    let wallet_dir =
+        std::env::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./wallet_data".to_string());
+    std::fs::create_dir_all(&wallet_dir)?;
+
+    let unique_db_name = format!("{}/{}", wallet_dir, db_name);
+    let config = get_server_config(connection_pool).await;
+    match config {
+        Some(config) => Ok(CashuWalletClient::from_seed(
             &configuration.application.mint_url,
-            &env_seed,
-            db_name,
+            &config.seed.clone().unwrap(),
+            &unique_db_name,
         )
         .await
-        .unwrap());
+        .unwrap()),
+        None => {
+            let mut seed = String::new();
+            let wallet = CashuWalletClient::new(
+                &configuration.application.mint_url,
+                &mut seed,
+                &unique_db_name,
+            )
+            .await
+            .unwrap();
+
+            create_with_seed(connection_pool, &seed).await?;
+            Ok(wallet)
+        }
     }
-
-    let mut seed = String::new();
-    let wallet = CashuWalletClient::new(&configuration.application.mint_url, &mut seed, db_name)
-        .await
-        .unwrap();
-
-    create_with_seed(connection_pool, &seed).await?;
-    Ok(wallet)
 }

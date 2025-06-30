@@ -3,6 +3,7 @@ use sqlx::PgPool;
 
 use crate::models::ServerConfig;
 
+#[derive(Debug)]
 pub struct ServerConfigRecord {
     pub id: String,
     pub endpoint: String,
@@ -40,7 +41,7 @@ pub async fn get_default_config(pool: &PgPool) -> Result<Option<ServerConfigReco
         r#"
         SELECT id, endpoint, api_key, created_at, updated_at, seed
         FROM server_config
-        ORDER BY created_at ASC
+        ORDER BY created_at DESC
         LIMIT 1
         "#
     )

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at, seed\n        FROM server_config\n        ORDER BY created_at ASC\n        LIMIT 1\n        ",
+  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at, seed\n        FROM server_config\n        ORDER BY created_at DESC\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -46,5 +46,5 @@
       true
     ]
   },
-  "hash": "75de98ab2d09508f56f7c87eaeace859ad7a6f73c3e137f701176e23ff1ac8c0"
+  "hash": "b17e0206ae5f458f6a978c4f2e6ecefcb067cbcc4f7b116eba26f3e61a9e4d4b"
 }

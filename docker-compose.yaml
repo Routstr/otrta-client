@@ -1,24 +1,24 @@
 services:
-  otrta-ui:
-    container_name: otrta-ui
+  otrta-ui-client:
+    container_name: otrta-ui-client-prod
     build:
       context: ui
     environment:
-      - NEXT_PUBLIC_API_URL=http://otrta-rust:3333
+      - NEXT_PUBLIC_API_URL=http://otrta-rust-client:3333
     networks:
       - otrta-network
     ports:
       - 3332:3000
     restart: unless-stopped
 
-  otrta-rust:
-    container_name: otrta-rust
+  otrta-rust-client:
+    container_name: otrta-rust-client-prod
     build:
       context: crates
       dockerfile: Dockerfile.client
     environment:
       # Runtime Environment
-      - RUST_LOG=debug
+      # - RUST_LOG=debug
       - APP_ENVIRONMENT=production
 
       - APP_APPLICATION__PORT=3333
@@ -26,13 +26,16 @@ services:
       - APP_APPLICATION__MINT_URL=https://ecashmint.otrta.me
       - APP_APPLICATION__DEFAULT_MSATS_PER_REQUEST=65536
 
-      - APP_DATABASE__HOST=otrta-db
+      - APP_DATABASE__HOST=otrta-db-client
       - APP_DATABASE__PORT=5432
       - APP_DATABASE__USERNAME=postgres
       - APP_DATABASE__PASSWORD=postgres
       - APP_DATABASE__DATABASE_NAME=otrta
       - APP_DATABASE__REQUIRE_SSL=false
       - APP_DATABASE__CONNECTIONS=10
+
+      # Wallet data persistence
+      - WALLET_DATA_DIR=/app/wallet_data
     env_file:
       - .env
     ports:
@@ -40,15 +43,16 @@ services:
     networks:
       - otrta-network
     volumes:
-      - backend_cache:/code/target
+      - backend_cache_client_prod:/code/target
+      - wallet_data_client_prod:/app/wallet_data
     # extra_hosts:
     #   - 'host.docker.internal:host-gateway'
     depends_on:
-      - otrta-db
+      - otrta-db-client
     restart: unless-stopped
 
-  otrta-db:
-    container_name: otrta-db
+  otrta-db-client:
+    container_name: otrta-db-client-prod
     image: postgres:latest
     environment:
       - POSTGRES_USER=postgres
@@ -59,7 +63,7 @@ services:
     ports:
       - 5436:5432
     volumes:
-      - otrt_db_data:/var/lib/postgresql/data
+      - otrta_db_client_prod:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d otrta"]
@@ -72,5 +76,6 @@ networks:
     external: true
 
 volumes:
-  backend_cache: {}
-  otrt_db_data: {}
+  backend_cache_client_prod: {}
+  otrta_db_client_prod: {}
+  wallet_data_client_prod: {}

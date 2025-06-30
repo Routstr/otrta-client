@@ -1,5 +1,5 @@
 database:
-  host: "otrta-db"
+  host: "otrta-db-client"
   port: 5432
   username: "postgres"
   password: "postgres"
