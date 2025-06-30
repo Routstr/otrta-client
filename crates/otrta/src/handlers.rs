@@ -168,7 +168,7 @@ pub async fn redeem_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Token>,
 ) -> Json<TokenRedeemResponse> {
-    println!("toke: {}", payload.token);
+    println!("{}", payload.token);
     if let Ok(response) = state.wallet.receive(&payload.token).await {
         return Json(TokenRedeemResponse {
             amount: Some(response.to_string()),

@@ -1,8 +1,8 @@
-use otrta_wallet::wallet::CashuWalletClient;
+use ecash_402_wallet::wallet::CashuWalletClient;
 
 use crate::db::{
+    transaction::{add_transaction, TransactionDirection},
     Pool,
-    transaction::{TransactionDirection, add_transaction},
 };
 
 #[derive(Debug)]

@@ -35,5 +35,6 @@ config = "0.15"
 dotenv = "0.15"
 secrecy = {version = "0.10", features = ["serde"]}
 
-otrta-wallet = { path = "../otrta-wallet"}
+ecash-402-wallet.workspace = true
+
 otrta = { path = "../otrta"}
