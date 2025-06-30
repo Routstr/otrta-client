@@ -47,9 +47,9 @@ pub struct SendTokenResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProxyModel {
     pub name: String,
-    pub input_cost: i64,         // Cost per 1M tokens in msat
-    pub output_cost: i64,        // Cost per 1M tokens in msat  
-    pub min_cash_per_request: i64, // Minimum charge per request in msat
+    pub input_cost: i64,                   // Cost per 1M tokens in msat
+    pub output_cost: i64,                  // Cost per 1M tokens in msat
+    pub min_cash_per_request: i64,         // Minimum charge per request in msat
     pub min_cost_per_request: Option<i64>, // Alternative minimum cost per request in msat
     pub provider: Option<String>,
     pub soft_deleted: Option<bool>,
@@ -62,7 +62,7 @@ pub struct ProxyModel {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProxyModelFromApi {
     pub name: String,
-    pub input_cost: Option<f64>,  // Cost per 1M tokens in msat (as f64 from API)
+    pub input_cost: Option<f64>, // Cost per 1M tokens in msat (as f64 from API)
     pub output_cost: Option<f64>, // Cost per 1M tokens in msat (as f64 from API)
     pub min_cash_per_request: Option<f64>, // Minimum charge per request in msat (as f64 from API)
     pub min_cost_per_request: Option<f64>, // Alternative minimum cost per request in msat (as f64 from API)
@@ -77,10 +77,11 @@ pub struct ProxyModelFromApi {
 #[derive(Clone, Debug)]
 pub struct ModelRecord {
     pub id: uuid::Uuid,
+    pub provider_id: i32,
     pub name: String,
-    pub input_cost: i64,         // Cost per 1M tokens in msat
-    pub output_cost: i64,        // Cost per 1M tokens in msat
-    pub min_cash_per_request: i64, // Minimum charge per request in msat
+    pub input_cost: i64,                   // Cost per 1M tokens in msat
+    pub output_cost: i64,                  // Cost per 1M tokens in msat
+    pub min_cash_per_request: i64,         // Minimum charge per request in msat
     pub min_cost_per_request: Option<i64>, // Alternative minimum cost per request in msat
     pub provider: Option<String>,
     pub soft_deleted: bool,

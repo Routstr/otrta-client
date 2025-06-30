@@ -3,10 +3,12 @@ use sqlx::PgPool;
 
 use crate::models::{ModelRecord, ProxyModel, ProxyModelFromApi};
 
+use super::provider::get_default_provider;
+
 pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Error> {
     let models = sqlx::query!(
         r#"
-        SELECT id, name, input_cost, output_cost, min_cash_per_request, 
+        SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
                min_cost_per_request, provider, soft_deleted, model_type, 
                description, context_length, is_free, created_at, updated_at, last_seen_at
         FROM models
@@ -18,6 +20,7 @@ pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Err
     .into_iter()
     .map(|record| ModelRecord {
         id: record.id,
+        provider_id: record.provider_id,
         name: record.name,
         input_cost: record.input_cost,
         output_cost: record.output_cost,
@@ -44,7 +47,7 @@ pub async fn get_model(
 ) -> Result<Option<ModelRecord>, sqlx::Error> {
     let record = sqlx::query!(
         r#"
-        SELECT id, name, input_cost, output_cost, min_cash_per_request, 
+        SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
                min_cost_per_request, provider, soft_deleted, model_type, 
                description, context_length, is_free, created_at, updated_at, last_seen_at
         FROM models
@@ -57,6 +60,7 @@ pub async fn get_model(
 
     Ok(record.map(|r| ModelRecord {
         id: r.id,
+        provider_id: r.provider_id,
         name: r.name,
         input_cost: r.input_cost,
         output_cost: r.output_cost,
@@ -96,13 +100,16 @@ pub async fn upsert_model(
     let min_cash_per_request = model.min_cash_per_request.unwrap_or(0.0) as i64;
     let min_cost_per_request = model.min_cost_per_request.map(|cost| cost as i64);
 
+    let provider = get_default_provider(&pool).await.unwrap().unwrap();
+
     let record = sqlx::query!(
         r#"
-        INSERT INTO models (name, input_cost, output_cost, min_cash_per_request, 
+        INSERT INTO models (name, provider_id, input_cost, output_cost, min_cash_per_request, 
                            min_cost_per_request, provider, soft_deleted, model_type, 
                            description, context_length, is_free, created_at, updated_at, last_seen_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW(), NOW())
         ON CONFLICT (name) DO UPDATE SET
+            provider_id = EXCLUDED.provider_id,
             input_cost = EXCLUDED.input_cost,
             output_cost = EXCLUDED.output_cost,
             min_cash_per_request = EXCLUDED.min_cash_per_request,
@@ -115,11 +122,12 @@ pub async fn upsert_model(
             is_free = EXCLUDED.is_free,
             updated_at = NOW(),
             last_seen_at = NOW()
-        RETURNING id, name, input_cost, output_cost, min_cash_per_request, 
+        RETURNING id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
                   min_cost_per_request, provider, soft_deleted, model_type, 
                   description, context_length, is_free, created_at, updated_at, last_seen_at
         "#,
         model.name,
+        provider.id,
         input_cost,
         output_cost,
         min_cash_per_request,
@@ -136,6 +144,7 @@ pub async fn upsert_model(
 
     Ok(ModelRecord {
         id: record.id,
+        provider_id: record.provider_id,
         name: record.name,
         input_cost: record.input_cost,
         output_cost: record.output_cost,
