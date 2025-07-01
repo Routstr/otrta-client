@@ -76,13 +76,17 @@ export class NIP60Service {
   }
 
   // NIP-44 decryption placeholder
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private decrypt(
     encryptedContent: string,
     _privkey: string,
     _pubkey: string
   ): unknown {
+    // Mark parameters as intentionally unused for now
+    void _privkey;
+    void _pubkey;
+
     // This is a placeholder for NIP-44 decryption
+    // TODO: Implement proper NIP-44 decryption using _privkey and _pubkey
     try {
       return JSON.parse(encryptedContent);
     } catch {
@@ -321,11 +325,13 @@ export class NIP60Service {
   }
 
   // Validate proofs against mint
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async validateProofs(
     proofs: CashuProof[],
     _mintUrl: string
   ): Promise<CashuProof[]> {
+    // Mark parameter as intentionally unused for now
+    void _mintUrl;
+
     try {
       // In real implementation, check proofs against the mint
       // Return unspent proofs

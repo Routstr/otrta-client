@@ -372,13 +372,13 @@ export function ModelSelector() {
                                     {model.model_type || 'Unknown Type'}
                                   </span>
                                 </div>
-                                <div className='text-muted-foreground text-xs'>
-                                  Context:{' '}
-                                  {model.context_length
-                                    ? model.context_length.toLocaleString() +
-                                      ' tokens'
-                                    : 'Not available'}
-                                </div>
+                                {model.context_length && (
+                                  <div className='text-muted-foreground text-xs'>
+                                    Context:{' '}
+                                    {model.context_length.toLocaleString()}{' '}
+                                    tokens
+                                  </div>
+                                )}
                                 <div className='space-y-1'>
                                   <div className='flex items-center justify-between text-xs'>
                                     <span className='text-muted-foreground'>
@@ -488,13 +488,12 @@ export function ModelSelector() {
                                   {model.model_type || 'Unknown Type'}
                                 </span>
                               </div>
-                              <div className='text-muted-foreground text-xs'>
-                                Context:{' '}
-                                {model.context_length
-                                  ? model.context_length.toLocaleString() +
-                                    ' tokens'
-                                  : 'Not available'}
-                              </div>
+                              {model.context_length && (
+                                <div className='text-muted-foreground text-xs'>
+                                  Context:{' '}
+                                  {model.context_length.toLocaleString()} tokens
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
