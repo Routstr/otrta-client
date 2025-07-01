@@ -36,7 +36,7 @@ export class NostrAuth {
 
   async initialize(options: NostrAuthOptions = {}): Promise<void> {
     if (this.isInitialized) return;
-    
+
     // Only initialize on client side
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       throw new Error('NostrAuth can only be initialized on the client side');
@@ -49,7 +49,7 @@ export class NostrAuth {
       perms: 'sign_event:1,sign_event:0,nip04_encrypt,nip04_decrypt',
       methods: ['connect', 'extension', 'readOnly', 'local'],
       noBanner: true,
-      ...options
+      ...options,
     };
 
     try {
@@ -57,12 +57,12 @@ export class NostrAuth {
       if (!nostrLoginModule) {
         nostrLoginModule = await import('nostr-login');
       }
-      
+
       await nostrLoginModule.init({
         ...defaultOptions,
         onAuth: (npub: string, authOptions: unknown) => {
           this.handleAuthEvent(npub, authOptions);
-        }
+        },
       });
 
       // Listen for nostr-login auth events
@@ -73,7 +73,7 @@ export class NostrAuth {
       }
 
       this.isInitialized = true;
-      
+
       // Check if already authenticated - DISABLED FOR NOW
       // await this.checkExistingAuth();
     } catch (error) {
@@ -84,12 +84,12 @@ export class NostrAuth {
 
   private handleNostrLoginEvent(event: CustomEvent): void {
     const { type, npub } = event.detail;
-    
+
     if (type === 'login' || type === 'signup') {
       this.setCurrentUser({
         npub,
         pubkey: this.npubToPubkey(npub),
-        method: this.detectAuthMethod()
+        method: this.detectAuthMethod(),
       });
     } else if (type === 'logout') {
       this.setCurrentUser(null);
@@ -101,7 +101,7 @@ export class NostrAuth {
     this.setCurrentUser({
       npub,
       pubkey: this.npubToPubkey(npub),
-      method: this.detectAuthMethod()
+      method: this.detectAuthMethod(),
     });
   }
 
@@ -141,7 +141,7 @@ export class NostrAuth {
       if (!nostrLoginModule) {
         nostrLoginModule = await import('nostr-login');
       }
-      
+
       await nostrLoginModule.launch(startScreen);
     } catch (error) {
       console.error('Failed to launch auth dialog:', error);
@@ -155,7 +155,7 @@ export class NostrAuth {
       if (!nostrLoginModule) {
         nostrLoginModule = await import('nostr-login');
       }
-      
+
       await nostrLoginModule.logout();
       this.setCurrentUser(null);
     } catch (error) {
@@ -179,7 +179,7 @@ export class NostrAuth {
         npub,
         pubkey,
         nsec,
-        method: 'manual'
+        method: 'manual',
       };
 
       this.setCurrentUser(user);
@@ -211,11 +211,11 @@ export class NostrAuth {
       if (window.nostr && window.nostr.getPublicKey) {
         const pubkey = await window.nostr.getPublicKey();
         const npub = this.pubkeyToNpub(pubkey);
-        
+
         this.setCurrentUser({
           npub,
           pubkey,
-          method: this.detectAuthMethod()
+          method: this.detectAuthMethod(),
         });
       } else {
         // Check for manually saved nsec in localStorage
@@ -244,7 +244,7 @@ export class NostrAuth {
 
   onAuthChange(callback: (user: NostrUser | null) => void): () => void {
     this.authCallbacks.push(callback);
-    
+
     // Return unsubscribe function
     return () => {
       const index = this.authCallbacks.indexOf(callback);
@@ -255,7 +255,7 @@ export class NostrAuth {
   }
 
   private notifyAuthCallbacks(user: NostrUser | null): void {
-    this.authCallbacks.forEach(callback => {
+    this.authCallbacks.forEach((callback) => {
       try {
         callback(user);
       } catch (error) {
@@ -328,4 +328,4 @@ declare global {
 }
 
 // Export singleton instance
-export const nostrAuth = NostrAuth.getInstance(); 
+export const nostrAuth = NostrAuth.getInstance();

@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { nostrAuth, NostrUser, NostrAuthOptions } from '@/lib/api/services/nostr-auth';
+import {
+  nostrAuth,
+  NostrUser,
+  NostrAuthOptions,
+} from '@/lib/api/services/nostr-auth';
 import { useTheme } from 'next-themes';
 
 export interface UseNostrAuthReturn {
@@ -8,13 +12,21 @@ export interface UseNostrAuthReturn {
   isAuthenticated: boolean;
   isInitialized: boolean;
   isLoading: boolean;
-  
+
   // Actions
   initialize: (options?: NostrAuthOptions) => Promise<void>;
-  launchAuth: (startScreen?: 'welcome' | 'signup' | 'login' | 'login-bunker-url' | 'login-read-only' | 'switch-account') => Promise<void>;
+  launchAuth: (
+    startScreen?:
+      | 'welcome'
+      | 'signup'
+      | 'login'
+      | 'login-bunker-url'
+      | 'login-read-only'
+      | 'switch-account'
+  ) => Promise<void>;
   loginWithNsec: (nsec: string) => Promise<void>;
   logout: () => Promise<void>;
-  
+
   // Utilities
   signEvent: (event: unknown) => Promise<unknown>;
   encrypt: (pubkey: string, plaintext: string) => Promise<string>;
@@ -27,52 +39,58 @@ export function useNostrAuth(): UseNostrAuthReturn {
   const [isLoading, setIsLoading] = useState(false);
   const { theme } = useTheme();
 
-  const initialize = useCallback(async (options: NostrAuthOptions = {}) => {
-    if (isInitialized) return;
-    
-    setIsLoading(true);
-    
-    try {
-      // Merge theme from next-themes with options
-      const mergedOptions: NostrAuthOptions = {
-        darkMode: theme === 'dark',
-        theme: 'default',
-        bunkers: 'nsec.app,highlighter.com,nostrsigner.com',
-        perms: 'sign_event:1,sign_event:0,nip04_encrypt,nip04_decrypt',
-        methods: ['connect', 'extension', 'readOnly', 'local'],
-        noBanner: true,
-        ...options
-      };
+  const initialize = useCallback(
+    async (options: NostrAuthOptions = {}) => {
+      if (isInitialized) return;
 
-      await nostrAuth.initialize(mergedOptions);
-      setIsInitialized(true);
-      
-      // Set initial user state
-      const currentUser = nostrAuth.getCurrentUser();
-      setUser(currentUser);
-    } catch (error) {
-      console.error('Failed to initialize Nostr auth:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isInitialized, theme]);
+      setIsLoading(true);
 
-  const launchAuth = useCallback(async (startScreen?: string) => {
-    if (!isInitialized) {
-      throw new Error('Nostr auth not initialized');
-    }
-    
-    setIsLoading(true);
-    try {
-      await nostrAuth.launchAuth(startScreen);
-    } catch (error) {
-      console.error('Failed to launch auth:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isInitialized]);
+      try {
+        // Merge theme from next-themes with options
+        const mergedOptions: NostrAuthOptions = {
+          darkMode: theme === 'dark',
+          theme: 'default',
+          bunkers: 'nsec.app,highlighter.com,nostrsigner.com',
+          perms: 'sign_event:1,sign_event:0,nip04_encrypt,nip04_decrypt',
+          methods: ['connect', 'extension', 'readOnly', 'local'],
+          noBanner: true,
+          ...options,
+        };
+
+        await nostrAuth.initialize(mergedOptions);
+        setIsInitialized(true);
+
+        // Set initial user state
+        const currentUser = nostrAuth.getCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Failed to initialize Nostr auth:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isInitialized, theme]
+  );
+
+  const launchAuth = useCallback(
+    async (startScreen?: string) => {
+      if (!isInitialized) {
+        throw new Error('Nostr auth not initialized');
+      }
+
+      setIsLoading(true);
+      try {
+        await nostrAuth.launchAuth(startScreen);
+      } catch (error) {
+        console.error('Failed to launch auth:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isInitialized]
+  );
 
   const loginWithNsec = useCallback(async (nsec: string) => {
     setIsLoading(true);
@@ -133,7 +151,7 @@ export function useNostrAuth(): UseNostrAuthReturn {
   //     const timer = setTimeout(() => {
   //       initialize().catch(console.error);
   //     }, 100);
-  //     
+  //
   //     return () => clearTimeout(timer);
   //   }
   // }, [initialize, isInitialized]);
@@ -144,16 +162,16 @@ export function useNostrAuth(): UseNostrAuthReturn {
     isAuthenticated: !!user,
     isInitialized,
     isLoading,
-    
+
     // Actions
     initialize,
     launchAuth,
     loginWithNsec,
     logout,
-    
+
     // Utilities
     signEvent,
     encrypt,
-    decrypt
+    decrypt,
   };
-} 
+}

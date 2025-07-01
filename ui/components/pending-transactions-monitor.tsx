@@ -33,7 +33,8 @@ import {
 import { z } from 'zod';
 
 export type PendingTransaction = z.infer<typeof PendingTransactionSchema>;
-export type TransactionPendingListResponse = TransactionPendingListResponseSchema;
+export type TransactionPendingListResponse =
+  TransactionPendingListResponseSchema;
 
 export function PendingTransactionsMonitor({
   refreshInterval = 10000,

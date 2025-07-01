@@ -76,9 +76,17 @@ export class NIP60Service {
   }
 
   // NIP-44 decryption placeholder
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private decrypt(encryptedContent: string, _privkey: string, _pubkey: string): unknown {
+  private decrypt(
+    encryptedContent: string,
+    _privkey: string,
+    _pubkey: string
+  ): unknown {
+    // Mark parameters as intentionally unused for now
+    void _privkey;
+    void _pubkey;
+
     // This is a placeholder for NIP-44 decryption
+    // TODO: Implement proper NIP-44 decryption using _privkey and _pubkey
     try {
       return JSON.parse(encryptedContent);
     } catch {
@@ -90,17 +98,17 @@ export class NIP60Service {
   createWalletEvent(wallet: NostrWallet): NostrEvent {
     const walletData: WalletEvent = {
       privkey: wallet.privkey,
-      mints: wallet.mints
+      mints: wallet.mints,
     };
 
-    const tags: string[][] = wallet.mints.map(mint => ['mint', mint]);
+    const tags: string[][] = wallet.mints.map((mint) => ['mint', mint]);
 
     return {
       kind: 17375,
       content: this.encrypt(walletData, this.userPrivkey, this.userPubkey),
       created_at: Math.floor(Date.now() / 1000),
       tags,
-      pubkey: this.userPubkey
+      pubkey: this.userPubkey,
     };
   }
 
@@ -111,7 +119,7 @@ export class NIP60Service {
       content: this.encrypt(tokenData, this.userPrivkey, this.userPubkey),
       created_at: Math.floor(Date.now() / 1000),
       tags: [],
-      pubkey: this.userPubkey
+      pubkey: this.userPubkey,
     };
   }
 
@@ -119,28 +127,28 @@ export class NIP60Service {
   createSpendingHistoryEvent(spendingData: SpendingHistoryEvent): NostrEvent {
     const contentArray: string[][] = [
       ['direction', spendingData.direction],
-      ['amount', spendingData.amount]
+      ['amount', spendingData.amount],
     ];
 
     // Add created token references
     if (spendingData.created_tokens) {
-      spendingData.created_tokens.forEach(tokenId => {
+      spendingData.created_tokens.forEach((tokenId) => {
         contentArray.push(['e', tokenId, '', 'created']);
       });
     }
 
-    // Add destroyed token references  
+    // Add destroyed token references
     if (spendingData.destroyed_tokens) {
-      spendingData.destroyed_tokens.forEach(tokenId => {
+      spendingData.destroyed_tokens.forEach((tokenId) => {
         contentArray.push(['e', tokenId, '', 'destroyed']);
       });
     }
 
     const tags: string[][] = [];
-    
+
     // Add redeemed token references as unencrypted tags
     if (spendingData.redeemed_tokens) {
-      spendingData.redeemed_tokens.forEach(tokenId => {
+      spendingData.redeemed_tokens.forEach((tokenId) => {
         tags.push(['e', tokenId, '', 'redeemed']);
       });
     }
@@ -150,21 +158,25 @@ export class NIP60Service {
       content: this.encrypt(contentArray, this.userPrivkey, this.userPubkey),
       created_at: Math.floor(Date.now() / 1000),
       tags,
-      pubkey: this.userPubkey
+      pubkey: this.userPubkey,
     };
   }
 
   // Create a kind:7374 quote event
-  createQuoteEvent(quoteId: string, mintUrl: string, expirationTimestamp: number): NostrEvent {
+  createQuoteEvent(
+    quoteId: string,
+    mintUrl: string,
+    expirationTimestamp: number
+  ): NostrEvent {
     return {
       kind: 7374,
       content: this.encrypt(quoteId, this.userPrivkey, this.userPubkey),
       created_at: Math.floor(Date.now() / 1000),
       tags: [
         ['expiration', expirationTimestamp.toString()],
-        ['mint', mintUrl]
+        ['mint', mintUrl],
       ],
-      pubkey: this.userPubkey
+      pubkey: this.userPubkey,
     };
   }
 
@@ -176,9 +188,9 @@ export class NIP60Service {
       created_at: Math.floor(Date.now() / 1000),
       tags: [
         ['k', '7375'], // Indicate we're deleting kind 7375 events
-        ...eventIds.map(id => ['e', id])
+        ...eventIds.map((id) => ['e', id]),
       ],
-      pubkey: this.userPubkey
+      pubkey: this.userPubkey,
     };
   }
 
@@ -187,14 +199,14 @@ export class NIP60Service {
     // This would connect to actual Nostr relays and fetch events
     // For now, return mock data or empty array
     const mockEvents: NostrEvent[] = [];
-    
+
     try {
       // In real implementation:
       // 1. Connect to relays
       // 2. Subscribe to kinds: [17375, 7375, 7376, 7374]
       // 3. Filter by authors: [this.userPubkey]
       // 4. Decrypt and parse events
-      
+
       return mockEvents;
     } catch (error) {
       console.error('Error fetching wallet events:', error);
@@ -210,7 +222,7 @@ export class NIP60Service {
       // 2. Connect to relays
       // 3. Publish event to all connected relays
       // 4. Wait for confirmations
-      
+
       console.log('Publishing event:', event);
       return true;
     } catch (error) {
@@ -229,13 +241,16 @@ export class NIP60Service {
   ): Promise<{ success: boolean; newTokenEventId?: string }> {
     try {
       // Calculate spent amount
-      const spentAmount = spentProofs.reduce((sum, proof) => sum + proof.amount, 0);
+      const spentAmount = spentProofs.reduce(
+        (sum, proof) => sum + proof.amount,
+        0
+      );
 
       // Create new token event with unspent + change proofs
       const newTokenEvent = this.createTokenEvent({
         mint: mintUrl,
         proofs: [...unspentProofs, ...changeProofs],
-        del: oldTokenEventIds
+        del: oldTokenEventIds,
       });
 
       // Publish new token event
@@ -255,13 +270,13 @@ export class NIP60Service {
         direction: 'out',
         amount: spentAmount.toString(),
         created_tokens: [newTokenEvent.id!],
-        destroyed_tokens: oldTokenEventIds
+        destroyed_tokens: oldTokenEventIds,
       });
       await this.publishEvent(spendingEvent);
 
       return {
         success: true,
-        newTokenEventId: newTokenEvent.id
+        newTokenEventId: newTokenEvent.id,
       };
     } catch (error) {
       console.error('Error processing spending:', error);
@@ -275,12 +290,15 @@ export class NIP60Service {
     mintUrl: string
   ): Promise<{ success: boolean; tokenEventId?: string }> {
     try {
-      const receivedAmount = receivedProofs.reduce((sum, proof) => sum + proof.amount, 0);
+      const receivedAmount = receivedProofs.reduce(
+        (sum, proof) => sum + proof.amount,
+        0
+      );
 
       // Create token event for received proofs
       const tokenEvent = this.createTokenEvent({
         mint: mintUrl,
-        proofs: receivedProofs
+        proofs: receivedProofs,
       });
 
       const published = await this.publishEvent(tokenEvent);
@@ -292,13 +310,13 @@ export class NIP60Service {
       const spendingEvent = this.createSpendingHistoryEvent({
         direction: 'in',
         amount: receivedAmount.toString(),
-        created_tokens: [tokenEvent.id!]
+        created_tokens: [tokenEvent.id!],
       });
       await this.publishEvent(spendingEvent);
 
       return {
         success: true,
-        tokenEventId: tokenEvent.id
+        tokenEventId: tokenEvent.id,
       };
     } catch (error) {
       console.error('Error processing receiving:', error);
@@ -307,8 +325,13 @@ export class NIP60Service {
   }
 
   // Validate proofs against mint
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async validateProofs(proofs: CashuProof[], _mintUrl: string): Promise<CashuProof[]> {
+  async validateProofs(
+    proofs: CashuProof[],
+    _mintUrl: string
+  ): Promise<CashuProof[]> {
+    // Mark parameter as intentionally unused for now
+    void _mintUrl;
+
     try {
       // In real implementation, check proofs against the mint
       // Return unspent proofs
@@ -320,18 +343,28 @@ export class NIP60Service {
   }
 
   // Get wallet balance from token events
-  async getWalletBalance(): Promise<{ total: number; byMint: Record<string, number> }> {
+  async getWalletBalance(): Promise<{
+    total: number;
+    byMint: Record<string, number>;
+  }> {
     try {
       const events = await this.fetchWalletEvents();
-      const tokenEvents = events.filter(e => e.kind === 7375);
-      
+      const tokenEvents = events.filter((e) => e.kind === 7375);
+
       let total = 0;
       const byMint: Record<string, number> = {};
 
       for (const event of tokenEvents) {
-        const tokenData = this.decrypt(event.content, this.userPrivkey, this.userPubkey) as TokenEvent;
+        const tokenData = this.decrypt(
+          event.content,
+          this.userPrivkey,
+          this.userPubkey
+        ) as TokenEvent;
         if (tokenData && tokenData.proofs) {
-          const mintBalance = tokenData.proofs.reduce((sum, proof) => sum + proof.amount, 0);
+          const mintBalance = tokenData.proofs.reduce(
+            (sum, proof) => sum + proof.amount,
+            0
+          );
           total += mintBalance;
           byMint[tokenData.mint] = (byMint[tokenData.mint] || 0) + mintBalance;
         }
@@ -351,7 +384,9 @@ export const nip60Utils = {
   generateWalletPrivkey(): string {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join(
+      ''
+    );
   },
 
   // Validate nsec key format
@@ -363,9 +398,9 @@ export const nip60Utils = {
   getDefaultRelays(): string[] {
     return [
       'wss://relay.damus.io',
-      'wss://nos.lol', 
+      'wss://nos.lol',
       'wss://relay.nostr.band',
-      'wss://nostr.wine'
+      'wss://nostr.wine',
     ];
   },
 
@@ -374,7 +409,7 @@ export const nip60Utils = {
     return [
       'https://mint.minibits.cash/Bitcoin',
       'https://stablenut.umint.cash',
-      'https://mint.coinos.io'
+      'https://mint.coinos.io',
     ];
-  }
-}; 
+  },
+};

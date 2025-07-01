@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NostrWallet, NIP60Service, nip60Utils } from '@/lib/api/services/nip60';
+import {
+  NostrWallet,
+  NIP60Service,
+  nip60Utils,
+} from '@/lib/api/services/nip60';
 
 export interface UseNip60Return {
   // State
@@ -9,7 +13,7 @@ export interface UseNip60Return {
   selectedWallet: NostrWallet | null;
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   isLoading: boolean;
-  
+
   // Actions
   setNsecKey: (key: string) => void;
   connectToNostr: () => Promise<void>;
@@ -21,7 +25,7 @@ export interface UseNip60Return {
   selectWallet: (walletId: string) => void;
   saveConfiguration: () => void;
   loadConfiguration: () => void;
-  
+
   // Validation
   validateNsecKey: (key: string) => boolean;
 }
@@ -31,7 +35,9 @@ export function useNip60(): UseNip60Return {
   const [isConnected, setIsConnected] = useState(false);
   const [wallets, setWallets] = useState<NostrWallet[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState<string>('');
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [connectionStatus, setConnectionStatus] = useState<
+    'disconnected' | 'connecting' | 'connected' | 'error'
+  >('disconnected');
   const [isLoading, setIsLoading] = useState(false);
   const [nip60Service, setNip60Service] = useState<NIP60Service | null>(null);
 
@@ -40,22 +46,24 @@ export function useNip60(): UseNip60Return {
       const savedNsec = localStorage.getItem('nostr-nsec');
       const savedWallets = localStorage.getItem('nip60-wallets');
       const savedSelectedWallet = localStorage.getItem('nip60-selected-wallet');
-      
+
       if (savedNsec) {
         setNsecKey(savedNsec);
       }
-      
+
       if (savedWallets) {
         const parsedWallets = JSON.parse(savedWallets);
         setWallets(parsedWallets);
-        
+
         // Set default wallet if no selection saved
         if (!savedSelectedWallet && parsedWallets.length > 0) {
-          const defaultWallet = parsedWallets.find((w: NostrWallet) => w.isDefault) || parsedWallets[0];
+          const defaultWallet =
+            parsedWallets.find((w: NostrWallet) => w.isDefault) ||
+            parsedWallets[0];
           setSelectedWalletId(defaultWallet.id);
         }
       }
-      
+
       if (savedSelectedWallet) {
         setSelectedWalletId(savedSelectedWallet);
       }
@@ -104,13 +112,13 @@ export function useNip60(): UseNip60Return {
 
     try {
       // Simulate connection delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       // In real implementation, this would:
       // 1. Connect to Nostr relays
       // 2. Verify connection
       // 3. Fetch existing wallet events
-      
+
       setIsConnected(true);
       setConnectionStatus('connected');
     } catch (error) {
@@ -133,10 +141,10 @@ export function useNip60(): UseNip60Return {
       privkey: nip60Utils.generateWalletPrivkey(),
       mints: nip60Utils.getDefaultMints(),
       relays: nip60Utils.getDefaultRelays(),
-      isDefault: wallets.length === 0
+      isDefault: wallets.length === 0,
     };
 
-    setWallets(prev => [...prev, newWallet]);
+    setWallets((prev) => [...prev, newWallet]);
     setSelectedWalletId(newWallet.id);
 
     // If this is the first wallet and we're connected, publish wallet event
@@ -148,47 +156,57 @@ export function useNip60(): UseNip60Return {
     return newWallet;
   }, [wallets.length, nip60Service, isConnected]);
 
-  const deleteWallet = useCallback((walletId: string) => {
-    setWallets(prev => prev.filter(w => w.id !== walletId));
-    
-    if (selectedWalletId === walletId) {
-      const remainingWallets = wallets.filter(w => w.id !== walletId);
-      if (remainingWallets.length > 0) {
-        setSelectedWalletId(remainingWallets[0].id);
-      } else {
-        setSelectedWalletId('');
-      }
-    }
-  }, [selectedWalletId, wallets]);
+  const deleteWallet = useCallback(
+    (walletId: string) => {
+      setWallets((prev) => prev.filter((w) => w.id !== walletId));
 
-  const updateWallet = useCallback((walletId: string, updates: Partial<NostrWallet>) => {
-    setWallets(prev => prev.map(w => 
-      w.id === walletId ? { ...w, ...updates } : w
-    ));
-
-    // If we're connected and have a service, publish updated wallet event
-    if (nip60Service && isConnected) {
-      const updatedWallet = wallets.find(w => w.id === walletId);
-      if (updatedWallet) {
-        const updatedWalletData = { ...updatedWallet, ...updates };
-        const walletEvent = nip60Service.createWalletEvent(updatedWalletData as NostrWallet);
-        nip60Service.publishEvent(walletEvent).catch(console.error);
+      if (selectedWalletId === walletId) {
+        const remainingWallets = wallets.filter((w) => w.id !== walletId);
+        if (remainingWallets.length > 0) {
+          setSelectedWalletId(remainingWallets[0].id);
+        } else {
+          setSelectedWalletId('');
+        }
       }
-    }
-  }, [wallets, nip60Service, isConnected]);
+    },
+    [selectedWalletId, wallets]
+  );
+
+  const updateWallet = useCallback(
+    (walletId: string, updates: Partial<NostrWallet>) => {
+      setWallets((prev) =>
+        prev.map((w) => (w.id === walletId ? { ...w, ...updates } : w))
+      );
+
+      // If we're connected and have a service, publish updated wallet event
+      if (nip60Service && isConnected) {
+        const updatedWallet = wallets.find((w) => w.id === walletId);
+        if (updatedWallet) {
+          const updatedWalletData = { ...updatedWallet, ...updates };
+          const walletEvent = nip60Service.createWalletEvent(
+            updatedWalletData as NostrWallet
+          );
+          nip60Service.publishEvent(walletEvent).catch(console.error);
+        }
+      }
+    },
+    [wallets, nip60Service, isConnected]
+  );
 
   const setDefaultWallet = useCallback((walletId: string) => {
-    setWallets(prev => prev.map(w => ({ 
-      ...w, 
-      isDefault: w.id === walletId 
-    })));
+    setWallets((prev) =>
+      prev.map((w) => ({
+        ...w,
+        isDefault: w.id === walletId,
+      }))
+    );
   }, []);
 
   const selectWallet = useCallback((walletId: string) => {
     setSelectedWalletId(walletId);
   }, []);
 
-  const selectedWallet = wallets.find(w => w.id === selectedWalletId) || null;
+  const selectedWallet = wallets.find((w) => w.id === selectedWalletId) || null;
 
   return {
     // State
@@ -198,7 +216,7 @@ export function useNip60(): UseNip60Return {
     selectedWallet,
     connectionStatus,
     isLoading,
-    
+
     // Actions
     setNsecKey,
     connectToNostr,
@@ -210,8 +228,8 @@ export function useNip60(): UseNip60Return {
     selectWallet,
     saveConfiguration,
     loadConfiguration,
-    
+
     // Validation
-    validateNsecKey
+    validateNsecKey,
   };
-} 
+}

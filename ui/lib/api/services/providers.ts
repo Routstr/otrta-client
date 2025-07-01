@@ -63,7 +63,10 @@ export class ProviderService {
 
   static async setDefaultProvider(id: number): Promise<Provider> {
     try {
-      return await apiClient.post<Provider>(`/api/providers/${id}/set-default`, {});
+      return await apiClient.post<Provider>(
+        `/api/providers/${id}/set-default`,
+        {}
+      );
     } catch (error) {
       console.error(`Error setting default provider ${id}:`, error);
       throw error;
@@ -72,28 +75,40 @@ export class ProviderService {
 
   static async refreshProviders(): Promise<RefreshProvidersResponse> {
     try {
-      return await apiClient.post<RefreshProvidersResponse>('/api/providers/refresh', {});
+      return await apiClient.post<RefreshProvidersResponse>(
+        '/api/providers/refresh',
+        {}
+      );
     } catch (error) {
       console.error('Error refreshing providers:', error);
       throw error;
     }
   }
 
-  static async createCustomProvider(request: CreateCustomProviderRequest): Promise<Provider> {
+  static async createCustomProvider(
+    request: CreateCustomProviderRequest
+  ): Promise<Provider> {
     try {
-      return await apiClient.post<Provider>('/api/providers', request as unknown as Record<string, unknown>);
+      return await apiClient.post<Provider>(
+        '/api/providers',
+        request as unknown as Record<string, unknown>
+      );
     } catch (error) {
       console.error('Error creating custom provider:', error);
       throw error;
     }
   }
 
-  static async deleteCustomProvider(id: number): Promise<{ success: boolean; message: string }> {
+  static async deleteCustomProvider(
+    id: number
+  ): Promise<{ success: boolean; message: string }> {
     try {
-      return await apiClient.delete<{ success: boolean; message: string }>(`/api/providers/${id}`);
+      return await apiClient.delete<{ success: boolean; message: string }>(
+        `/api/providers/${id}`
+      );
     } catch (error) {
       console.error(`Error deleting custom provider ${id}:`, error);
       throw error;
     }
   }
-} 
+}

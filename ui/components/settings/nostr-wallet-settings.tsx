@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,19 +15,19 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Key, 
-  Wallet, 
-  Plus, 
-  Trash2, 
-  Eye, 
-  EyeOff, 
+import {
+  Key,
+  Wallet,
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
   Copy,
   RefreshCw,
   AlertTriangle,
   CheckCircle,
   Zap,
-  Server
+  Server,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNip60 } from '@/lib/hooks/useNip60';
@@ -43,14 +49,14 @@ export function NostrWalletSettings() {
     setDefaultWallet,
     selectWallet,
     saveConfiguration,
-    validateNsecKey
+    validateNsecKey,
   } = useNip60();
 
   const {
     isAuthenticated: isNostrAuthenticated,
     isLoading: nostrLoading,
     loginWithNsec,
-    logout: nostrLogout
+    logout: nostrLogout,
   } = useNostrAuth();
 
   const [showNsec, setShowNsec] = useState(false);
@@ -89,9 +95,9 @@ export function NostrWalletSettings() {
 
   const addMint = () => {
     if (!newMint.trim() || !selectedWallet) return;
-    
+
     updateWallet(selectedWallet.id, {
-      mints: [...selectedWallet.mints, newMint.trim()]
+      mints: [...selectedWallet.mints, newMint.trim()],
     });
     setNewMint('');
     toast.success('Mint added');
@@ -99,18 +105,18 @@ export function NostrWalletSettings() {
 
   const removeMint = (mintUrl: string) => {
     if (!selectedWallet) return;
-    
+
     updateWallet(selectedWallet.id, {
-      mints: selectedWallet.mints.filter(m => m !== mintUrl)
+      mints: selectedWallet.mints.filter((m) => m !== mintUrl),
     });
     toast.success('Mint removed');
   };
 
   const addRelay = () => {
     if (!newRelay.trim() || !selectedWallet) return;
-    
+
     updateWallet(selectedWallet.id, {
-      relays: [...selectedWallet.relays, newRelay.trim()]
+      relays: [...selectedWallet.relays, newRelay.trim()],
     });
     setNewRelay('');
     toast.success('Relay added');
@@ -118,9 +124,9 @@ export function NostrWalletSettings() {
 
   const removeRelay = (relayUrl: string) => {
     if (!selectedWallet) return;
-    
+
     updateWallet(selectedWallet.id, {
-      relays: selectedWallet.relays.filter(r => r !== relayUrl)
+      relays: selectedWallet.relays.filter((r) => r !== relayUrl),
     });
     toast.success('Relay removed');
   };
@@ -168,90 +174,106 @@ export function NostrWalletSettings() {
   const isAuthenticated = isNostrAuthenticated || isConnected;
 
   return (
-    <div className="space-y-6">
+    <div className='space-y-6'>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
+          <CardTitle className='flex items-center gap-2'>
+            <Key className='h-5 w-5' />
             Nostr Account Configuration
           </CardTitle>
           <CardDescription>
-            Configure your Nostr private key (nsec) to enable NIP-60 wallet functionality
+            Configure your Nostr private key (nsec) to enable NIP-60 wallet
+            functionality
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className='space-y-4'>
           {/* Manual nsec Authentication */}
-          <div className="space-y-3">
+          <div className='space-y-3'>
             <Label>Nostr Authentication</Label>
-            <div className="text-sm text-muted-foreground">
-              Enter your Nostr private key (nsec) to authenticate. Only use this on trusted devices.
+            <div className='text-muted-foreground text-sm'>
+              Enter your Nostr private key (nsec) to authenticate. Only use this
+              on trusted devices.
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="nsec">Nostr Private Key (nsec)</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+            <div className='space-y-2'>
+              <Label htmlFor='nsec'>Nostr Private Key (nsec)</Label>
+              <div className='flex gap-2'>
+                <div className='relative flex-1'>
                   <Input
-                    id="nsec"
+                    id='nsec'
                     type={showNsec ? 'text' : 'password'}
-                    placeholder="nsec1..."
+                    placeholder='nsec1...'
                     value={nsecKey}
                     onChange={(e) => setNsecKey(e.target.value)}
                     className={!isValidNsec && nsecKey ? 'border-red-500' : ''}
                   />
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1 h-7 w-7 p-0"
+                    type='button'
+                    variant='ghost'
+                    size='sm'
+                    className='absolute top-1 right-1 h-7 w-7 p-0'
                     onClick={() => setShowNsec(!showNsec)}
                   >
-                    {showNsec ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showNsec ? (
+                      <EyeOff className='h-4 w-4' />
+                    ) : (
+                      <Eye className='h-4 w-4' />
+                    )}
                   </Button>
                 </div>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant='outline'
+                  size='sm'
                   onClick={() => copyToClipboard(nsecKey)}
                   disabled={!nsecKey}
                 >
-                  <Copy className="h-4 w-4" />
+                  <Copy className='h-4 w-4' />
                 </Button>
               </div>
               {nsecKey && !isValidNsec && (
-                <p className="text-sm text-red-600">Invalid nsec format</p>
+                <p className='text-sm text-red-600'>Invalid nsec format</p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                isAuthenticated ? 'bg-green-500' : 
-                isLoading ? 'bg-yellow-500' : 'bg-gray-500'
-              }`} />
-              <span className="text-sm text-muted-foreground">
-                Status: {isAuthenticated ? 'Connected' : isLoading ? 'Connecting' : 'Disconnected'}
+          <div className='flex items-center justify-between pt-4'>
+            <div className='flex items-center gap-2'>
+              <div
+                className={`h-2 w-2 rounded-full ${
+                  isAuthenticated
+                    ? 'bg-green-500'
+                    : isLoading
+                      ? 'bg-yellow-500'
+                      : 'bg-gray-500'
+                }`}
+              />
+              <span className='text-muted-foreground text-sm'>
+                Status:{' '}
+                {isAuthenticated
+                  ? 'Connected'
+                  : isLoading
+                    ? 'Connecting'
+                    : 'Disconnected'}
               </span>
             </div>
-            
+
             {!isAuthenticated ? (
               <Button
                 onClick={handleConnectToNostr}
                 disabled={!isValidNsec || isLoading}
-                className="flex items-center gap-2"
+                className='flex items-center gap-2'
               >
                 {isLoading ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <RefreshCw className='h-4 w-4 animate-spin' />
                 ) : (
-                  <Zap className="h-4 w-4" />
+                  <Zap className='h-4 w-4' />
                 )}
                 Connect with nsec
               </Button>
             ) : (
               <Button
                 onClick={handleDisconnectFromNostr}
-                variant="outline"
-                className="flex items-center gap-2"
+                variant='outline'
+                className='flex items-center gap-2'
               >
                 Disconnect
               </Button>
@@ -263,8 +285,8 @@ export function NostrWalletSettings() {
       {isAuthenticated && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
+            <CardTitle className='flex items-center gap-2'>
+              <Wallet className='h-5 w-5' />
               NIP-60 Wallet Management
             </CardTitle>
             <CardDescription>
@@ -272,70 +294,89 @@ export function NostrWalletSettings() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="wallets" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="wallets">Wallets</TabsTrigger>
-                <TabsTrigger value="events">Events</TabsTrigger>
+            <Tabs defaultValue='wallets' className='w-full'>
+              <TabsList className='grid w-full grid-cols-2'>
+                <TabsTrigger value='wallets'>Wallets</TabsTrigger>
+                <TabsTrigger value='events'>Events</TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="wallets" className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Your Wallets</h3>
-                  <Button onClick={handleCreateWallet} size="sm" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
+
+              <TabsContent value='wallets' className='space-y-4'>
+                <div className='flex items-center justify-between'>
+                  <h3 className='text-lg font-medium'>Your Wallets</h3>
+                  <Button
+                    onClick={handleCreateWallet}
+                    size='sm'
+                    className='flex items-center gap-2'
+                  >
+                    <Plus className='h-4 w-4' />
                     Create Wallet
                   </Button>
                 </div>
 
                 {wallets.length === 0 ? (
                   <Alert>
-                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTriangle className='h-4 w-4' />
                     <AlertDescription>
-                      No wallets found. Create your first NIP-60 wallet to get started.
+                      No wallets found. Create your first NIP-60 wallet to get
+                      started.
                     </AlertDescription>
                   </Alert>
                 ) : (
-                  <div className="grid gap-4">
+                  <div className='grid gap-4'>
                     {wallets.map((wallet) => (
-                      <Card key={wallet.id} className={`cursor-pointer transition-colors ${
-                        selectedWallet?.id === wallet.id ? 'ring-2 ring-primary' : ''
-                      }`}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div 
-                              className="flex-1 cursor-pointer"
+                      <Card
+                        key={wallet.id}
+                        className={`cursor-pointer transition-colors ${
+                          selectedWallet?.id === wallet.id
+                            ? 'ring-primary ring-2'
+                            : ''
+                        }`}
+                      >
+                        <CardContent className='p-4'>
+                          <div className='flex items-center justify-between'>
+                            <div
+                              className='flex-1 cursor-pointer'
                               onClick={() => selectWallet(wallet.id)}
                             >
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-medium">Wallet {wallet.id}</h4>
+                              <div className='mb-2 flex items-center gap-2'>
+                                <h4 className='font-medium'>
+                                  Wallet {wallet.id}
+                                </h4>
                                 {wallet.isDefault && (
-                                  <Badge variant="default" className="text-xs">Default</Badge>
+                                  <Badge variant='default' className='text-xs'>
+                                    Default
+                                  </Badge>
                                 )}
                               </div>
-                              <div className="text-sm text-muted-foreground space-y-1">
-                                <p>{wallet.mints.length} mints • {wallet.relays.length} relays</p>
-                                <p className="font-mono text-xs truncate">
+                              <div className='text-muted-foreground space-y-1 text-sm'>
+                                <p>
+                                  {wallet.mints.length} mints •{' '}
+                                  {wallet.relays.length} relays
+                                </p>
+                                <p className='truncate font-mono text-xs'>
                                   Privkey: {wallet.privkey.substring(0, 16)}...
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className='flex items-center gap-2'>
                               {!wallet.isDefault && (
                                 <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleSetDefaultWallet(wallet.id)}
+                                  variant='outline'
+                                  size='sm'
+                                  onClick={() =>
+                                    handleSetDefaultWallet(wallet.id)
+                                  }
                                 >
                                   Set Default
                                 </Button>
                               )}
                               <Button
-                                variant="ghost"
-                                size="sm"
+                                variant='ghost'
+                                size='sm'
                                 onClick={() => handleDeleteWallet(wallet.id)}
-                                className="text-red-600 hover:text-red-700"
+                                className='text-red-600 hover:text-red-700'
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className='h-4 w-4' />
                               </Button>
                             </div>
                           </div>
@@ -348,33 +389,42 @@ export function NostrWalletSettings() {
                 {selectedWallet && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Wallet Configuration</CardTitle>
+                      <CardTitle className='text-lg'>
+                        Wallet Configuration
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
+                    <CardContent className='space-y-6'>
                       {/* Mints Section */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium">Supported Mints</Label>
-                        <div className="flex gap-2">
+                      <div className='space-y-3'>
+                        <Label className='text-sm font-medium'>
+                          Supported Mints
+                        </Label>
+                        <div className='flex gap-2'>
                           <Input
-                            placeholder="https://mint.example.com"
+                            placeholder='https://mint.example.com'
                             value={newMint}
                             onChange={(e) => setNewMint(e.target.value)}
                           />
-                          <Button onClick={addMint} size="sm">
-                            <Plus className="h-4 w-4" />
+                          <Button onClick={addMint} size='sm'>
+                            <Plus className='h-4 w-4' />
                           </Button>
                         </div>
-                        <div className="space-y-2">
+                        <div className='space-y-2'>
                           {selectedWallet.mints.map((mint, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                              <span className="text-sm font-mono truncate">{mint}</span>
+                            <div
+                              key={index}
+                              className='bg-muted flex items-center justify-between rounded p-2'
+                            >
+                              <span className='truncate font-mono text-sm'>
+                                {mint}
+                              </span>
                               <Button
-                                variant="ghost"
-                                size="sm"
+                                variant='ghost'
+                                size='sm'
                                 onClick={() => removeMint(mint)}
-                                className="text-red-600 hover:text-red-700"
+                                className='text-red-600 hover:text-red-700'
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className='h-3 w-3' />
                               </Button>
                             </div>
                           ))}
@@ -384,29 +434,36 @@ export function NostrWalletSettings() {
                       <Separator />
 
                       {/* Relays Section */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium">Nostr Relays</Label>
-                        <div className="flex gap-2">
+                      <div className='space-y-3'>
+                        <Label className='text-sm font-medium'>
+                          Nostr Relays
+                        </Label>
+                        <div className='flex gap-2'>
                           <Input
-                            placeholder="wss://relay.example.com"
+                            placeholder='wss://relay.example.com'
                             value={newRelay}
                             onChange={(e) => setNewRelay(e.target.value)}
                           />
-                          <Button onClick={addRelay} size="sm">
-                            <Plus className="h-4 w-4" />
+                          <Button onClick={addRelay} size='sm'>
+                            <Plus className='h-4 w-4' />
                           </Button>
                         </div>
-                        <div className="space-y-2">
+                        <div className='space-y-2'>
                           {selectedWallet.relays.map((relay, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                              <span className="text-sm font-mono truncate">{relay}</span>
+                            <div
+                              key={index}
+                              className='bg-muted flex items-center justify-between rounded p-2'
+                            >
+                              <span className='truncate font-mono text-sm'>
+                                {relay}
+                              </span>
                               <Button
-                                variant="ghost"
-                                size="sm"
+                                variant='ghost'
+                                size='sm'
                                 onClick={() => removeRelay(relay)}
-                                className="text-red-600 hover:text-red-700"
+                                className='text-red-600 hover:text-red-700'
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className='h-3 w-3' />
                               </Button>
                             </div>
                           ))}
@@ -417,14 +474,15 @@ export function NostrWalletSettings() {
                 )}
               </TabsContent>
 
-              <TabsContent value="events" className="space-y-4">
-                <div className="text-center py-8">
-                  <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Wallet Events</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    NIP-60 events will be displayed here once wallet operations begin
+              <TabsContent value='events' className='space-y-4'>
+                <div className='py-8 text-center'>
+                  <Server className='text-muted-foreground mx-auto mb-4 h-12 w-12' />
+                  <h3 className='mb-2 text-lg font-medium'>Wallet Events</h3>
+                  <p className='text-muted-foreground mb-4 text-sm'>
+                    NIP-60 events will be displayed here once wallet operations
+                    begin
                   </p>
-                  <div className="space-y-2 text-xs text-muted-foreground">
+                  <div className='text-muted-foreground space-y-2 text-xs'>
                     <p>• kind:17375 - Wallet events</p>
                     <p>• kind:7375 - Token events (unspent proofs)</p>
                     <p>• kind:7376 - Spending history events</p>
@@ -438,16 +496,19 @@ export function NostrWalletSettings() {
       )}
 
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
+        <CardContent className='p-6'>
+          <div className='flex items-center justify-between'>
             <div>
-              <h3 className="font-medium">Save Configuration</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className='font-medium'>Save Configuration</h3>
+              <p className='text-muted-foreground text-sm'>
                 Save your Nostr and wallet settings to local storage
               </p>
             </div>
-            <Button onClick={handleSaveConfig} className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
+            <Button
+              onClick={handleSaveConfig}
+              className='flex items-center gap-2'
+            >
+              <CheckCircle className='h-4 w-4' />
               Save Settings
             </Button>
           </div>
@@ -455,4 +516,4 @@ export function NostrWalletSettings() {
       </Card>
     </div>
   );
-} 
+}
