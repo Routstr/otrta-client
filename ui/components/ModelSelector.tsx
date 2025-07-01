@@ -13,7 +13,21 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, Zap, Copy, CheckCircle2, RefreshCw } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Check,
+  Zap,
+  Copy,
+  CheckCircle2,
+  RefreshCw,
+  ArrowUpDown,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ProxyModel } from '@/lib/api/schemas/models';
@@ -32,6 +46,9 @@ export function ModelSelector() {
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
   const [hoveredModelId, setHoveredModelId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'openai' | 'proxy'>('proxy');
+  const [sortBy, setSortBy] = useState<'name' | 'price-asc' | 'price-desc'>(
+    'name'
+  );
 
   const queryClient = useQueryClient();
 
@@ -84,19 +101,72 @@ export function ModelSelector() {
     }, {});
   }, [models]);
 
-  // Group proxy models by provider
-  const groupedProxyModels = useMemo(() => {
-    if (!proxyModels) return {};
+  // Helper function to calculate total cost for sorting
+  const getModelTotalCost = (model: ProxyModel): number => {
+    const inputCost = model.input_cost || 0;
+    const outputCost = model.output_cost || 0;
+    const minCost =
+      model.min_cost_per_request ?? model.min_cash_per_request ?? 0;
+    return inputCost + outputCost + minCost;
+  };
 
-    return proxyModels.reduce<Record<string, ProxyModel[]>>((acc, model) => {
-      const provider = model.provider || 'Unknown';
-      if (!acc[provider]) {
-        acc[provider] = [];
+  // Sort models function
+  const sortModels = (models: ProxyModel[]): ProxyModel[] => {
+    const sorted = [...models];
+
+    switch (sortBy) {
+      case 'price-asc':
+        return sorted.sort(
+          (a, b) => getModelTotalCost(a) - getModelTotalCost(b)
+        );
+      case 'price-desc':
+        return sorted.sort(
+          (a, b) => getModelTotalCost(b) - getModelTotalCost(a)
+        );
+      case 'name':
+      default:
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    }
+  };
+
+  // Separate free and paid models, then group by provider
+  const { freeModels, groupedProxyModels } = useMemo(() => {
+    if (!proxyModels) return { freeModels: [], groupedProxyModels: {} };
+
+    const free: ProxyModel[] = [];
+    const paid: ProxyModel[] = [];
+
+    // Separate models by free status
+    proxyModels.forEach((model) => {
+      if (model.is_free) {
+        free.push(model);
+      } else {
+        paid.push(model);
       }
-      acc[provider].push(model);
-      return acc;
-    }, {});
-  }, [proxyModels]);
+    });
+
+    // Sort both arrays
+    const sortedFree = sortModels(free);
+    const sortedPaid = sortModels(paid);
+
+    // Group paid models by provider
+    const groupedPaid = sortedPaid.reduce<Record<string, ProxyModel[]>>(
+      (acc, model) => {
+        const provider = model.provider || 'Unknown';
+        if (!acc[provider]) {
+          acc[provider] = [];
+        }
+        acc[provider].push(model);
+        return acc;
+      },
+      {}
+    );
+
+    return {
+      freeModels: sortedFree,
+      groupedProxyModels: groupedPaid,
+    };
+  }, [proxyModels, sortBy]);
 
   // Format millisatoshi cost for display
   const formatMsatCost = (msats: number) => {
@@ -162,29 +232,49 @@ export function ModelSelector() {
     <div className='space-y-6'>
       <Card>
         <CardHeader>
-          <div className='flex items-center justify-between'>
-            <div>
-              <CardTitle>Model Selection</CardTitle>
-              <CardDescription>
-                Choose a model to use with your application
-              </CardDescription>
-            </div>
-            <div className='flex gap-2'>
-              <div className='flex gap-1'>
+          <div className='space-y-4'>
+            <div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
+              <div>
+                <CardTitle>Model Selection</CardTitle>
+                <CardDescription>
+                  Choose a model to use with your application
+                </CardDescription>
+              </div>
+              <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
                 <Button
                   variant={activeTab === 'proxy' ? 'default' : 'outline'}
                   size='sm'
                   onClick={() => setActiveTab('proxy')}
+                  className='w-full sm:w-auto'
                 >
                   Proxy Models
                 </Button>
               </div>
-              {activeTab === 'proxy' && (
+            </div>
+            {activeTab === 'proxy' && (
+              <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end'>
+                <Select
+                  value={sortBy}
+                  onValueChange={(value: 'name' | 'price-asc' | 'price-desc') =>
+                    setSortBy(value)
+                  }
+                >
+                  <SelectTrigger className='w-full sm:w-36'>
+                    <ArrowUpDown className='mr-2 h-4 w-4' />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='name'>Name</SelectItem>
+                    <SelectItem value='price-asc'>Price ↑</SelectItem>
+                    <SelectItem value='price-desc'>Price ↓</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   onClick={() => refreshMutation.mutate()}
                   disabled={refreshMutation.isPending}
                   size='sm'
                   variant='outline'
+                  className='w-full sm:w-auto'
                 >
                   {refreshMutation.isPending ? (
                     <RefreshCw className='mr-2 h-4 w-4 animate-spin' />
@@ -193,8 +283,8 @@ export function ModelSelector() {
                   )}
                   Refresh
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -212,6 +302,7 @@ export function ModelSelector() {
               </div>
             ) : (
               <div className='w-full'>
+                {/* Paid Models Section */}
                 {Object.entries(groupedProxyModels).map(
                   ([provider, modelGroup]) => (
                     <div key={provider} className='mb-6 w-full'>
@@ -281,13 +372,13 @@ export function ModelSelector() {
                                     {model.model_type || 'Unknown Type'}
                                   </span>
                                 </div>
-                                {model.context_length && (
-                                  <div className='text-muted-foreground text-xs'>
-                                    Context:{' '}
-                                    {model.context_length.toLocaleString()}{' '}
-                                    tokens
-                                  </div>
-                                )}
+                                <div className='text-muted-foreground text-xs'>
+                                  Context:{' '}
+                                  {model.context_length
+                                    ? model.context_length.toLocaleString() +
+                                      ' tokens'
+                                    : 'Not available'}
+                                </div>
                                 <div className='space-y-1'>
                                   <div className='flex items-center justify-between text-xs'>
                                     <span className='text-muted-foreground'>
@@ -326,6 +417,90 @@ export function ModelSelector() {
                       </div>
                     </div>
                   )
+                )}
+                {/* Free Models Section - Only show if there are free models */}
+                {freeModels.length > 0 && (
+                  <div className='mb-8 w-full'>
+                    <div className='mb-3 flex items-center gap-2'>
+                      <h3 className='text-lg font-semibold text-green-600'>
+                        Free Models
+                      </h3>
+                      <span className='rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700'>
+                        {freeModels.length} available
+                      </span>
+                    </div>
+                    <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                      {freeModels.map((model, index) => (
+                        <Card
+                          key={getProxyModelKey(model, index)}
+                          className={cn(
+                            'relative w-full overflow-hidden border-green-200 transition-all duration-300',
+                            hoveredModelId === model.name &&
+                              '-translate-y-1 transform shadow-lg',
+                            model.soft_deleted && 'opacity-60'
+                          )}
+                          onMouseEnter={() => handleModelHover(model.name)}
+                          onMouseLeave={() => handleModelHover(null)}
+                        >
+                          {hoveredModelId === model.name && (
+                            <div className='animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-green-500/5 to-transparent' />
+                          )}
+                          <CardHeader className='relative z-10 pb-2'>
+                            <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
+                              <div className='group inline-block max-w-[70%] truncate font-medium'>
+                                <span className='truncate'>{model.name}</span>
+                                {model.description && (
+                                  <div className='text-muted-foreground truncate text-xs font-normal'>
+                                    {model.description}
+                                  </div>
+                                )}
+                              </div>
+                              <div className='flex items-center space-x-1'>
+                                <span className='rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-600'>
+                                  FREE
+                                </span>
+                                {model.soft_deleted && (
+                                  <span className='text-xs font-medium text-red-500'>
+                                    REMOVED
+                                  </span>
+                                )}
+                                <Button
+                                  variant='ghost'
+                                  size='icon'
+                                  className='ml-1 h-6 w-6'
+                                  onClick={(e) => copyModelName(e, model.name)}
+                                  title='Copy model name'
+                                >
+                                  {copiedModelId === model.name ? (
+                                    <CheckCircle2 className='h-4 w-4 text-green-500' />
+                                  ) : (
+                                    <Copy className='h-4 w-4' />
+                                  )}
+                                </Button>
+                              </div>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className='relative z-10 pt-0 pb-4'>
+                            <div className='space-y-2'>
+                              <div className='flex items-center text-xs'>
+                                <Zap className='mr-1 h-3 w-3 flex-shrink-0 text-amber-500' />
+                                <span className='break-words'>
+                                  {model.model_type || 'Unknown Type'}
+                                </span>
+                              </div>
+                              <div className='text-muted-foreground text-xs'>
+                                Context:{' '}
+                                {model.context_length
+                                  ? model.context_length.toLocaleString() +
+                                    ' tokens'
+                                  : 'Not available'}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             )

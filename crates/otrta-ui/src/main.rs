@@ -137,8 +137,7 @@ async fn initialize_wallet(
     configuration: &Settings,
     db_name: &str,
 ) -> Result<CashuWalletClient, Box<dyn std::error::Error>> {
-    let wallet_dir =
-        std::env::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./wallet_data".to_string());
+    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./wallet_data".to_string());
     std::fs::create_dir_all(&wallet_dir)?;
 
     let unique_db_name = format!("{}/{}", wallet_dir, db_name);
