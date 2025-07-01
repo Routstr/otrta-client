@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useModels, useModelInfo } from '@/lib/hooks/useModels';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ModelService } from '@/lib/api/services/models';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -11,9 +13,10 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, Zap, Copy, CheckCircle2 } from 'lucide-react';
+import { Check, Zap, Copy, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ProxyModel } from '@/lib/api/schemas/models';
 
 // Define types for model objects to avoid using 'any'
 interface ModelType {
@@ -28,13 +31,38 @@ export function ModelSelector() {
   const [testInput, setTestInput] = useState<string>('');
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
   const [hoveredModelId, setHoveredModelId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'openai' | 'proxy'>('proxy');
 
-  // Fetch the list of available models
+  const queryClient = useQueryClient();
+
+  // Fetch the list of available OpenAI models
   const {
     data: models,
     isLoading: isLoadingModels,
     error: modelsError,
   } = useModels();
+
+  // Fetch proxy models with pricing
+  const {
+    data: proxyModels,
+    isLoading: isLoadingProxyModels,
+    error: proxyModelsError,
+  } = useQuery({
+    queryKey: ['proxy-models'],
+    queryFn: ModelService.listProxyModels,
+  });
+
+  // Refresh models mutation
+  const refreshMutation = useMutation({
+    mutationFn: ModelService.refreshModels,
+    onSuccess: (data) => {
+      toast.success(data.message || 'Models refreshed successfully!');
+      queryClient.invalidateQueries({ queryKey: ['proxy-models'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to refresh models: ' + error.message);
+    },
+  });
 
   // Fetch detailed information about the selected model
   const { data: modelInfo, isLoading: isLoadingModelInfo } = useModelInfo(
@@ -56,9 +84,33 @@ export function ModelSelector() {
     }, {});
   }, [models]);
 
+  // Group proxy models by provider
+  const groupedProxyModels = useMemo(() => {
+    if (!proxyModels) return {};
+
+    return proxyModels.reduce<Record<string, ProxyModel[]>>((acc, model) => {
+      const provider = model.provider || 'Unknown';
+      if (!acc[provider]) {
+        acc[provider] = [];
+      }
+      acc[provider].push(model);
+      return acc;
+    }, {});
+  }, [proxyModels]);
+
+  // Format millisatoshi cost for display
+  const formatMsatCost = (msats: number) => {
+    if (msats === 0) return 'Free';
+    return `${Math.round(msats).toLocaleString()} msat`;
+  };
+
   // Create a unique key for a model to avoid duplicate key issues
   const getModelKey = (model: ModelType, index: number) => {
     return `${model.id}_${model.provider}_${model.modelType}_${index}`;
+  };
+
+  const getProxyModelKey = (model: ProxyModel, index: number) => {
+    return `${model.name}_${model.provider}_${index}`;
   };
 
   // Set hovered model
@@ -67,14 +119,18 @@ export function ModelSelector() {
   };
 
   // Copy model name to clipboard
-  const copyModelName = (event: React.MouseEvent, model: ModelType) => {
+  const copyModelName = (
+    event: React.MouseEvent,
+    modelName: string,
+    modelId?: string
+  ) => {
     event.stopPropagation();
 
     navigator.clipboard
-      .writeText(model.name)
+      .writeText(modelName)
       .then(() => {
-        setCopiedModelId(model.id);
-        toast.success(`Copied "${model.name}" to clipboard`);
+        setCopiedModelId(modelId || modelName);
+        toast.success(`Copied "${modelName}" to clipboard`);
 
         // Reset the copied state after 2 seconds
         setTimeout(() => {
@@ -106,13 +162,175 @@ export function ModelSelector() {
     <div className='space-y-6'>
       <Card>
         <CardHeader>
-          <CardTitle>Model Selection</CardTitle>
-          <CardDescription>
-            Choose a model to use with your application
-          </CardDescription>
+          <div className='flex items-center justify-between'>
+            <div>
+              <CardTitle>Model Selection</CardTitle>
+              <CardDescription>
+                Choose a model to use with your application
+              </CardDescription>
+            </div>
+            <div className='flex gap-2'>
+              <div className='flex gap-1'>
+                <Button
+                  variant={activeTab === 'proxy' ? 'default' : 'outline'}
+                  size='sm'
+                  onClick={() => setActiveTab('proxy')}
+                >
+                  Proxy Models
+                </Button>
+              </div>
+              {activeTab === 'proxy' && (
+                <Button
+                  onClick={() => refreshMutation.mutate()}
+                  disabled={refreshMutation.isPending}
+                  size='sm'
+                  variant='outline'
+                >
+                  {refreshMutation.isPending ? (
+                    <RefreshCw className='mr-2 h-4 w-4 animate-spin' />
+                  ) : (
+                    <RefreshCw className='mr-2 h-4 w-4' />
+                  )}
+                  Refresh
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {isLoadingModels ? (
+          {activeTab === 'proxy' ? (
+            // Proxy Models Tab
+            isLoadingProxyModels ? (
+              <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton key={i} className='h-48 w-full' />
+                ))}
+              </div>
+            ) : proxyModelsError ? (
+              <div className='p-4 text-center text-red-500'>
+                Error loading proxy models: {String(proxyModelsError)}
+              </div>
+            ) : (
+              <div className='w-full'>
+                {Object.entries(groupedProxyModels).map(
+                  ([provider, modelGroup]) => (
+                    <div key={provider} className='mb-6 w-full'>
+                      <h3 className='mb-3 text-lg font-semibold'>
+                        {provider} Models
+                      </h3>
+                      <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                        {modelGroup.map((model, index) => (
+                          <Card
+                            key={getProxyModelKey(model, index)}
+                            className={cn(
+                              'relative w-full overflow-hidden transition-all duration-300',
+                              hoveredModelId === model.name &&
+                                '-translate-y-1 transform shadow-lg',
+                              model.soft_deleted && 'opacity-60'
+                            )}
+                            onMouseEnter={() => handleModelHover(model.name)}
+                            onMouseLeave={() => handleModelHover(null)}
+                          >
+                            {hoveredModelId === model.name && (
+                              <div className='via-primary/5 animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent to-transparent' />
+                            )}
+                            <CardHeader className='relative z-10 pb-2'>
+                              <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
+                                <div className='group inline-block max-w-[80%] truncate font-medium'>
+                                  <span className='truncate'>{model.name}</span>
+                                  {model.description && (
+                                    <div className='text-muted-foreground truncate text-xs font-normal'>
+                                      {model.description}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className='flex items-center space-x-1'>
+                                  {model.is_free && (
+                                    <span className='text-xs font-medium text-green-500'>
+                                      FREE
+                                    </span>
+                                  )}
+                                  {model.soft_deleted && (
+                                    <span className='text-xs font-medium text-red-500'>
+                                      REMOVED
+                                    </span>
+                                  )}
+                                  <Button
+                                    variant='ghost'
+                                    size='icon'
+                                    className='ml-1 h-6 w-6'
+                                    onClick={(e) =>
+                                      copyModelName(e, model.name)
+                                    }
+                                    title='Copy model name'
+                                  >
+                                    {copiedModelId === model.name ? (
+                                      <CheckCircle2 className='h-4 w-4 text-green-500' />
+                                    ) : (
+                                      <Copy className='h-4 w-4' />
+                                    )}
+                                  </Button>
+                                </div>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className='relative z-10 pt-0 pb-4'>
+                              <div className='space-y-2'>
+                                <div className='flex items-center text-xs'>
+                                  <Zap className='mr-1 h-3 w-3 flex-shrink-0 text-amber-500' />
+                                  <span className='break-words'>
+                                    {model.model_type || 'Unknown Type'}
+                                  </span>
+                                </div>
+                                {model.context_length && (
+                                  <div className='text-muted-foreground text-xs'>
+                                    Context:{' '}
+                                    {model.context_length.toLocaleString()}{' '}
+                                    tokens
+                                  </div>
+                                )}
+                                <div className='space-y-1'>
+                                  <div className='flex items-center justify-between text-xs'>
+                                    <span className='text-muted-foreground'>
+                                      Input:
+                                    </span>
+                                    <span className='font-medium'>
+                                      {formatMsatCost(model.input_cost)}/1M
+                                      tokens
+                                    </span>
+                                  </div>
+                                  <div className='flex items-center justify-between text-xs'>
+                                    <span className='text-muted-foreground'>
+                                      Output:
+                                    </span>
+                                    <span className='font-medium'>
+                                      {formatMsatCost(model.output_cost)}/1M
+                                      tokens
+                                    </span>
+                                  </div>
+                                  <div className='flex items-center justify-between text-xs'>
+                                    <span className='text-muted-foreground'>
+                                      Min charge:
+                                    </span>
+                                    <span className='font-medium'>
+                                      {formatMsatCost(
+                                        model.min_cost_per_request ??
+                                          model.min_cash_per_request
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )
+          ) : // OpenAI Models Tab
+          isLoadingModels ? (
             <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <Skeleton key={i} className='h-40 w-full' />
@@ -163,7 +381,9 @@ export function ModelSelector() {
                                 variant='ghost'
                                 size='icon'
                                 className='ml-1 h-6 w-6'
-                                onClick={(e) => copyModelName(e, model)}
+                                onClick={(e) =>
+                                  copyModelName(e, model.name, model.id)
+                                }
                                 title='Copy model name'
                               >
                                 {copiedModelId === model.id ? (
@@ -259,20 +479,23 @@ export function ModelSelector() {
           <CardHeader>
             <CardTitle>Test Model</CardTitle>
             <CardDescription>
-              Try out the selected model with your own input
+              Test the selected model with sample input
             </CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='test-input'>Input</Label>
+              <Label htmlFor='test-input'>Test Input</Label>
               <Textarea
                 id='test-input'
                 placeholder={getPlaceholder()}
                 value={testInput}
                 onChange={(e) => setTestInput(e.target.value)}
-                rows={3}
+                className='min-h-[100px]'
               />
             </div>
+            <Button disabled={!testInput.trim() || isLoadingModelInfo}>
+              {isLoadingModelInfo ? 'Loading...' : 'Test Model'}
+            </Button>
           </CardContent>
         </Card>
       )}

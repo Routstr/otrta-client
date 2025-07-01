@@ -14,16 +14,36 @@ export const ModelSchema = z.object({
   apiKeyRequired: z.boolean().default(true),
 });
 
+// New schema for proxy models from the backend
+export const ProxyModelSchema = z.object({
+  name: z.string(),
+  input_cost: z.number().int(), // Cost per 1M tokens in sats
+  output_cost: z.number().int(), // Cost per 1M tokens in sats
+  min_cash_per_request: z.number().int(), // Minimum charge per request in sats
+  min_cost_per_request: z.number().int().nullable(), // Alternative minimum cost per request in sats
+  provider: z.string().nullable(),
+  soft_deleted: z.boolean().nullable(),
+  model_type: z.string().nullable(),
+  description: z.string().nullable(),
+  context_length: z.number().int().nullable(),
+  is_free: z.boolean().nullable(),
+});
+
+export const RefreshModelsResponseSchema = z.object({
+  success: z.boolean(),
+  models_updated: z.number().int(),
+  models_added: z.number().int(),
+  models_marked_removed: z.number().int(),
+  message: z.string().nullable(),
+});
+
 // Schema for a model with additional provider-specific settings
 export const ModelWithSettingsSchema = ModelSchema.extend({
   settings: z.record(z.unknown()).optional(),
-  pricing: z
-    .object({
-      inputCostPer1kTokens: z.number().optional(),
-      outputCostPer1kTokens: z.number().optional(),
-      unitCost: z.number().optional(),
-    })
-    .optional(),
+  pricing: z.object({
+    inputCostPer1kTokens: z.number(),
+    outputCostPer1kTokens: z.number(),
+  }),
 });
 
 // Schema for creating a new model
@@ -79,6 +99,8 @@ export const ModelTestResponseSchema = z.object({
 
 // Export types derived from the schemas
 export type Model = z.infer<typeof ModelSchema>;
+export type ProxyModel = z.infer<typeof ProxyModelSchema>;
+export type RefreshModelsResponse = z.infer<typeof RefreshModelsResponseSchema>;
 export type ModelWithSettings = z.infer<typeof ModelWithSettingsSchema>;
 export type CreateModel = z.infer<typeof CreateModelSchema>;
 export type UpdateModel = z.infer<typeof UpdateModelSchema>;

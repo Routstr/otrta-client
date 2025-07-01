@@ -38,12 +38,12 @@ sequenceDiagram
 
     C->>CW: 1. Prepare e-cash note for payment
     CW->>C: 2. Return the note
-    C->>S: 3. Request + X-PAYMENT-SATS header
+    C->>S: 3. Request + X-Cashu header
     S->>SW: 4. Process the payment from header
     SW->>S: 5. Extracted payment amount
     S->>S: 6. Execute requested operation
     SW->>S: 7. Calculate change (if overpaid)
-    S-->>C: 8. Response + X-CHANGE-SATS header (if applicable)
+    S-->>C: 8. Response + X-Cashu header (if applicable)
     C->>CW: 9. Store the change for future use (if received)
 ```
 
@@ -51,15 +51,15 @@ In this workflow:
 
 1. The Local Proxy prepares a payment using the Local Proxy Wallet for an OpenAI API request
 2. The Local Proxy Wallet provides a valid e-cash note
-3. The Local Proxy sends the LLM request with the note in the `X-PAYMENT-SATS` header to the 402 Server
+3. The Local Proxy sends the LLM request with the note in the `X-Cashu` header to the 402 Server
 4. The 402 Server extracts the payment from the header and passes it to the Server's Wallet for processing
 5. The Server's Wallet informs the 402 Server of the available amount
 6. The 402 Server forwards the request to OpenAI and processes the AI model response
 7. The Server's Wallet calculates change if the payment exceeds the actual usage
-8. The 402 Server sends the OpenAI response with change in the `X-CHANGE-SATS` header (only if overpaid)
+8. The 402 Server sends the OpenAI response with change in the `X-Cashu` header (only if overpaid)
 9. The Local Proxy stores the change in the Local Proxy Wallet for future LLM requests (if change was provided)
 
-This approach maintains privacy while efficiently handling micropayments for AI services. The 402 Server extracts the exact amount needed from the `X-PAYMENT-SATS` header for the specific OpenAI API call and returns any remainder via the `X-CHANGE-SATS` header only when overpayment occurs.
+This approach maintains privacy while efficiently handling micropayments for AI services. The 402 Server extracts the exact amount needed from the `X-Cashu` header for the specific OpenAI API call and returns any remainder via the `X-Cashu` header only when overpayment occurs.
 
 ## The Micropayment Challenge for AI Services
 
@@ -88,39 +88,39 @@ This flowchart illustrates the fundamental challenge with Bitcoin micropayments 
 
 Wallet Gateway addresses the micropayment challenge for AI services through an innovative approach using millisatoshi (msat) precision Cashu mints. This method enables exact payments for API calls without rounding errors or ceiling effects, ensuring users pay precisely for what they consume.
 
-The system uses HTTP headers for seamless payment integration: clients send ecash notes via the `X-PAYMENT-SATS` header, and servers return change (when overpaid) via the `X-CHANGE-SATS` header.
+The system uses HTTP headers for seamless payment integration: clients send ecash notes via the `X-Cashu` header, and servers return change (when overpaid) via the `X-Cashu` header.
 
 Wallet Gateway addresses the micropayment challenge for AI services through this millisatoshi-based approach:
 
 ```mermaid
 flowchart
-    A[LLM Request + X-PAYMENT-SATS header] --> B[Gateway]
+    A[LLM Request + X-Cashu header] --> B[Gateway]
     B --> C{Process Payment}
     C --> D[Extract ecash from header]
     C --> E[Execute OpenAI API Call]
     C --> F[Calculate Exact Cost in msats]
     F --> G{Payment > Cost?}
-    G -->|Yes| H[Return AI Response + X-CHANGE-SATS header]
+    G -->|Yes| H[Return AI Response + X-Cashu header]
     G -->|No| I[Return AI Response only]
 ```
 
 ```mermaid
 flowchart LR
     subgraph "Header-Based Payment Flow"
-    I[X-PAYMENT-SATS] --> J[Exact msat Payment Processing]
+    I[X-Cashu] --> J[Exact msat Payment Processing]
     J --> K[Precise OpenAI API Billing]
     K --> L{Overpayment?}
-    L -->|Yes| M[X-CHANGE-SATS header]
+    L -->|Yes| M[X-Cashu header]
     L -->|No| N[No change needed]
     end
 ```
 
 This flowchart shows our solution:
 
-- Clients send ecash notes through the `X-PAYMENT-SATS` HTTP header for seamless integration
+- Clients send ecash notes through the `X-Cashu` HTTP header for seamless integration
 - The gateway processes payments using millisatoshi precision for exact billing
 - Payments are calculated to exact millisatoshi amounts based on actual API usage
-- Change is returned via `X-CHANGE-SATS` header only when the payment exceeds consumption
+- Change is returned via `X-Cashu` header only when the payment exceeds consumption
 - This enables true micropayments for AI services without rounding errors or overpayment waste
 
 ## Fee Management Options
@@ -139,10 +139,10 @@ There are two approaches to handling mint fees:
 ### Cashu note Management Workflow
 
 1. **Get initial Cashu note**: Obtain a Cashu note from a Cashu mint
-2. **Make OpenAI API request**: Send the Cashu note in the `X-PAYMENT-SATS` header with your LLM API request
-3. **Process response**: Receive the OpenAI response and check for `X-CHANGE-SATS` header
-4. **Save change (if any)**: Store any returned change Cashu note from the `X-CHANGE-SATS` header
-5. **Use for next request**: Use the change Cashu note in future `X-PAYMENT-SATS` headers for subsequent AI service requests
+2. **Make OpenAI API request**: Send the Cashu note in the `X-Cashu` header with your LLM API request
+3. **Process response**: Receive the OpenAI response and check for `X-Cashu` header
+4. **Save change (if any)**: Store any returned change Cashu note from the `X-Cashu` header
+5. **Use for next request**: Use the change Cashu note in future `X-Cashu` headers for subsequent AI service requests
 
 This approach allows for efficient micropayments for AI services. You only receive change when you overpay, preventing waste on small transactions.
 
@@ -177,6 +177,7 @@ http://localhost:3333
 **No API key is required when using this local endpoint**
 
 ### Current Cashu Mint
+
 ```
 ecashmint.otrta.me
 ```
@@ -188,7 +189,7 @@ Here's an example of how to make a request with ecash payment using curl:
 ```bash
 curl -i -X POST https://ecash.otrta.me/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "X-PAYMENT-SATS: cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbeyJpZCI6IjAwOWExZjI5M2F..." \
+  -H "X-Cashu: cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbeyJpZCI6IjAwOWExZjI5M2F..." \
   -d '{
     "model": "meta-llama/llama-4-scout-17b-16e-instruct",
     "messages": [
@@ -201,9 +202,10 @@ curl -i -X POST https://ecash.otrta.me/v1/chat/completions \
 ```
 
 **Example Response Headers:**
+
 ```
 ...
-X-CHANGE-SATS: cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbeyJpZCI6IjAwOWExZjI5M2F...
+X-Cashu: cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbeyJpZCI6IjAwOWExZjI5M2F...
 ...
 
 {
@@ -218,7 +220,7 @@ X-CHANGE-SATS: cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbeyJpZCI6IjAwOWExZjI5M2F...
 }
 ```
 
-The `-i` flag ensures you see the response headers, including any `X-CHANGE-SATS` header with your change.
+The `-i` flag ensures you see the response headers, including any `X-Cashu` header with your change.
 
 ### Next step
 

@@ -1,0 +1,26 @@
+[package]
+name = "otrta"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1"
+axum = "0.8"
+bigdecimal = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+dotenv = "0.15"
+futures-util = "0.3"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+rust_decimal = { version = "1.33", features = ["serde-float"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "rust_decimal", "bigdecimal"] }
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# otrta-wallet = { path = "../otrta-wallet" }
+
+ecash-402-wallet.workspace = true

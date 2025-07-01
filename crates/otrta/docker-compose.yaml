@@ -1,0 +1,15 @@
+services:
+  postgres_otrta:
+    container_name: "postgres_wallet"
+    image: "postgres:latest"
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=otrta
+    ports:
+      - "5433:5432"
+    volumes:
+      - dbtest:/var/lib/postgresql/data
+volumes:
+  dbtest: {}

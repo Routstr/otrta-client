@@ -1,5 +1,10 @@
 import { apiClient } from '../client';
-import { Model, ModelWithSettings } from '../schemas/models';
+import {
+  Model,
+  ModelWithSettings,
+  ProxyModel,
+  RefreshModelsResponse,
+} from '../schemas/models';
 import { z } from 'zod';
 
 export const OpenAIModelObjectSchema = z.object({
@@ -68,6 +73,29 @@ export class ModelService {
       return response.data.map(transformOpenAIModelToModel);
     } catch (error) {
       console.error('Error fetching models:', error);
+      throw error;
+    }
+  }
+
+  static async listProxyModels(): Promise<ProxyModel[]> {
+    try {
+      const response = await apiClient.get<ProxyModel[]>('/api/proxy/models');
+      return response;
+    } catch (error) {
+      console.error('Error fetching proxy models:', error);
+      throw error;
+    }
+  }
+
+  static async refreshModels(): Promise<RefreshModelsResponse> {
+    try {
+      const response = await apiClient.post<RefreshModelsResponse>(
+        '/api/proxy/models/refresh',
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error('Error refreshing models:', error);
       throw error;
     }
   }

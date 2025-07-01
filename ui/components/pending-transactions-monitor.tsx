@@ -25,26 +25,15 @@ import {
 } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { z } from 'zod';
 import { TransactionService } from '@/lib/api/services/transactions';
-
-// Define the schema for pending transactions
-export const PendingTransactionSchema = z.object({
-  id: z.string(),
-  amount: z.string(),
-  time: z.string(),
-  token: z.string(),
-  mint: z.string(),
-});
-
-export const TransactionPendingListSchema = z.object({
-  pending: z.array(PendingTransactionSchema),
-});
+import {
+  PendingTransactionSchema,
+  TransactionPendingListResponseSchema,
+} from '@/lib/api/schemas/transactions';
+import { z } from 'zod';
 
 export type PendingTransaction = z.infer<typeof PendingTransactionSchema>;
-export type TransactionPendingListResponse = z.infer<
-  typeof TransactionPendingListSchema
->;
+export type TransactionPendingListResponse = TransactionPendingListResponseSchema;
 
 export function PendingTransactionsMonitor({
   refreshInterval = 10000,
@@ -137,7 +126,7 @@ export function PendingTransactionsMonitor({
       );
     }
 
-    if (!data || Object.entries(data?.pending).keys.length) {
+    if (!data || !data.pending.length) {
       return (
         <div className='text-muted-foreground py-8 text-center'>
           No pending transactions found.
@@ -156,8 +145,8 @@ export function PendingTransactionsMonitor({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {Object.entries(data.pending).map(([, transaction]) => (
-              <TableRow key={transaction.time}>
+            {data.pending.map((transaction, index) => (
+              <TableRow key={`${transaction.token}-${index}`}>
                 <TableCell className='max-w-[300px]'>
                   <HoverCard>
                     <HoverCardTrigger asChild>

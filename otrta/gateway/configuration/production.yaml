@@ -1,8 +1,0 @@
-database:
-  host: "otrta-db"
-  port: 5432
-  username: "postgres"
-  password: "postgres"
-  database_name: "otrta"
-  require_ssl: false
-  connections: 10
