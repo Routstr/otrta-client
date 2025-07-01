@@ -1,14 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ProviderService, CreateCustomProviderRequest } from '@/lib/api/services/providers';
+import {
+  ProviderService,
+  CreateCustomProviderRequest,
+} from '@/lib/api/services/providers';
 import { toast } from 'sonner';
 
 export function useProviders() {
-  const {
-    data,
-    isLoading,
-    error,
-    refetch
-  } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['providers'],
     queryFn: async () => {
       const response = await ProviderService.listProviders();
@@ -30,7 +28,7 @@ export function useDefaultProvider() {
     data: defaultProvider,
     isLoading,
     error,
-    refetch
+    refetch,
   } = useQuery({
     queryKey: ['defaultProvider'],
     queryFn: async () => {
@@ -50,7 +48,8 @@ export function useSetDefaultProvider() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (providerId: number) => ProviderService.setDefaultProvider(providerId),
+    mutationFn: (providerId: number) =>
+      ProviderService.setDefaultProvider(providerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['providers'] });
       queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
@@ -67,7 +66,8 @@ export function useCreateCustomProvider() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (request: CreateCustomProviderRequest) => ProviderService.createCustomProvider(request),
+    mutationFn: (request: CreateCustomProviderRequest) =>
+      ProviderService.createCustomProvider(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['providers'] });
       queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
@@ -75,7 +75,9 @@ export function useCreateCustomProvider() {
     },
     onError: (error: unknown) => {
       console.error('Error creating custom provider:', error);
-      const apiError = error as { response?: { data?: { error?: { type?: string; message?: string } } } };
+      const apiError = error as {
+        response?: { data?: { error?: { type?: string; message?: string } } };
+      };
       if (apiError?.response?.data?.error?.type === 'duplicate_error') {
         toast.error('A provider with this URL already exists');
       } else if (apiError?.response?.data?.error?.type === 'validation_error') {
@@ -91,7 +93,8 @@ export function useDeleteCustomProvider() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (providerId: number) => ProviderService.deleteCustomProvider(providerId),
+    mutationFn: (providerId: number) =>
+      ProviderService.deleteCustomProvider(providerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['providers'] });
       queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
@@ -102,4 +105,4 @@ export function useDeleteCustomProvider() {
       toast.error('Failed to delete custom provider');
     },
   });
-} 
+}

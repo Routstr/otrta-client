@@ -110,14 +110,14 @@ export function ModelSelector() {
     return inputCost + outputCost + minCost;
   };
 
-    // Separate free and paid models, then group by provider
+  // Separate free and paid models, then group by provider
   const { freeModels, groupedProxyModels } = useMemo(() => {
     if (!proxyModels) return { freeModels: [], groupedProxyModels: {} };
 
     // Sort models function
     const sortModels = (models: ProxyModel[]): ProxyModel[] => {
       const sorted = [...models];
-      
+
       switch (sortBy) {
         case 'price-asc':
           return sorted.sort(

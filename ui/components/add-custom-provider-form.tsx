@@ -7,7 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -16,7 +22,10 @@ interface AddCustomProviderFormProps {
   onCancel?: () => void;
 }
 
-export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProviderFormProps) {
+export function AddCustomProviderForm({
+  onSuccess,
+  onCancel,
+}: AddCustomProviderFormProps) {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [useOnion, setUseOnion] = useState(false);
@@ -34,12 +43,12 @@ export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProvider
   };
 
   const handleRemoveMint = (mintToRemove: string) => {
-    setMints(mints.filter(mint => mint !== mintToRemove));
+    setMints(mints.filter((mint) => mint !== mintToRemove));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim() || !url.trim()) {
       return;
     }
@@ -51,14 +60,14 @@ export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProvider
         mints,
         use_onion: useOnion,
       });
-      
+
       // Reset form
       setName('');
       setUrl('');
       setUseOnion(false);
       setMints([]);
       setMintInput('');
-      
+
       onSuccess?.();
     } catch {
       // Error is handled by the mutation hook
@@ -73,10 +82,10 @@ export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProvider
   };
 
   return (
-    <Card className="w-full max-w-2xl">
+    <Card className='w-full max-w-2xl'>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="h-5 w-5" />
+        <CardTitle className='flex items-center gap-2'>
+          <Plus className='h-5 w-5' />
           Add Custom Provider
         </CardTitle>
         <CardDescription>
@@ -84,46 +93,46 @@ export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProvider
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="name">Provider Name *</Label>
+        <form onSubmit={handleSubmit} className='space-y-6'>
+          <div className='space-y-2'>
+            <Label htmlFor='name'>Provider Name *</Label>
             <Input
-              id="name"
-              type="text"
-              placeholder="My Custom Provider"
+              id='name'
+              type='text'
+              placeholder='My Custom Provider'
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="url">Provider URL *</Label>
+          <div className='space-y-2'>
+            <Label htmlFor='url'>Provider URL *</Label>
             <Input
-              id="url"
-              type="url"
-              placeholder="https://my-provider.example.com"
+              id='url'
+              type='url'
+              placeholder='https://my-provider.example.com'
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               required
             />
           </div>
 
-          <div className="space-y-2">
+          <div className='space-y-2'>
             <Label>Supported Mints</Label>
-            <div className="flex gap-2">
+            <div className='flex gap-2'>
               <Input
-                type="text"
-                placeholder="Add mint URL"
+                type='text'
+                placeholder='Add mint URL'
                 value={mintInput}
                 onChange={(e) => setMintInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="flex-1"
+                className='flex-1'
               />
               <Button
-                type="button"
-                variant="outline"
-                size="sm"
+                type='button'
+                variant='outline'
+                size='sm'
                 onClick={handleAddMint}
                 disabled={!mintInput.trim()}
               >
@@ -131,18 +140,22 @@ export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProvider
               </Button>
             </div>
             {mints.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className='mt-2 flex flex-wrap gap-2'>
                 {mints.map((mint) => (
-                  <Badge key={mint} variant="secondary" className="flex items-center gap-1">
+                  <Badge
+                    key={mint}
+                    variant='secondary'
+                    className='flex items-center gap-1'
+                  >
                     {mint}
                     <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0.5 hover:bg-transparent"
+                      type='button'
+                      variant='ghost'
+                      size='sm'
+                      className='h-auto p-0.5 hover:bg-transparent'
                       onClick={() => handleRemoveMint(mint)}
                     >
-                      <X className="h-3 w-3" />
+                      <X className='h-3 w-3' />
                     </Button>
                   </Badge>
                 ))}
@@ -150,29 +163,31 @@ export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProvider
             )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="use-onion">Use Onion Network</Label>
-              <p className="text-sm text-muted-foreground">
+          <div className='flex items-center justify-between'>
+            <div className='space-y-0.5'>
+              <Label htmlFor='use-onion'>Use Onion Network</Label>
+              <p className='text-muted-foreground text-sm'>
                 Enable if this provider supports Tor/onion routing
               </p>
             </div>
             <Switch
-              id="use-onion"
+              id='use-onion'
               checked={useOnion}
               onCheckedChange={setUseOnion}
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className='flex gap-3 pt-4'>
             <Button
-              type="submit"
-              disabled={!name.trim() || !url.trim() || createCustomProvider.isPending}
-              className="flex-1"
+              type='submit'
+              disabled={
+                !name.trim() || !url.trim() || createCustomProvider.isPending
+              }
+              className='flex-1'
             >
               {createCustomProvider.isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
                   Creating...
                 </>
               ) : (
@@ -181,8 +196,8 @@ export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProvider
             </Button>
             {onCancel && (
               <Button
-                type="button"
-                variant="outline"
+                type='button'
+                variant='outline'
                 onClick={onCancel}
                 disabled={createCustomProvider.isPending}
               >
@@ -194,4 +209,4 @@ export function AddCustomProviderForm({ onSuccess, onCancel }: AddCustomProvider
       </CardContent>
     </Card>
   );
-} 
+}
