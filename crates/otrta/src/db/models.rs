@@ -12,6 +12,43 @@ pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Err
                min_cost_per_request, provider, soft_deleted, model_type, 
                description, context_length, is_free, created_at, updated_at, last_seen_at
         FROM models
+        WHERE soft_deleted = false OR soft_deleted IS NULL
+        ORDER BY name ASC
+        "#
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|record| ModelRecord {
+        id: record.id,
+        provider_id: record.provider_id,
+        name: record.name,
+        input_cost: record.input_cost,
+        output_cost: record.output_cost,
+        min_cash_per_request: record.min_cash_per_request,
+        min_cost_per_request: record.min_cost_per_request,
+        provider: record.provider,
+        soft_deleted: record.soft_deleted.unwrap_or(false),
+        model_type: record.model_type,
+        description: record.description,
+        context_length: record.context_length,
+        is_free: record.is_free.unwrap_or(false),
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+        last_seen_at: record.last_seen_at,
+    })
+    .collect();
+
+    Ok(models)
+}
+
+pub async fn get_all_models_including_deleted(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Error> {
+    let models = sqlx::query!(
+        r#"
+        SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
+               min_cost_per_request, provider, soft_deleted, model_type, 
+               description, context_length, is_free, created_at, updated_at, last_seen_at
+        FROM models
         ORDER BY name ASC
         "#
     )
