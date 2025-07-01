@@ -42,7 +42,9 @@ pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Err
     Ok(models)
 }
 
-pub async fn get_all_models_including_deleted(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Error> {
+pub async fn get_all_models_including_deleted(
+    pool: &PgPool,
+) -> Result<Vec<ModelRecord>, sqlx::Error> {
     let models = sqlx::query!(
         r#"
         SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 

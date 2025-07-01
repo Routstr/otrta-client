@@ -9,8 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
-import { Copy, ZapIcon, UsersIcon, ShieldIcon, CheckIcon, RefreshCwIcon, Plus, AlertTriangle, Eye, Trash2, ChevronDown, ChevronUp, CoinsIcon, ExternalLinkIcon } from 'lucide-react';
-import { ProviderService } from '@/lib/api/services/providers';
+import { Copy, ShieldIcon, CheckIcon, Plus, AlertTriangle, Eye, Trash2, ChevronDown, ChevronUp, CoinsIcon, ExternalLinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { AddCustomProviderForm } from '@/components/add-custom-provider-form';
@@ -20,10 +19,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 
 export default function ProvidersPage() {
-  const { providers, isLoading, error, refetch } = useProviders();
+  const { providers, isLoading, error } = useProviders();
   const setDefaultProvider = useSetDefaultProvider();
   const deleteCustomProvider = useDeleteCustomProvider();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedMints, setExpandedMints] = useState<Set<number>>(new Set());
 
@@ -56,19 +54,7 @@ export default function ProvidersPage() {
     }
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      const response = await ProviderService.refreshProviders();
-      await refetch();
-      toast.success(response.message || 'Providers refreshed successfully');
-    } catch (error) {
-      console.error('Refresh failed:', error);
-      toast.error('Failed to refresh providers');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+
 
   if (error) {
     return (
@@ -117,15 +103,6 @@ export default function ProvidersPage() {
                   />
                 </DialogContent>
               </Dialog>
-              <Button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                variant='outline'
-                className='flex items-center gap-2'
-              >
-                <RefreshCwIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Refreshing...' : 'Refresh from Nostr'}
-              </Button>
             </div>
           </div>
 
@@ -238,23 +215,6 @@ export default function ProvidersPage() {
                   </CardHeader>
                   
                   <CardContent className='space-y-4'>
-                    <div className='grid grid-cols-2 gap-4'>
-                      <div className='flex items-center gap-2'>
-                        <UsersIcon className='h-4 w-4 text-muted-foreground' />
-                        <span className='text-sm font-medium'>
-                          {provider.followers.toLocaleString()}
-                        </span>
-                        <span className='text-xs text-muted-foreground'>followers</span>
-                      </div>
-                      <div className='flex items-center gap-2'>
-                        <ZapIcon className='h-4 w-4 text-yellow-500' />
-                        <span className='text-sm font-medium'>
-                          {provider.zaps.toLocaleString()}
-                        </span>
-                        <span className='text-xs text-muted-foreground'>zaps</span>
-                      </div>
-                    </div>
-
                     <div className='space-y-2'>
                       <div className='flex items-center justify-between'>
                         <div className='flex items-center gap-2'>

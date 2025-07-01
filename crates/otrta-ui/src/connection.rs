@@ -80,7 +80,10 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         );
         config_builder = config_builder.add_source(config::File::from(env_config_path));
     } else {
-        println!("Environment configuration file '{}' not found, using environment variables and defaults", environment_filename);
+        println!(
+            "Environment configuration file '{}' not found, using environment variables and defaults",
+            environment_filename
+        );
     }
 
     let settings = config_builder
