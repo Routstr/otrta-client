@@ -51,25 +51,10 @@ const data = {
       url: '/models',
       icon: DatabaseIcon,
     },
-    {
-      title: 'Settings',
-      url: '/settings',
-      icon: SettingsIcon,
-    },
     // {
-    //   title: 'Credit',
-    //   url: '/credits',
-    //   icon: FolderIcon,
-    // },
-    // {
-    //   title: 'Users',
-    //   url: '/users',
-    //   icon: UsersIcon,
-    // },
-    // {
-    //   title: 'Organizations',
-    //   url: '/organizations',
-    //   icon: FolderIcon,
+    //   title: 'Settings',
+    //   url: '/settings',
+    //   icon: SettingsIcon,
     // },
   ],
   documents: [],
