@@ -50,7 +50,7 @@ export default function Page() {
 
   const mints = mintsData?.mints || [];
   const activeMints = mints.filter((mint) => mint.is_active);
-  
+
   // Create a map of mint URL to balance info (including unit)
   const balanceMap = new Map(
     balanceData?.balances_by_mint.map((balance) => [
@@ -159,11 +159,15 @@ export default function Page() {
                 {activeMints.slice(0, 6).map((mint) => {
                   const balanceInfo = balanceMap.get(mint.mint_url);
                   const balance = balanceInfo?.balance || 0;
-                  const unit = balanceInfo?.unit || mint.currency_unit || 'Msat';
+                  const unit =
+                    balanceInfo?.unit || mint.currency_unit || 'Msat';
                   const mintUrl = new URL(mint.mint_url);
 
                   // Format balance with unit
-                  const formatBalanceWithUnit = (amount: number, unit: string) => {
+                  const formatBalanceWithUnit = (
+                    amount: number,
+                    unit: string
+                  ) => {
                     if (unit.toLowerCase() === 'msat') {
                       return `${amount.toLocaleString()} msat`;
                     } else if (unit.toLowerCase() === 'sat') {
@@ -266,13 +270,8 @@ export default function Page() {
             <TabsContent value='dashboard' className='mt-0'>
               <div className='space-y-6'>
                 <DefaultProviderCard />
-                <div className='grid gap-6 md:grid-cols-3'>
-                  <div className='col-span-full md:col-span-1'>
-                    <WalletBalance refreshInterval={5000} />
-                  </div>
-                  <div className='col-span-full md:col-span-2'>
-                    <EcashRedeem />
-                  </div>
+                <div className='col-span-full md:col-span-2'>
+                  <EcashRedeem />
                 </div>
               </div>
             </TabsContent>
