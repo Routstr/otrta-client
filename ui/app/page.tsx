@@ -26,7 +26,6 @@ import {
   Wallet,
   Plus,
   ExternalLink,
-  Activity,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
@@ -51,10 +50,12 @@ export default function Page() {
 
   const mints = mintsData?.mints || [];
   const activeMints = mints.filter((mint) => mint.is_active);
+  
+  // Create a map of mint URL to balance info (including unit)
   const balanceMap = new Map(
     balanceData?.balances_by_mint.map((balance) => [
       balance.mint_url,
-      balance.balance,
+      balance,
     ]) || []
   );
 
@@ -154,107 +155,88 @@ export default function Page() {
                 </CardContent>
               </Card>
             ) : (
-              <>
-                {/* Mint Summary */}
-                <div className='mb-6 grid gap-4 md:grid-cols-3'>
-                  <Card>
-                    <CardContent className='flex items-center p-6'>
-                      <Activity className='mr-3 h-8 w-8 text-blue-600' />
-                      <div>
-                        <p className='text-muted-foreground text-sm'>
-                          Total Mints
-                        </p>
-                        <p className='text-2xl font-bold'>{mints.length}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className='flex items-center p-6'>
-                      <Wallet className='mr-3 h-8 w-8 text-green-600' />
-                      <div>
-                        <p className='text-muted-foreground text-sm'>
-                          Active Mints
-                        </p>
-                        <p className='text-2xl font-bold'>
-                          {activeMints.length}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+              <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+                {activeMints.slice(0, 6).map((mint) => {
+                  const balanceInfo = balanceMap.get(mint.mint_url);
+                  const balance = balanceInfo?.balance || 0;
+                  const unit = balanceInfo?.unit || mint.currency_unit || 'Msat';
+                  const mintUrl = new URL(mint.mint_url);
 
-                {/* Individual Mint Cards */}
-                <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-                  {activeMints.slice(0, 6).map((mint) => {
-                    const balance = balanceMap.get(mint.mint_url) || 0;
-                    const mintUrl = new URL(mint.mint_url);
+                  // Format balance with unit
+                  const formatBalanceWithUnit = (amount: number, unit: string) => {
+                    if (unit.toLowerCase() === 'msat') {
+                      return `${amount.toLocaleString()} msat`;
+                    } else if (unit.toLowerCase() === 'sat') {
+                      return `${amount.toLocaleString()} sats`;
+                    }
+                    return `${amount.toLocaleString()} ${unit}`;
+                  };
 
-                    return (
-                      <Card
-                        key={mint.id}
-                        className='transition-shadow hover:shadow-md'
-                      >
-                        <CardHeader className='pb-3'>
-                          <div className='flex items-start justify-between'>
-                            <div className='min-w-0 flex-1'>
-                              <CardTitle className='truncate text-sm font-medium'>
-                                {mint.name || mintUrl.hostname}
-                              </CardTitle>
-                              <CardDescription className='truncate text-xs'>
-                                {mintUrl.hostname}
-                              </CardDescription>
-                            </div>
-                            <Badge
-                              variant='secondary'
-                              className='ml-2 bg-green-100 text-green-800'
+                  return (
+                    <Card
+                      key={mint.id}
+                      className='transition-shadow hover:shadow-md'
+                    >
+                      <CardHeader className='pb-3'>
+                        <div className='flex items-start justify-between'>
+                          <div className='min-w-0 flex-1'>
+                            <CardTitle className='truncate text-sm font-medium'>
+                              {mint.name || mintUrl.hostname}
+                            </CardTitle>
+                            <CardDescription className='truncate text-xs'>
+                              {mintUrl.hostname}
+                            </CardDescription>
+                          </div>
+                          <Badge
+                            variant='secondary'
+                            className='ml-2 bg-green-100 text-green-800'
+                          >
+                            Active
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className='pt-0'>
+                        <div className='flex items-center justify-between'>
+                          <div>
+                            <p className='text-lg font-semibold'>
+                              {formatBalanceWithUnit(balance, unit)}
+                            </p>
+                            <p className='text-muted-foreground text-xs'>
+                              Balance
+                            </p>
+                          </div>
+                          <Button variant='ghost' size='sm' asChild>
+                            <a
+                              href={mint.mint_url}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='p-2'
                             >
-                              Active
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className='pt-0'>
-                          <div className='flex items-center justify-between'>
-                            <div>
-                              <p className='text-lg font-semibold'>
-                                {MultimintService.formatBalance(balance)}
-                              </p>
-                              <p className='text-muted-foreground text-xs'>
-                                Balance
-                              </p>
-                            </div>
-                            <Button variant='ghost' size='sm' asChild>
-                              <a
-                                href={mint.mint_url}
-                                target='_blank'
-                                rel='noopener noreferrer'
-                                className='p-2'
-                              >
-                                <ExternalLink className='h-4 w-4' />
-                              </a>
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-
-                  {/* Show more link if there are more than 6 mints */}
-                  {mints.length > 6 && (
-                    <Card className='border-dashed transition-shadow hover:shadow-md'>
-                      <CardContent className='flex flex-col items-center justify-center space-y-2 py-8'>
-                        <Plus className='text-muted-foreground h-8 w-8' />
-                        <p className='text-muted-foreground text-center text-sm'>
-                          {mints.length - 6} more mint
-                          {mints.length - 6 !== 1 ? 's' : ''}
-                        </p>
-                        <Button variant='ghost' size='sm' asChild>
-                          <Link href='/mints'>View All</Link>
-                        </Button>
+                              <ExternalLink className='h-4 w-4' />
+                            </a>
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
-                  )}
-                </div>
-              </>
+                  );
+                })}
+
+                {/* Show more link if there are more than 6 mints */}
+                {mints.length > 6 && (
+                  <Card className='border-dashed transition-shadow hover:shadow-md'>
+                    <CardContent className='flex flex-col items-center justify-center space-y-2 py-8'>
+                      <Plus className='text-muted-foreground h-8 w-8' />
+                      <p className='text-muted-foreground text-center text-sm'>
+                        {mints.length - 6} more mint
+                        {mints.length - 6 !== 1 ? 's' : ''}
+                      </p>
+                      <Button variant='ghost' size='sm' asChild>
+                        <Link href='/mints'>View All</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
           </div>
 

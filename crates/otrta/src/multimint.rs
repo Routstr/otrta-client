@@ -39,6 +39,7 @@ struct MintWalletInfo {
     pub wallet: CashuWalletClient,
     pub active: bool,
     pub mint_url: String,
+    pub unit: CurrencyUnit,
 }
 
 pub struct MultimintWallet {
@@ -75,6 +76,7 @@ impl MultimintWallet {
             wallet: wallet_clone,
             active: true,
             mint_url: mint_url.to_string(),
+            unit: CurrencyUnit::Msat, // Default unit for existing wallets
         };
 
         multimint
@@ -96,13 +98,19 @@ impl MultimintWallet {
             mint_url.replace(['/', ':'], "_")
         );
 
-        let wallet =
-            CashuWalletClient::from_seed_with_unit(mint_url, &self.seed, &db_path, convert_currency_unit(unit)).await?;
+        let wallet = CashuWalletClient::from_seed_with_unit(
+            mint_url,
+            &self.seed,
+            &db_path,
+            convert_currency_unit(unit.clone()),
+        )
+        .await?;
 
         let info = MintWalletInfo {
             wallet,
             active: true,
             mint_url: mint_url.to_string(),
+            unit,
         };
 
         self.wallets
@@ -157,7 +165,7 @@ impl MultimintWallet {
             balances_by_mint.push(MintBalance {
                 mint_url: mint_url.clone(),
                 balance,
-                unit: CurrencyUnit::Sat,
+                unit: info.unit.clone(),
                 proof_count: 0,
             });
         }

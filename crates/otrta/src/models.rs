@@ -1,5 +1,5 @@
-use crate::multimint::MultimintWallet;
 use crate::db::mint::CurrencyUnit;
+use crate::multimint::MultimintWallet;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
