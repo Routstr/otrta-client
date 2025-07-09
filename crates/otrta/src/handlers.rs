@@ -72,7 +72,7 @@ pub async fn refresh_models_from_proxy(
     };
 
     let client = reqwest::Client::new();
-    let endpoint_url = format!("{}/proxy/models", &server_config.url);
+    let endpoint_url = format!("{}/v1/models", &server_config.url);
 
     let proxy_models_response = match client
         .get(&endpoint_url)
@@ -106,7 +106,7 @@ pub async fn refresh_models_from_proxy(
         ));
     }
 
-    let proxy_models: Vec<ProxyModelFromApi> = match proxy_models_response.json().await {
+    let proxy_models_data: ModelListResponse = match proxy_models_response.json().await {
         Ok(models) => models,
         Err(e) => {
             return Err((
@@ -121,6 +121,7 @@ pub async fn refresh_models_from_proxy(
         }
     };
 
+    println!("{:?}", proxy_models_data);
     // Delete all existing models first
     let deleted_count = match delete_all_models(&state.db).await {
         Ok(count) => count,
@@ -141,8 +142,8 @@ pub async fn refresh_models_from_proxy(
     let mut models_added = 0;
 
     // Insert all new models
-    for proxy_model in &proxy_models {
-        match upsert_model(&state.db, proxy_model).await {
+    for proxy_model in &proxy_models_data.data {
+        match upsert_model(&state.db, &proxy_model).await {
             Ok(_) => {
                 models_added += 1;
             }

@@ -10,7 +10,11 @@ pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Err
         r#"
         SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
                min_cost_per_request, provider, soft_deleted, model_type, 
-               description, context_length, is_free, created_at, updated_at, last_seen_at
+               description, context_length, is_free, created_at, updated_at, last_seen_at,
+               modality, input_modalities, output_modalities, tokenizer, instruct_type,
+               created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,
+               web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
+               is_moderated
         FROM models
         WHERE soft_deleted = false OR soft_deleted IS NULL
         ORDER BY name ASC
@@ -36,6 +40,21 @@ pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Err
         created_at: record.created_at,
         updated_at: record.updated_at,
         last_seen_at: record.last_seen_at,
+        modality: record.modality,
+        input_modalities: record.input_modalities,
+        output_modalities: record.output_modalities,
+        tokenizer: record.tokenizer,
+        instruct_type: record.instruct_type,
+        created_timestamp: record.created_timestamp,
+        prompt_cost: record.prompt_cost,
+        completion_cost: record.completion_cost,
+        request_cost: record.request_cost,
+        image_cost: record.image_cost,
+        web_search_cost: record.web_search_cost,
+        internal_reasoning_cost: record.internal_reasoning_cost,
+        max_cost: record.max_cost,
+        max_completion_tokens: record.max_completion_tokens,
+        is_moderated: record.is_moderated,
     })
     .collect();
 
@@ -49,7 +68,11 @@ pub async fn get_all_models_including_deleted(
         r#"
         SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
                min_cost_per_request, provider, soft_deleted, model_type, 
-               description, context_length, is_free, created_at, updated_at, last_seen_at
+               description, context_length, is_free, created_at, updated_at, last_seen_at,
+               modality, input_modalities, output_modalities, tokenizer, instruct_type,
+               created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,
+               web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
+               is_moderated
         FROM models
         ORDER BY name ASC
         "#
@@ -74,6 +97,21 @@ pub async fn get_all_models_including_deleted(
         created_at: record.created_at,
         updated_at: record.updated_at,
         last_seen_at: record.last_seen_at,
+        modality: record.modality,
+        input_modalities: record.input_modalities,
+        output_modalities: record.output_modalities,
+        tokenizer: record.tokenizer,
+        instruct_type: record.instruct_type,
+        created_timestamp: record.created_timestamp,
+        prompt_cost: record.prompt_cost,
+        completion_cost: record.completion_cost,
+        request_cost: record.request_cost,
+        image_cost: record.image_cost,
+        web_search_cost: record.web_search_cost,
+        internal_reasoning_cost: record.internal_reasoning_cost,
+        max_cost: record.max_cost,
+        max_completion_tokens: record.max_completion_tokens,
+        is_moderated: record.is_moderated,
     })
     .collect();
 
@@ -88,7 +126,11 @@ pub async fn get_model(
         r#"
         SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
                min_cost_per_request, provider, soft_deleted, model_type, 
-               description, context_length, is_free, created_at, updated_at, last_seen_at
+               description, context_length, is_free, created_at, updated_at, last_seen_at,
+               modality, input_modalities, output_modalities, tokenizer, instruct_type,
+               created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,
+               web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
+               is_moderated
         FROM models
         WHERE name = $1
         "#,
@@ -114,6 +156,21 @@ pub async fn get_model(
         created_at: r.created_at,
         updated_at: r.updated_at,
         last_seen_at: r.last_seen_at,
+        modality: r.modality,
+        input_modalities: r.input_modalities,
+        output_modalities: r.output_modalities,
+        tokenizer: r.tokenizer,
+        instruct_type: r.instruct_type,
+        created_timestamp: r.created_timestamp,
+        prompt_cost: r.prompt_cost,
+        completion_cost: r.completion_cost,
+        request_cost: r.request_cost,
+        image_cost: r.image_cost,
+        web_search_cost: r.web_search_cost,
+        internal_reasoning_cost: r.internal_reasoning_cost,
+        max_cost: r.max_cost,
+        max_completion_tokens: r.max_completion_tokens,
+        is_moderated: r.is_moderated,
     }))
 }
 
@@ -133,20 +190,24 @@ pub async fn upsert_model(
     pool: &PgPool,
     model: &ProxyModelFromApi,
 ) -> Result<ModelRecord, sqlx::Error> {
-    // Store the model data directly as received from API (already in msat)
-    let input_cost = model.input_cost.unwrap_or(0.0) as i64;
-    let output_cost = model.output_cost.unwrap_or(0.0) as i64;
-    let min_cash_per_request = model.min_cash_per_request.unwrap_or(0.0) as i64;
-    let min_cost_per_request = model.min_cost_per_request.map(|cost| cost as i64);
-
     let provider = get_default_provider(&pool).await.unwrap().unwrap();
+    let model_record = model.to_model_record(provider.id);
 
     let record = sqlx::query!(
         r#"
-        INSERT INTO models (name, provider_id, input_cost, output_cost, min_cash_per_request, 
-                           min_cost_per_request, provider, soft_deleted, model_type, 
-                           description, context_length, is_free, created_at, updated_at, last_seen_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW(), NOW())
+        INSERT INTO models (
+            name, provider_id, input_cost, output_cost, min_cash_per_request, 
+            min_cost_per_request, provider, soft_deleted, model_type, 
+            description, context_length, is_free, created_at, updated_at, last_seen_at,
+            modality, input_modalities, output_modalities, tokenizer, instruct_type,
+            created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,
+            web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
+            is_moderated
+        )
+        VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW(), NOW(),
+            $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+        )
         ON CONFLICT (name) DO UPDATE SET
             provider_id = EXCLUDED.provider_id,
             input_cost = EXCLUDED.input_cost,
@@ -160,23 +221,57 @@ pub async fn upsert_model(
             context_length = EXCLUDED.context_length,
             is_free = EXCLUDED.is_free,
             updated_at = NOW(),
-            last_seen_at = NOW()
+            last_seen_at = NOW(),
+            modality = EXCLUDED.modality,
+            input_modalities = EXCLUDED.input_modalities,
+            output_modalities = EXCLUDED.output_modalities,
+            tokenizer = EXCLUDED.tokenizer,
+            instruct_type = EXCLUDED.instruct_type,
+            created_timestamp = EXCLUDED.created_timestamp,
+            prompt_cost = EXCLUDED.prompt_cost,
+            completion_cost = EXCLUDED.completion_cost,
+            request_cost = EXCLUDED.request_cost,
+            image_cost = EXCLUDED.image_cost,
+            web_search_cost = EXCLUDED.web_search_cost,
+            internal_reasoning_cost = EXCLUDED.internal_reasoning_cost,
+            max_cost = EXCLUDED.max_cost,
+            max_completion_tokens = EXCLUDED.max_completion_tokens,
+            is_moderated = EXCLUDED.is_moderated
         RETURNING id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
                   min_cost_per_request, provider, soft_deleted, model_type, 
-                  description, context_length, is_free, created_at, updated_at, last_seen_at
+                  description, context_length, is_free, created_at, updated_at, last_seen_at,
+                  modality, input_modalities, output_modalities, tokenizer, instruct_type,
+                  created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,
+                  web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
+                  is_moderated
         "#,
-        model.name,
-        provider.id,
-        input_cost,
-        output_cost,
-        min_cash_per_request,
-        min_cost_per_request,
-        model.provider,
-        model.soft_deleted.unwrap_or(false),
-        model.model_type,
-        model.description,
-        model.context_length,
-        model.is_free.unwrap_or(false),
+        model_record.name,
+        model_record.provider_id,
+        model_record.input_cost,
+        model_record.output_cost,
+        model_record.min_cash_per_request,
+        model_record.min_cost_per_request,
+        model_record.provider,
+        model_record.soft_deleted,
+        model_record.model_type,
+        model_record.description,
+        model_record.context_length,
+        model_record.is_free,
+        model_record.modality,
+        model_record.input_modalities.as_deref(),
+        model_record.output_modalities.as_deref(),
+        model_record.tokenizer,
+        model_record.instruct_type,
+        model_record.created_timestamp,
+        model_record.prompt_cost,
+        model_record.completion_cost,
+        model_record.request_cost,
+        model_record.image_cost,
+        model_record.web_search_cost,
+        model_record.internal_reasoning_cost,
+        model_record.max_cost,
+        model_record.max_completion_tokens,
+        model_record.is_moderated,
     )
     .fetch_one(pool)
     .await?;
@@ -198,6 +293,21 @@ pub async fn upsert_model(
         created_at: record.created_at,
         updated_at: record.updated_at,
         last_seen_at: record.last_seen_at,
+        modality: record.modality,
+        input_modalities: record.input_modalities,
+        output_modalities: record.output_modalities,
+        tokenizer: record.tokenizer,
+        instruct_type: record.instruct_type,
+        created_timestamp: record.created_timestamp,
+        prompt_cost: record.prompt_cost,
+        completion_cost: record.completion_cost,
+        request_cost: record.request_cost,
+        image_cost: record.image_cost,
+        web_search_cost: record.web_search_cost,
+        internal_reasoning_cost: record.internal_reasoning_cost,
+        max_cost: record.max_cost,
+        max_completion_tokens: record.max_completion_tokens,
+        is_moderated: record.is_moderated,
     })
 }
 
