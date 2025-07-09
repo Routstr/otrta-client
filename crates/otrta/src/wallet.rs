@@ -3,7 +3,7 @@ use crate::{
         transaction::{add_transaction, TransactionDirection},
         Pool,
     },
-    multimint::{MultimintWallet, MultimintSendOptions},
+    multimint::{MultimintSendOptions, MultimintWallet},
 };
 
 #[derive(Debug)]
@@ -21,7 +21,10 @@ pub async fn send_with_retry(
     } else {
         3
     } {
-        if let Ok(token_result) = wallet.send(amount as u64, MultimintSendOptions::default()).await {
+        if let Ok(token_result) = wallet
+            .send(amount as u64, MultimintSendOptions::default())
+            .await
+        {
             return Ok(token_result);
         }
     }

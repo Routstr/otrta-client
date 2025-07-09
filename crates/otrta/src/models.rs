@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use crate::multimint::MultimintWallet;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -298,8 +298,8 @@ pub struct TransferBetweenMintsResponse {
 #[derive(Deserialize)]
 pub struct TopupMintRequest {
     pub mint_url: String,
-    pub method: String, // "lightning" or "ecash"
-    pub amount: Option<u64>, // For lightning
+    pub method: String,        // "lightning" or "ecash"
+    pub amount: Option<u64>,   // For lightning
     pub token: Option<String>, // For ecash
 }
 

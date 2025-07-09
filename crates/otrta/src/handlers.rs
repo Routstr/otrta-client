@@ -2,9 +2,9 @@ use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
         mint::{
-            get_all_mints, get_active_mints, get_mint_by_id, create_mint, 
-            update_mint, delete_mint, set_mint_active_status, Mint,
-            MintListResponse, CreateMintRequest, UpdateMintRequest
+            create_mint, delete_mint, get_active_mints, get_all_mints, get_mint_by_id,
+            set_mint_active_status, update_mint, CreateMintRequest, Mint, MintListResponse,
+            UpdateMintRequest,
         },
         models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
         provider::{
@@ -274,7 +274,14 @@ pub async fn send_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match state.wallet.send(payload.amount as u64, crate::multimint::MultimintSendOptions::default()).await {
+    match state
+        .wallet
+        .send(
+            payload.amount as u64,
+            crate::multimint::MultimintSendOptions::default(),
+        )
+        .await
+    {
         Ok(response) => Ok(Json(SendTokenResponse {
             token: response,
             success: true,
@@ -758,8 +765,11 @@ pub async fn set_mint_active_handler(
     Path(id): Path<i32>,
     Json(request): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let is_active = request.get("is_active").and_then(|v| v.as_bool()).unwrap_or(true);
-    
+    let is_active = request
+        .get("is_active")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
     match set_mint_active_status(&state.db, id, is_active).await {
         Ok(updated) => {
             if updated {
@@ -800,17 +810,16 @@ pub async fn set_mint_active_handler(
 pub async fn get_multimint_balance_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<MultimintBalanceResponse>, (StatusCode, Json<serde_json::Value>)> {
-    // TODO: Implement with MultimintWallet integration
-    // For now, return a placeholder that uses the current single wallet
-    let balance = match state.wallet.balance().await {
+    // Get complete multimint balance information
+    let multimint_balance = match state.wallet.get_total_balance().await {
         Ok(balance) => balance,
         Err(e) => {
-            eprintln!("Failed to get wallet balance: {:?}", e);
+            eprintln!("Failed to get multimint balance: {:?}", e);
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
                     "error": {
-                        "message": "Failed to get wallet balance",
+                        "message": "Failed to get multimint balance",
                         "type": "wallet_error"
                     }
                 })),
@@ -818,18 +827,21 @@ pub async fn get_multimint_balance_handler(
         }
     };
 
-    // Parse balance string to u64
-    let balance_amount = balance.parse::<u64>().unwrap_or(0);
+    // Convert from multimint::MintBalance to models::MintBalance
+    let balances_by_mint = multimint_balance
+        .balances_by_mint
+        .into_iter()
+        .map(|mb| MintBalance {
+            mint_url: mb.mint_url,
+            balance: mb.balance,
+            unit: mb.unit,
+            proof_count: mb.proof_count,
+        })
+        .collect();
 
-    // Create a mock response using current wallet balance
     let response = MultimintBalanceResponse {
-        total_balance: balance_amount,
-        balances_by_mint: vec![MintBalance {
-            mint_url: "default-mint".to_string(),
-            balance: balance_amount,
-            unit: "Msat".to_string(),
-            proof_count: 0, // TODO: Get actual proof count
-        }],
+        total_balance: multimint_balance.total_balance,
+        balances_by_mint,
     };
 
     Ok(Json(response))
@@ -839,21 +851,26 @@ pub async fn send_multimint_token_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<MultimintSendTokenRequest>,
 ) -> Result<Json<MultimintSendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    // TODO: Implement with MultimintWallet integration
-    // For now, use the existing single wallet send functionality
-    match state.wallet.send(payload.amount, crate::multimint::MultimintSendOptions::default()).await {
+    // Create send options from the request payload
+    let send_options = crate::multimint::MultimintSendOptions {
+        preferred_mint: payload.preferred_mint,
+        unit: payload.unit,
+        split_across_mints: payload.split_across_mints.unwrap_or(false),
+    };
+
+    match state.wallet.send(payload.amount, send_options).await {
         Ok(token) => Ok(Json(MultimintSendTokenResponse {
             tokens: token,
             success: true,
-            message: None,
+            message: Some("Token generated successfully".to_string()),
         })),
         Err(e) => {
-            eprintln!("Failed to send token: {:?}", e);
+            eprintln!("Failed to send multimint token: {:?}", e);
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
                     "error": {
-                        "message": "Failed to send token",
+                        "message": format!("Failed to send token: {}", e),
                         "type": "wallet_error"
                     }
                 })),
@@ -863,20 +880,34 @@ pub async fn send_multimint_token_handler(
 }
 
 pub async fn transfer_between_mints_handler(
-    State(_state): State<Arc<AppState>>,
-    Json(_payload): Json<TransferBetweenMintsRequest>,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<TransferBetweenMintsRequest>,
 ) -> Result<Json<TransferBetweenMintsResponse>, (StatusCode, Json<serde_json::Value>)> {
-    // TODO: Implement with MultimintWallet integration
-    // For now, return a not implemented error
-    Err((
-        StatusCode::NOT_IMPLEMENTED,
-        Json(json!({
-            "error": {
-                "message": "Transfer between mints not yet implemented",
-                "type": "not_implemented"
-            }
+    match state
+        .wallet
+        .transfer_between_mints(&payload.from_mint, &payload.to_mint, payload.amount)
+        .await
+    {
+        Ok(_) => Ok(Json(TransferBetweenMintsResponse {
+            success: true,
+            message: format!(
+                "Successfully transferred {} msats from {} to {}",
+                payload.amount, payload.from_mint, payload.to_mint
+            ),
         })),
-    ))
+        Err(e) => {
+            eprintln!("Failed to transfer between mints: {:?}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": format!("Failed to transfer between mints: {}", e),
+                        "type": "transfer_error"
+                    }
+                })),
+            ))
+        }
+    }
 }
 
 pub async fn topup_mint_handler(
@@ -886,11 +917,14 @@ pub async fn topup_mint_handler(
     match payload.method.as_str() {
         "ecash" => {
             if let Some(token) = payload.token {
-                // Use existing redeem functionality
+                // Use MultimintWallet receive functionality
                 match state.wallet.receive(&token).await {
-                    Ok(_) => Ok(Json(TopupMintResponse {
+                    Ok(amount) => Ok(Json(TopupMintResponse {
                         success: true,
-                        message: "Successfully topped up mint with ecash token".to_string(),
+                        message: format!(
+                            "Successfully topped up mint {} with {} msats from ecash token",
+                            payload.mint_url, amount
+                        ),
                         invoice: None,
                     })),
                     Err(e) => {
@@ -899,7 +933,7 @@ pub async fn topup_mint_handler(
                             StatusCode::BAD_REQUEST,
                             Json(json!({
                                 "error": {
-                                    "message": "Failed to redeem ecash token",
+                                    "message": format!("Failed to redeem ecash token: {}", e),
                                     "type": "redeem_error"
                                 }
                             })),

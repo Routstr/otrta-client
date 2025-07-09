@@ -47,10 +47,11 @@ pub async fn forward_any_request(
                         "type": "request_error"
                     }
                 })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
-    
+
     let body_data: serde_json::Value = if body_bytes.is_empty() {
         serde_json::json!({})
     } else {
@@ -65,11 +66,12 @@ pub async fn forward_any_request(
                             "type": "parse_error"
                         }
                     })),
-                ).into_response();
+                )
+                    .into_response();
             }
         }
     };
-    
+
     forward_request_with_payment_with_body(headers, &state, &path, Some(body_data), false)
         .await
         .into_response()
