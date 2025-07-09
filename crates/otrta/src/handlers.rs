@@ -917,27 +917,112 @@ pub async fn topup_mint_handler(
     match payload.method.as_str() {
         "ecash" => {
             if let Some(token) = payload.token {
-                // Use MultimintWallet receive functionality
-                match state.wallet.receive(&token).await {
-                    Ok(amount) => Ok(Json(TopupMintResponse {
-                        success: true,
-                        message: format!(
-                            "Successfully topped up mint {} with {} msats from ecash token",
-                            payload.mint_url, amount
-                        ),
-                        invoice: None,
-                    })),
-                    Err(e) => {
-                        eprintln!("Failed to redeem ecash token: {:?}", e);
-                        Err((
-                            StatusCode::BAD_REQUEST,
+                // Check if mint exists in database first
+                let mint_exists_in_db =
+                    match crate::db::mint::get_mint_by_url(&state.db, &payload.mint_url).await {
+                        Ok(mint_option) => mint_option.is_some(),
+                        Err(e) => {
+                            eprintln!("Failed to check if mint exists in database: {:?}", e);
+                            false
+                        }
+                    };
+
+                // Add to database if not exists
+                if !mint_exists_in_db {
+                    let create_request = crate::db::mint::CreateMintRequest {
+                        mint_url: payload.mint_url.clone(),
+                        currency_unit: Some("Msat".to_string()),
+                        name: None, // Will use default name based on URL
+                    };
+
+                    if let Err(e) = crate::db::mint::create_mint(&state.db, create_request).await {
+                        // Check if it's a duplicate constraint error (race condition)
+                        if !e
+                            .to_string()
+                            .contains("duplicate key value violates unique constraint")
+                        {
+                            eprintln!(
+                                "Failed to save mint to database {}: {:?}",
+                                payload.mint_url, e
+                            );
+                            // Don't fail the operation if database save fails, just log it
+                        }
+                    }
+                }
+
+                // Check if mint exists in MultimintWallet
+                let mint_exists_in_wallet = {
+                    let mints = state.wallet.list_mints().await;
+                    mints.contains(&payload.mint_url)
+                };
+
+                // Add to MultimintWallet if not exists
+                if !mint_exists_in_wallet {
+                    if let Err(e) = state
+                        .wallet
+                        .add_mint(&payload.mint_url, Some("Msat".to_string()))
+                        .await
+                    {
+                        eprintln!("Failed to add mint to wallet {}: {:?}", payload.mint_url, e);
+                        return Err((
+                            StatusCode::INTERNAL_SERVER_ERROR,
                             Json(json!({
                                 "error": {
-                                    "message": format!("Failed to redeem ecash token: {}", e),
-                                    "type": "redeem_error"
+                                    "message": format!("Failed to add mint to wallet {}: {}", payload.mint_url, e),
+                                    "type": "mint_add_error"
                                 }
                             })),
-                        ))
+                        ));
+                    }
+                }
+
+                // Try to get the specific wallet for this mint and receive the token
+                if let Some(wallet) = state.wallet.get_wallet_for_mint(&payload.mint_url).await {
+                    match wallet.receive(&token).await {
+                        Ok(amount) => Ok(Json(TopupMintResponse {
+                            success: true,
+                            message: format!(
+                                "Successfully topped up mint {} with {} msats from ecash token",
+                                payload.mint_url, amount
+                            ),
+                            invoice: None,
+                        })),
+                        Err(e) => {
+                            eprintln!("Failed to redeem ecash token with specific mint: {:?}", e);
+                            Err((
+                                StatusCode::BAD_REQUEST,
+                                Json(json!({
+                                    "error": {
+                                        "message": format!("Failed to redeem ecash token: {}", e),
+                                        "type": "redeem_error"
+                                    }
+                                })),
+                            ))
+                        }
+                    }
+                } else {
+                    // Fall back to generic receive if we can't get the specific wallet
+                    match state.wallet.receive(&token).await {
+                        Ok(amount) => Ok(Json(TopupMintResponse {
+                            success: true,
+                            message: format!(
+                                "Successfully topped up with {} msats from ecash token",
+                                amount
+                            ),
+                            invoice: None,
+                        })),
+                        Err(e) => {
+                            eprintln!("Failed to redeem ecash token: {:?}", e);
+                            Err((
+                                StatusCode::BAD_REQUEST,
+                                Json(json!({
+                                    "error": {
+                                        "message": format!("Failed to redeem ecash token: {}. Please ensure the token is from the correct mint ({})", e, payload.mint_url),
+                                        "type": "redeem_error"
+                                    }
+                                })),
+                            ))
+                        }
                     }
                 }
             } else {
