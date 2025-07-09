@@ -1,6 +1,11 @@
 use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
+        mint::{
+            get_all_mints, get_active_mints, get_mint_by_id, create_mint, 
+            update_mint, delete_mint, set_mint_active_status, Mint,
+            MintListResponse, CreateMintRequest, UpdateMintRequest
+        },
         models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
         provider::{
             create_custom_provider, delete_custom_provider, get_all_providers,
@@ -269,7 +274,7 @@ pub async fn send_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match state.wallet.send(payload.amount as u64).await {
+    match state.wallet.send(payload.amount as u64, crate::multimint::MultimintSendOptions::default()).await {
         Ok(response) => Ok(Json(SendTokenResponse {
             token: response,
             success: true,
@@ -537,5 +542,402 @@ pub async fn get_default_provider_handler(
                 })),
             ))
         }
+    }
+}
+
+// Mint management handlers
+
+pub async fn get_all_mints_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<MintListResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match get_all_mints(&state.db).await {
+        Ok(mints) => {
+            let total = mints.len() as i32;
+            Ok(Json(MintListResponse { mints, total }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get mints: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve mints",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn get_active_mints_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<MintListResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match get_active_mints(&state.db).await {
+        Ok(mints) => {
+            let total = mints.len() as i32;
+            Ok(Json(MintListResponse { mints, total }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get active mints: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve active mints",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn get_mint_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<Mint>, (StatusCode, Json<serde_json::Value>)> {
+    match get_mint_by_id(&state.db, id).await {
+        Ok(Some(mint)) => Ok(Json(mint)),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "Mint not found",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Failed to get mint {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve mint",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn create_mint_handler(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<CreateMintRequest>,
+) -> Result<Json<Mint>, (StatusCode, Json<serde_json::Value>)> {
+    // Validate the request
+    if request.mint_url.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "Mint URL cannot be empty",
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    if !request.mint_url.starts_with("http") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "Mint URL must be a valid HTTP(S) URL",
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    match create_mint(&state.db, request).await {
+        Ok(mint) => Ok(Json(mint)),
+        Err(e) => {
+            eprintln!("Failed to create mint: {}", e);
+            // Check if it's a unique constraint violation
+            if e.to_string()
+                .contains("duplicate key value violates unique constraint")
+            {
+                Err((
+                    StatusCode::CONFLICT,
+                    Json(json!({
+                        "error": {
+                            "message": "A mint with this URL already exists",
+                            "type": "duplicate_error"
+                        }
+                    })),
+                ))
+            } else {
+                Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {
+                            "message": "Failed to create mint",
+                            "type": "database_error"
+                        }
+                    })),
+                ))
+            }
+        }
+    }
+}
+
+pub async fn update_mint_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+    Json(request): Json<UpdateMintRequest>,
+) -> Result<Json<Mint>, (StatusCode, Json<serde_json::Value>)> {
+    match update_mint(&state.db, id, request).await {
+        Ok(Some(mint)) => Ok(Json(mint)),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "Mint not found",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Failed to update mint {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to update mint",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn delete_mint_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match delete_mint(&state.db, id).await {
+        Ok(deleted) => {
+            if deleted {
+                Ok(Json(json!({
+                    "success": true,
+                    "message": "Mint deleted successfully"
+                })))
+            } else {
+                Err((
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": "Mint not found",
+                            "type": "not_found"
+                        }
+                    })),
+                ))
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to delete mint {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to delete mint",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn set_mint_active_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+    Json(request): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let is_active = request.get("is_active").and_then(|v| v.as_bool()).unwrap_or(true);
+    
+    match set_mint_active_status(&state.db, id, is_active).await {
+        Ok(updated) => {
+            if updated {
+                Ok(Json(json!({
+                    "success": true,
+                    "message": format!("Mint {} successfully", if is_active { "activated" } else { "deactivated" })
+                })))
+            } else {
+                Err((
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": "Mint not found",
+                            "type": "not_found"
+                        }
+                    })),
+                ))
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to update mint active status {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to update mint status",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+// TODO: Multimint wallet handlers will be added in the next step
+// These will require integrating with the MultimintWallet from the MULTIMINT_USAGE.md
+
+pub async fn get_multimint_balance_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<MultimintBalanceResponse>, (StatusCode, Json<serde_json::Value>)> {
+    // TODO: Implement with MultimintWallet integration
+    // For now, return a placeholder that uses the current single wallet
+    let balance = match state.wallet.balance().await {
+        Ok(balance) => balance,
+        Err(e) => {
+            eprintln!("Failed to get wallet balance: {:?}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to get wallet balance",
+                        "type": "wallet_error"
+                    }
+                })),
+            ));
+        }
+    };
+
+    // Parse balance string to u64
+    let balance_amount = balance.parse::<u64>().unwrap_or(0);
+
+    // Create a mock response using current wallet balance
+    let response = MultimintBalanceResponse {
+        total_balance: balance_amount,
+        balances_by_mint: vec![MintBalance {
+            mint_url: "default-mint".to_string(),
+            balance: balance_amount,
+            unit: "Msat".to_string(),
+            proof_count: 0, // TODO: Get actual proof count
+        }],
+    };
+
+    Ok(Json(response))
+}
+
+pub async fn send_multimint_token_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<MultimintSendTokenRequest>,
+) -> Result<Json<MultimintSendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
+    // TODO: Implement with MultimintWallet integration
+    // For now, use the existing single wallet send functionality
+    match state.wallet.send(payload.amount, crate::multimint::MultimintSendOptions::default()).await {
+        Ok(token) => Ok(Json(MultimintSendTokenResponse {
+            tokens: token,
+            success: true,
+            message: None,
+        })),
+        Err(e) => {
+            eprintln!("Failed to send token: {:?}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to send token",
+                        "type": "wallet_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn transfer_between_mints_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(_payload): Json<TransferBetweenMintsRequest>,
+) -> Result<Json<TransferBetweenMintsResponse>, (StatusCode, Json<serde_json::Value>)> {
+    // TODO: Implement with MultimintWallet integration
+    // For now, return a not implemented error
+    Err((
+        StatusCode::NOT_IMPLEMENTED,
+        Json(json!({
+            "error": {
+                "message": "Transfer between mints not yet implemented",
+                "type": "not_implemented"
+            }
+        })),
+    ))
+}
+
+pub async fn topup_mint_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<TopupMintRequest>,
+) -> Result<Json<TopupMintResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match payload.method.as_str() {
+        "ecash" => {
+            if let Some(token) = payload.token {
+                // Use existing redeem functionality
+                match state.wallet.receive(&token).await {
+                    Ok(_) => Ok(Json(TopupMintResponse {
+                        success: true,
+                        message: "Successfully topped up mint with ecash token".to_string(),
+                        invoice: None,
+                    })),
+                    Err(e) => {
+                        eprintln!("Failed to redeem ecash token: {:?}", e);
+                        Err((
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({
+                                "error": {
+                                    "message": "Failed to redeem ecash token",
+                                    "type": "redeem_error"
+                                }
+                            })),
+                        ))
+                    }
+                }
+            } else {
+                Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "message": "Token is required for ecash topup",
+                            "type": "validation_error"
+                        }
+                    })),
+                ))
+            }
+        }
+        "lightning" => {
+            // TODO: Implement lightning invoice generation
+            Err((
+                StatusCode::NOT_IMPLEMENTED,
+                Json(json!({
+                    "error": {
+                        "message": "Lightning topup not yet implemented",
+                        "type": "not_implemented"
+                    }
+                })),
+            ))
+        }
+        _ => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "Invalid topup method. Use 'ecash' or 'lightning'",
+                    "type": "validation_error"
+                }
+            })),
+        )),
     }
 }

@@ -16,5 +16,5 @@ description = "llm ecash 402 payment"
 
 [workspace.dependencies]
 
-ecash-402-wallet = "0.1.12"
-# ecash-402-wallet = {path = "../../ecash-402-wallet/"}
+# ecash-402-wallet = "0.1.12"
+ecash-402-wallet = {path = "../../ecash-402-wallet/"}

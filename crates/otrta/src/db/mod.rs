@@ -1,5 +1,6 @@
 pub mod credit;
 pub mod helpers;
+pub mod mint;
 pub mod models;
 pub mod provider;
 pub mod server_config;

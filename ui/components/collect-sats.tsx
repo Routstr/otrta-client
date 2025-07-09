@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { WalletService } from '@/lib/api/services/wallet';
+import { MultimintService } from '@/lib/api/services/multimint';
 
 const formSchema = z.object({
   amount: z
@@ -59,11 +59,14 @@ export function CollectSats() {
   async function onSubmit(values: FormValues) {
     setIsSubmitting(true);
     try {
-      const result = await WalletService.sendToken(Number(values.amount));
+      const result = await MultimintService.sendMultimintToken({
+        amount: Number(values.amount),
+        split_across_mints: false,
+      });
 
-      if (result.token) {
-        setGeneratedToken(result.token);
-        queryClient.invalidateQueries({ queryKey: ['wallet-balance'] });
+      if (result.tokens) {
+        setGeneratedToken(result.tokens);
+        queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
       } else {
         toast.error('Failed to generate token. Please try again.');
       }

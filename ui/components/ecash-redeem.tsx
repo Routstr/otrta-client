@@ -60,7 +60,7 @@ export function EcashRedeem() {
           }`
         );
         form.reset();
-        queryClient.invalidateQueries({ queryKey: ['wallet-balance'] });
+        queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
       } else {
         toast.error(
           result.message || 'Failed to redeem token. Please try again.'

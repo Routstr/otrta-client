@@ -5,7 +5,7 @@ use crate::{
 };
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Request, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -33,9 +33,43 @@ pub async fn forward_any_request_get(
 pub async fn forward_any_request(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(body_data): Json<serde_json::Value>,
+    request: Request,
 ) -> Response<Body> {
+    let headers = request.headers().clone();
+    let body_bytes = match axum::body::to_bytes(request.into_body(), usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to read request body",
+                        "type": "request_error"
+                    }
+                })),
+            ).into_response();
+        }
+    };
+    
+    let body_data: serde_json::Value = if body_bytes.is_empty() {
+        serde_json::json!({})
+    } else {
+        match serde_json::from_slice(&body_bytes) {
+            Ok(data) => data,
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "message": "Invalid JSON in request body",
+                            "type": "parse_error"
+                        }
+                    })),
+                ).into_response();
+            }
+        }
+    };
+    
     forward_request_with_payment_with_body(headers, &state, &path, Some(body_data), false)
         .await
         .into_response()

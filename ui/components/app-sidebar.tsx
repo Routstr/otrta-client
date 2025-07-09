@@ -6,6 +6,7 @@ import {
   HistoryIcon,
   ServerIcon,
   DatabaseIcon,
+  CoinsIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -39,6 +40,11 @@ const data = {
       title: 'Transactions',
       url: '/transactions',
       icon: HistoryIcon,
+    },
+    {
+      title: 'Mints',
+      url: '/mints',
+      icon: CoinsIcon,
     },
     {
       title: 'Providers',

@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, RefreshCw, AlertCircle } from 'lucide-react';
-import { WalletService } from '@/lib/api/services/wallet';
+import { MultimintService } from '@/lib/api/services/multimint';
 import {
   Card,
   CardContent,
@@ -19,9 +19,9 @@ export function WalletBalance({
   refreshInterval?: number;
 }) {
   const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
-    queryKey: ['wallet-balance'],
+    queryKey: ['multimint-balance'],
     queryFn: async () => {
-      return WalletService.getBalance();
+      return MultimintService.getMultimintBalance();
     },
     refetchInterval: refreshInterval,
   });
@@ -60,14 +60,18 @@ export function WalletBalance({
             <span>Error loading balance: {(error as Error).message}</span>
           </div>
         ) : (
-          <div className='py-6'>
+          <div className='py-6 space-y-4'>
             <div className='text-primary text-5xl font-bold tracking-tight'>
-              {data?.balance.toLocaleString()}{' '}
-              <span className='text-3xl'>msats</span>
+              {MultimintService.formatBalance(data?.total_balance || 0)}
             </div>
-            <p className='text-muted-foreground mt-2 text-sm'>
-              Updated {new Date().toLocaleTimeString()}
-            </p>
+            <div className='space-y-2'>
+              <p className='text-muted-foreground text-sm'>
+                Across {data?.balances_by_mint?.length || 0} mint{(data?.balances_by_mint?.length || 0) !== 1 ? 's' : ''}
+              </p>
+              <p className='text-muted-foreground text-xs'>
+                Updated {new Date().toLocaleTimeString()}
+              </p>
+            </div>
           </div>
         )}
       </CardContent>

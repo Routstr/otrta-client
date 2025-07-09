@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use ecash_402_wallet::wallet::CashuWalletClient;
+use crate::multimint::MultimintWallet;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ pub struct TokenRedeemResponse {
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_msats_per_request: u32,
-    pub wallet: CashuWalletClient,
+    pub wallet: MultimintWallet,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -249,4 +249,76 @@ impl ProxyModelFromApi {
             is_moderated: self.top_provider.as_ref().and_then(|tp| tp.is_moderated),
         }
     }
+}
+
+// Multimint-related types and requests
+
+#[derive(Deserialize)]
+pub struct MultimintSendTokenRequest {
+    pub amount: u64,
+    pub preferred_mint: Option<String>,
+    pub unit: Option<String>,
+    pub split_across_mints: Option<bool>,
+}
+
+#[derive(Serialize)]
+pub struct MultimintSendTokenResponse {
+    pub tokens: String, // May contain multiple tokens separated by newlines
+    pub success: bool,
+    pub message: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MintBalance {
+    pub mint_url: String,
+    pub balance: u64,
+    pub unit: String,
+    pub proof_count: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MultimintBalanceResponse {
+    pub total_balance: u64,
+    pub balances_by_mint: Vec<MintBalance>,
+}
+
+#[derive(Deserialize)]
+pub struct TransferBetweenMintsRequest {
+    pub from_mint: String,
+    pub to_mint: String,
+    pub amount: u64,
+}
+
+#[derive(Serialize)]
+pub struct TransferBetweenMintsResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Deserialize)]
+pub struct TopupMintRequest {
+    pub mint_url: String,
+    pub method: String, // "lightning" or "ecash"
+    pub amount: Option<u64>, // For lightning
+    pub token: Option<String>, // For ecash
+}
+
+#[derive(Serialize)]
+pub struct TopupMintResponse {
+    pub success: bool,
+    pub message: String,
+    pub invoice: Option<String>, // For lightning topup
+}
+
+#[derive(Serialize)]
+pub struct PendingProofsResponse {
+    pub pending_proofs: std::collections::HashMap<String, Vec<PendingProof>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PendingProof {
+    pub token: String,
+    pub amount: String,
+    pub key: String,
+    pub key_id: String,
 }

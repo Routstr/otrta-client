@@ -1,8 +1,9 @@
-use ecash_402_wallet::wallet::CashuWalletClient;
-
-use crate::db::{
-    transaction::{add_transaction, TransactionDirection},
-    Pool,
+use crate::{
+    db::{
+        transaction::{add_transaction, TransactionDirection},
+        Pool,
+    },
+    multimint::{MultimintWallet, MultimintSendOptions},
 };
 
 #[derive(Debug)]
@@ -11,7 +12,7 @@ pub enum SendAmoundResponse {
 }
 
 pub async fn send_with_retry(
-    wallet: &CashuWalletClient,
+    wallet: &MultimintWallet,
     amount: i64,
     retries: Option<i32>,
 ) -> Result<String, SendAmoundResponse> {
@@ -20,7 +21,7 @@ pub async fn send_with_retry(
     } else {
         3
     } {
-        if let Ok(token_result) = wallet.send(amount as u64).await {
+        if let Ok(token_result) = wallet.send(amount as u64, MultimintSendOptions::default()).await {
             return Ok(token_result);
         }
     }
@@ -32,7 +33,7 @@ pub async fn send_with_retry(
 
 pub async fn finalize_request(
     db: &Pool,
-    wallet: &CashuWalletClient,
+    wallet: &MultimintWallet,
     token_send: &str,
     sats_send: i64,
     token_received: &str,
