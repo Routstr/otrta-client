@@ -174,19 +174,94 @@ pub async fn redeem_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Token>,
 ) -> Json<TokenRedeemResponse> {
-    println!("{}", payload.token.trim());
-    match state.wallet.receive(&payload.token.trim()).await {
-        Ok(payload) => Json(TokenRedeemResponse {
-            amount: Some(payload.to_string()),
+    let token = payload.token.trim();
+    println!("Attempting to redeem token: {}", token);
+
+    if let Ok(mint_url) = extract_mint_url_from_token(token) {
+        println!("Extracted mint URL from token: {}", mint_url);
+
+        let configured_mints = state.wallet.list_mints().await;
+        if !configured_mints.contains(&mint_url) {
+            return Json(TokenRedeemResponse {
+                amount: None,
+                success: false,
+                message: Some(format!(
+                    "Mint '{}' is not configured in this wallet. Please add the mint first.",
+                    mint_url
+                )),
+            });
+        }
+
+        if let Some(wallet) = state.wallet.get_wallet_for_mint(&mint_url).await {
+            match wallet.receive(token).await {
+                Ok(amount) => {
+                    return Json(TokenRedeemResponse {
+                        amount: Some(amount.to_string()),
+                        success: true,
+                        message: Some(format!(
+                            "Successfully redeemed token from mint: {}",
+                            mint_url
+                        )),
+                    });
+                }
+                Err(e) => {
+                    return Json(TokenRedeemResponse {
+                        amount: None,
+                        success: false,
+                        message: Some(format!(
+                            "Failed to redeem token from mint '{}': {:?}",
+                            mint_url, e
+                        )),
+                    });
+                }
+            }
+        }
+    }
+
+    match state.wallet.receive(token).await {
+        Ok(amount) => Json(TokenRedeemResponse {
+            amount: Some(amount.to_string()),
             success: true,
-            message: None,
+            message: Some("Token redeemed successfully".to_string()),
         }),
         Err(e) => Json(TokenRedeemResponse {
             amount: None,
             success: false,
-            message: Some(format!("mal formed Token: {:?}", e)),
+            message: Some(format!("Failed to redeem token: {:?}", e)),
         }),
     }
+}
+
+fn extract_mint_url_from_token(token: &str) -> Result<String, Box<dyn std::error::Error>> {
+    use base64::{engine::general_purpose, Engine as _};
+
+    if !token.starts_with("cashu") {
+        return Err("Invalid token format: does not start with cashu prefix".into());
+    }
+
+    let token_data = token.strip_prefix("cashu").unwrap_or(token);
+    let decoded = general_purpose::STANDARD.decode(token_data)?;
+    let token_str = String::from_utf8(decoded)?;
+
+    let token_json: serde_json::Value = serde_json::from_str(&token_str)?;
+
+    if let Some(mint) = token_json.get("mint").and_then(|m| m.as_str()) {
+        return Ok(mint.to_string());
+    }
+
+    if let Some(token_array) = token_json.get("token").and_then(|t| t.as_array()) {
+        for token_obj in token_array {
+            if let Some(mint) = token_obj.get("mint").and_then(|m| m.as_str()) {
+                return Ok(mint.to_string());
+            }
+        }
+    }
+
+    if let Some(mint) = token_json.get("u").and_then(|m| m.as_str()) {
+        return Ok(mint.to_string());
+    }
+
+    Err("Could not find mint URL in token".into())
 }
 
 pub async fn get_balance(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
