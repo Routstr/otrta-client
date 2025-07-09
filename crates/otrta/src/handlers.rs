@@ -3,8 +3,8 @@ use crate::{
         credit::{get_credits, CreditListResponse},
         mint::{
             create_mint, delete_mint, get_active_mints, get_all_mints, get_mint_by_id,
-            set_mint_active_status, update_mint, CreateMintRequest, Mint, MintListResponse,
-            UpdateMintRequest,
+            set_mint_active_status, update_mint, CreateMintRequest, CurrencyUnit, Mint,
+            MintListResponse, UpdateMintRequest,
         },
         models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
         provider::{
@@ -659,11 +659,19 @@ pub async fn create_mint_handler(
         ));
     }
 
-    match create_mint(&state.db, request).await {
-        Ok(mint) => Ok(Json(mint)),
+    match create_mint(&state.db, request.clone()).await {
+        Ok(mint) => {
+            let currency_unit = mint
+                .currency_unit
+                .parse::<crate::db::mint::CurrencyUnit>()
+                .unwrap_or(crate::db::mint::CurrencyUnit::Sat);
+            if let Err(e) = state.wallet.add_mint(&mint.mint_url, currency_unit).await {
+                eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
+            }
+            Ok(Json(mint))
+        }
         Err(e) => {
             eprintln!("Failed to create mint: {}", e);
-            // Check if it's a unique constraint violation
             if e.to_string()
                 .contains("duplicate key value violates unique constraint")
             {
@@ -852,9 +860,12 @@ pub async fn send_multimint_token_handler(
     Json(payload): Json<MultimintSendTokenRequest>,
 ) -> Result<Json<MultimintSendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
     // Create send options from the request payload
+    let unit = payload
+        .unit
+        .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok());
     let send_options = crate::multimint::MultimintSendOptions {
         preferred_mint: payload.preferred_mint,
-        unit: payload.unit,
+        unit,
         split_across_mints: payload.split_across_mints.unwrap_or(false),
     };
 
@@ -883,6 +894,32 @@ pub async fn transfer_between_mints_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<TransferBetweenMintsRequest>,
 ) -> Result<Json<TransferBetweenMintsResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let configured_mints = state.wallet.list_mints().await;
+
+    if !configured_mints.contains(&payload.from_mint) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": format!("Source mint '{}' is not configured", payload.from_mint),
+                    "type": "mint_not_configured"
+                }
+            })),
+        ));
+    }
+
+    if !configured_mints.contains(&payload.to_mint) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": format!("Destination mint '{}' is not configured", payload.to_mint),
+                    "type": "mint_not_configured"
+                }
+            })),
+        ));
+    }
+
     match state
         .wallet
         .transfer_between_mints(&payload.from_mint, &payload.to_mint, payload.amount)
@@ -917,7 +954,6 @@ pub async fn topup_mint_handler(
     match payload.method.as_str() {
         "ecash" => {
             if let Some(token) = payload.token {
-                // Check if mint exists in database first
                 let mint_exists_in_db =
                     match crate::db::mint::get_mint_by_url(&state.db, &payload.mint_url).await {
                         Ok(mint_option) => mint_option.is_some(),
@@ -927,16 +963,14 @@ pub async fn topup_mint_handler(
                         }
                     };
 
-                // Add to database if not exists
                 if !mint_exists_in_db {
                     let create_request = crate::db::mint::CreateMintRequest {
                         mint_url: payload.mint_url.clone(),
-                        currency_unit: Some("Msat".to_string()),
-                        name: None, // Will use default name based on URL
+                        currency_unit: Some(crate::db::mint::CurrencyUnit::Sat.to_string()),
+                        name: None,
                     };
 
                     if let Err(e) = crate::db::mint::create_mint(&state.db, create_request).await {
-                        // Check if it's a duplicate constraint error (race condition)
                         if !e
                             .to_string()
                             .contains("duplicate key value violates unique constraint")
@@ -945,22 +979,19 @@ pub async fn topup_mint_handler(
                                 "Failed to save mint to database {}: {:?}",
                                 payload.mint_url, e
                             );
-                            // Don't fail the operation if database save fails, just log it
                         }
                     }
                 }
 
-                // Check if mint exists in MultimintWallet
                 let mint_exists_in_wallet = {
                     let mints = state.wallet.list_mints().await;
                     mints.contains(&payload.mint_url)
                 };
 
-                // Add to MultimintWallet if not exists
                 if !mint_exists_in_wallet {
                     if let Err(e) = state
                         .wallet
-                        .add_mint(&payload.mint_url, Some("Msat".to_string()))
+                        .add_mint(&payload.mint_url, crate::db::mint::CurrencyUnit::Sat)
                         .await
                     {
                         eprintln!("Failed to add mint to wallet {}: {:?}", payload.mint_url, e);
@@ -976,7 +1007,6 @@ pub async fn topup_mint_handler(
                     }
                 }
 
-                // Try to get the specific wallet for this mint and receive the token
                 if let Some(wallet) = state.wallet.get_wallet_for_mint(&payload.mint_url).await {
                     match wallet.receive(&token).await {
                         Ok(amount) => Ok(Json(TopupMintResponse {
@@ -1001,7 +1031,6 @@ pub async fn topup_mint_handler(
                         }
                     }
                 } else {
-                    // Fall back to generic receive if we can't get the specific wallet
                     match state.wallet.receive(&token).await {
                         Ok(amount) => Ok(Json(TopupMintResponse {
                             success: true,

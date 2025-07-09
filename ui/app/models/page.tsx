@@ -1,9 +1,17 @@
 'use client';
 
-import { ModelSelector } from '@/components/ModelSelector';
+import dynamic from 'next/dynamic';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
+
+const ModelSelector = dynamic(
+  () => import('@/components/ModelSelector').then((mod) => ({ default: mod.ModelSelector })),
+  {
+    loading: () => <div className='text-center p-8'>Loading model selector...</div>,
+    ssr: false
+  }
+);
 
 export default function ModelsPage() {
   return (

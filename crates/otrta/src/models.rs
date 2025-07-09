@@ -1,4 +1,5 @@
 use crate::multimint::MultimintWallet;
+use crate::db::mint::CurrencyUnit;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -272,7 +273,7 @@ pub struct MultimintSendTokenResponse {
 pub struct MintBalance {
     pub mint_url: String,
     pub balance: u64,
-    pub unit: String,
+    pub unit: CurrencyUnit,
     pub proof_count: usize,
 }
 

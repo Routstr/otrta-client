@@ -1,8 +1,17 @@
+use crate::db::mint::CurrencyUnit;
 use ecash_402_wallet::wallet::CashuWalletClient;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
+// Helper function to convert our CurrencyUnit to the external one
+fn convert_currency_unit(unit: CurrencyUnit) -> cdk::nuts::CurrencyUnit {
+    match unit {
+        CurrencyUnit::Sat => cdk::nuts::CurrencyUnit::Sat,
+        CurrencyUnit::Msat => cdk::nuts::CurrencyUnit::Msat,
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MultimintBalance {
@@ -14,14 +23,14 @@ pub struct MultimintBalance {
 pub struct MintBalance {
     pub mint_url: String,
     pub balance: u64,
-    pub unit: String,
+    pub unit: CurrencyUnit,
     pub proof_count: usize,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct MultimintSendOptions {
     pub preferred_mint: Option<String>,
-    pub unit: Option<String>,
+    pub unit: Option<CurrencyUnit>,
     pub split_across_mints: bool,
 }
 
@@ -79,7 +88,7 @@ impl MultimintWallet {
     pub async fn add_mint(
         &self,
         mint_url: &str,
-        _unit: Option<String>,
+        unit: CurrencyUnit,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let db_path = format!(
             "{}/{}",
@@ -87,7 +96,8 @@ impl MultimintWallet {
             mint_url.replace(['/', ':'], "_")
         );
 
-        let wallet = CashuWalletClient::from_seed(mint_url, &self.seed, &db_path).await?;
+        let wallet =
+            CashuWalletClient::from_seed_with_unit(mint_url, &self.seed, &db_path, convert_currency_unit(unit)).await?;
 
         let info = MintWalletInfo {
             wallet,
@@ -147,8 +157,8 @@ impl MultimintWallet {
             balances_by_mint.push(MintBalance {
                 mint_url: mint_url.clone(),
                 balance,
-                unit: "Msat".to_string(),
-                proof_count: 0, // TODO: Get actual proof count
+                unit: CurrencyUnit::Sat,
+                proof_count: 0,
             });
         }
 
@@ -178,13 +188,19 @@ impl MultimintWallet {
     ) -> Result<String, Box<dyn std::error::Error>> {
         let wallets = self.wallets.read().await;
 
+        if wallets.is_empty() {
+            return Err("No mints configured. Please add a mint before sending tokens.".into());
+        }
+
         if let Some(preferred_mint) = &options.preferred_mint {
             if let Some(info) = wallets.get(preferred_mint) {
                 if info.active {
                     return info.wallet.send(amount).await.map_err(|e| e.into());
+                } else {
+                    return Err("Preferred mint is inactive".into());
                 }
             }
-            return Err("Preferred mint not found or inactive".into());
+            return Err("Preferred mint not found. Please configure the mint first.".into());
         }
 
         if options.split_across_mints {

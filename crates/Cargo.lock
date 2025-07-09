@@ -2789,6 +2789,7 @@ dependencies = [
  "async-trait",
  "axum",
  "bigdecimal",
+ "cdk",
  "chrono",
  "dotenv",
  "ecash-402-wallet",

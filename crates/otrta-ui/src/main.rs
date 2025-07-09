@@ -195,7 +195,7 @@ async fn initialize_wallet(
                 for mint in active_mints {
                     if mint.mint_url != configuration.application.mint_url {
                         if let Err(e) = multimint_wallet
-                            .add_mint(&mint.mint_url, Some("Msat".to_string()))
+                            .add_mint(&mint.mint_url, otrta::db::mint::CurrencyUnit::Sat)
                             .await
                         {
                             eprintln!("Failed to add mint {}: {:?}", mint.mint_url, e);

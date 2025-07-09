@@ -29,6 +29,7 @@ export const CreateMintRequestSchema = z.object({
 export const UpdateMintRequestSchema = z.object({
   is_active: z.boolean().optional(),
   name: z.string().optional(),
+  currency_unit: z.string().optional(),
 });
 
 // Schema for setting mint active status

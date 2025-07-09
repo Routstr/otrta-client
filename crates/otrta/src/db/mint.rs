@@ -2,6 +2,34 @@ use crate::db::Pool;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use std::str::FromStr;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum CurrencyUnit {
+    Sat,
+    Msat,
+}
+
+impl std::fmt::Display for CurrencyUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CurrencyUnit::Sat => write!(f, "Sat"),
+            CurrencyUnit::Msat => write!(f, "Msat"),
+        }
+    }
+}
+
+impl FromStr for CurrencyUnit {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "sat" => Ok(CurrencyUnit::Sat),
+            "msat" => Ok(CurrencyUnit::Msat),
+            _ => Err(format!("Invalid currency unit: {}", s)),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Mint {
@@ -20,7 +48,7 @@ pub struct MintListResponse {
     pub total: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateMintRequest {
     pub mint_url: String,
     pub currency_unit: Option<String>,

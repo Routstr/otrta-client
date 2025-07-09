@@ -12,9 +12,22 @@ import { useState } from 'react';
 import { useDefaultProvider } from '@/lib/hooks/useProviders';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, AlertTriangle, Wallet, Plus, ExternalLink, Activity } from 'lucide-react';
+import {
+  Settings,
+  AlertTriangle,
+  Wallet,
+  Plus,
+  ExternalLink,
+  Activity,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { MintService } from '@/lib/api/services/mints';
@@ -37,9 +50,12 @@ export default function Page() {
   });
 
   const mints = mintsData?.mints || [];
-  const activeMints = mints.filter(mint => mint.is_active);
+  const activeMints = mints.filter((mint) => mint.is_active);
   const balanceMap = new Map(
-    balanceData?.balances_by_mint.map(balance => [balance.mint_url, balance.balance]) || []
+    balanceData?.balances_by_mint.map((balance) => [
+      balance.mint_url,
+      balance.balance,
+    ]) || []
   );
 
   return (
@@ -88,8 +104,10 @@ export default function Page() {
           <div className='mb-8 space-y-4'>
             <div className='flex items-center justify-between'>
               <div>
-                <h2 className='text-xl font-semibold tracking-tight'>Your Mints</h2>
-                <p className='text-sm text-muted-foreground'>
+                <h2 className='text-xl font-semibold tracking-tight'>
+                  Your Mints
+                </h2>
+                <p className='text-muted-foreground text-sm'>
                   Manage your Cashu mints and view individual balances
                 </p>
               </div>
@@ -106,21 +124,23 @@ export default function Page() {
                 {[...Array(3)].map((_, i) => (
                   <Card key={i} className='animate-pulse'>
                     <CardHeader className='pb-3'>
-                      <div className='h-4 bg-muted rounded w-3/4'></div>
-                      <div className='h-3 bg-muted rounded w-1/2'></div>
+                      <div className='bg-muted h-4 w-3/4 rounded'></div>
+                      <div className='bg-muted h-3 w-1/2 rounded'></div>
                     </CardHeader>
                     <CardContent>
-                      <div className='h-6 bg-muted rounded w-2/3'></div>
+                      <div className='bg-muted h-6 w-2/3 rounded'></div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             ) : mints.length === 0 ? (
               <Card className='border-dashed'>
-                <CardContent className='flex flex-col items-center justify-center py-12 space-y-4'>
-                  <Wallet className='h-12 w-12 text-muted-foreground' />
-                  <div className='text-center space-y-2'>
-                    <h3 className='text-lg font-semibold'>No mints configured</h3>
+                <CardContent className='flex flex-col items-center justify-center space-y-4 py-12'>
+                  <Wallet className='text-muted-foreground h-12 w-12' />
+                  <div className='space-y-2 text-center'>
+                    <h3 className='text-lg font-semibold'>
+                      No mints configured
+                    </h3>
                     <p className='text-muted-foreground'>
                       Add your first mint to start using the multimint wallet
                     </p>
@@ -136,32 +156,27 @@ export default function Page() {
             ) : (
               <>
                 {/* Mint Summary */}
-                <div className='grid gap-4 md:grid-cols-3 mb-6'>
+                <div className='mb-6 grid gap-4 md:grid-cols-3'>
                   <Card>
                     <CardContent className='flex items-center p-6'>
-                      <Activity className='h-8 w-8 text-blue-600 mr-3' />
+                      <Activity className='mr-3 h-8 w-8 text-blue-600' />
                       <div>
-                        <p className='text-sm text-muted-foreground'>Total Mints</p>
+                        <p className='text-muted-foreground text-sm'>
+                          Total Mints
+                        </p>
                         <p className='text-2xl font-bold'>{mints.length}</p>
                       </div>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className='flex items-center p-6'>
-                      <Wallet className='h-8 w-8 text-green-600 mr-3' />
+                      <Wallet className='mr-3 h-8 w-8 text-green-600' />
                       <div>
-                        <p className='text-sm text-muted-foreground'>Active Mints</p>
-                        <p className='text-2xl font-bold'>{activeMints.length}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className='flex items-center p-6'>
-                      <Plus className='h-8 w-8 text-purple-600 mr-3' />
-                      <div>
-                        <p className='text-sm text-muted-foreground'>Total Balance</p>
+                        <p className='text-muted-foreground text-sm'>
+                          Active Mints
+                        </p>
                         <p className='text-2xl font-bold'>
-                          {balanceData ? MultimintService.formatBalance(balanceData.total_balance) : '0 sats'}
+                          {activeMints.length}
                         </p>
                       </div>
                     </CardContent>
@@ -173,20 +188,26 @@ export default function Page() {
                   {activeMints.slice(0, 6).map((mint) => {
                     const balance = balanceMap.get(mint.mint_url) || 0;
                     const mintUrl = new URL(mint.mint_url);
-                    
+
                     return (
-                      <Card key={mint.id} className='hover:shadow-md transition-shadow'>
+                      <Card
+                        key={mint.id}
+                        className='transition-shadow hover:shadow-md'
+                      >
                         <CardHeader className='pb-3'>
                           <div className='flex items-start justify-between'>
-                            <div className='flex-1 min-w-0'>
-                              <CardTitle className='text-sm font-medium truncate'>
+                            <div className='min-w-0 flex-1'>
+                              <CardTitle className='truncate text-sm font-medium'>
                                 {mint.name || mintUrl.hostname}
                               </CardTitle>
-                              <CardDescription className='text-xs truncate'>
+                              <CardDescription className='truncate text-xs'>
                                 {mintUrl.hostname}
                               </CardDescription>
                             </div>
-                            <Badge variant='secondary' className='bg-green-100 text-green-800 ml-2'>
+                            <Badge
+                              variant='secondary'
+                              className='ml-2 bg-green-100 text-green-800'
+                            >
                               Active
                             </Badge>
                           </div>
@@ -197,12 +218,14 @@ export default function Page() {
                               <p className='text-lg font-semibold'>
                                 {MultimintService.formatBalance(balance)}
                               </p>
-                              <p className='text-xs text-muted-foreground'>Balance</p>
+                              <p className='text-muted-foreground text-xs'>
+                                Balance
+                              </p>
                             </div>
                             <Button variant='ghost' size='sm' asChild>
-                              <a 
-                                href={mint.mint_url} 
-                                target='_blank' 
+                              <a
+                                href={mint.mint_url}
+                                target='_blank'
                                 rel='noopener noreferrer'
                                 className='p-2'
                               >
@@ -214,14 +237,15 @@ export default function Page() {
                       </Card>
                     );
                   })}
-                  
+
                   {/* Show more link if there are more than 6 mints */}
                   {mints.length > 6 && (
-                    <Card className='border-dashed hover:shadow-md transition-shadow'>
-                      <CardContent className='flex flex-col items-center justify-center py-8 space-y-2'>
-                        <Plus className='h-8 w-8 text-muted-foreground' />
-                        <p className='text-sm text-muted-foreground text-center'>
-                          {mints.length - 6} more mint{mints.length - 6 !== 1 ? 's' : ''}
+                    <Card className='border-dashed transition-shadow hover:shadow-md'>
+                      <CardContent className='flex flex-col items-center justify-center space-y-2 py-8'>
+                        <Plus className='text-muted-foreground h-8 w-8' />
+                        <p className='text-muted-foreground text-center text-sm'>
+                          {mints.length - 6} more mint
+                          {mints.length - 6 !== 1 ? 's' : ''}
                         </p>
                         <Button variant='ghost' size='sm' asChild>
                           <Link href='/mints'>View All</Link>

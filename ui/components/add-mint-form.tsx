@@ -33,8 +33,8 @@ interface AddMintFormProps {
 }
 
 const CURRENCY_OPTIONS = [
-  { value: 'Msat', label: 'Millisats (msat)' },
-  { value: 'Sat', label: 'Satoshis (sat)' },
+  { value: 'sat', label: 'sat (Satoshis)' },
+  { value: 'msat', label: 'msat (Millisatoshis)' },
 ];
 
 const POPULAR_MINTS = [
@@ -60,7 +60,7 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState<CreateMintRequest>({
     mint_url: '',
-    currency_unit: 'Msat',
+    currency_unit: 'sat',
     name: '',
   });
   const [urlError, setUrlError] = useState<string>('');
@@ -83,7 +83,7 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
   const resetForm = () => {
     setFormData({
       mint_url: '',
-      currency_unit: 'Msat',
+      currency_unit: 'sat',
       name: '',
     });
     setUrlError('');

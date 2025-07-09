@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +57,7 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
   const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editedName, setEditedName] = useState(mint.name || '');
+  const [editedCurrencyUnit, setEditedCurrencyUnit] = useState(mint.currency_unit);
 
   // Toggle mint active status
   const toggleActiveMutation = useMutation({
@@ -109,10 +111,13 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
     deleteMutation.mutate(mint.id);
   };
 
-  const handleUpdateName = () => {
+  const handleUpdateMint = () => {
     updateMutation.mutate({
       id: mint.id,
-      data: { name: editedName || undefined },
+      data: { 
+        name: editedName || undefined,
+        currency_unit: editedCurrencyUnit !== mint.currency_unit ? editedCurrencyUnit : undefined,
+      },
     });
   };
 
@@ -167,7 +172,7 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
                 <DialogHeader>
                   <DialogTitle>Edit Mint</DialogTitle>
                   <DialogDescription>
-                    Update the display name for this mint.
+                    Update the display name and currency unit for this mint.
                   </DialogDescription>
                 </DialogHeader>
                 <div className='space-y-4 py-4'>
@@ -180,6 +185,18 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
                       placeholder='Enter a display name'
                     />
                   </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='currency-unit'>Currency Unit</Label>
+                    <Select value={editedCurrencyUnit} onValueChange={setEditedCurrencyUnit}>
+                      <SelectTrigger>
+                        <SelectValue placeholder='Select currency unit' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='sat'>sat (Satoshis)</SelectItem>
+                        <SelectItem value='msat'>msat (Millisatoshis)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button
@@ -189,7 +206,7 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
                     Cancel
                   </Button>
                   <Button
-                    onClick={handleUpdateName}
+                    onClick={handleUpdateMint}
                     disabled={updateMutation.isPending}
                   >
                     {updateMutation.isPending ? 'Saving...' : 'Save'}
