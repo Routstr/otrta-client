@@ -11,7 +11,7 @@ use otrta::{
     db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
-    multimint::MultimintWallet,
+    multimint::MultimintWalletWrapper,
     proxy::forward_any_request_get,
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
@@ -160,7 +160,7 @@ async fn initialize_wallet(
     connection_pool: &PgPool,
     configuration: &Settings,
     db_name: &str,
-) -> Result<MultimintWallet, Box<dyn std::error::Error>> {
+) -> Result<MultimintWalletWrapper, Box<dyn std::error::Error>> {
     let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./wallet_data".to_string());
     std::fs::create_dir_all(&wallet_dir)?;
 
@@ -180,8 +180,7 @@ async fn initialize_wallet(
             .await
             .unwrap();
 
-            // Convert single wallet to multimint wallet
-            let multimint_wallet = MultimintWallet::from_existing_wallet(
+            let multimint_wallet = MultimintWalletWrapper::from_existing_wallet(
                 &single_wallet,
                 &configuration.application.mint_url,
                 &seed,
@@ -189,7 +188,6 @@ async fn initialize_wallet(
             )
             .await?;
 
-            // Add default mints from database if they exist
             use otrta::db::mint::get_active_mints;
             if let Ok(active_mints) = get_active_mints(connection_pool).await {
                 for mint in active_mints {
@@ -219,7 +217,7 @@ async fn initialize_wallet(
             create_with_seed(connection_pool, &seed).await?;
 
             // Create multimint wallet with the new seed
-            let multimint_wallet = MultimintWallet::from_existing_wallet(
+            let multimint_wallet = MultimintWalletWrapper::from_existing_wallet(
                 &wallet,
                 &configuration.application.mint_url,
                 &seed,
