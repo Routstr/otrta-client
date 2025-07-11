@@ -3,8 +3,8 @@ use crate::{
         credit::{get_credits, CreditListResponse},
         mint::{
             create_mint, delete_mint, get_active_mints, get_all_mints, get_mint_by_id,
-            set_mint_active_status, update_mint, CreateMintRequest, CurrencyUnit, Mint,
-            MintListResponse, UpdateMintRequest,
+            set_mint_active_status, update_mint, CreateMintRequest, Mint, MintListResponse,
+            UpdateMintRequest,
         },
         models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
         provider::{
@@ -28,7 +28,31 @@ use axum::{
 
 use serde::Deserialize;
 use serde_json::{self, json};
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
+
+fn get_user_friendly_wallet_error_message(error: &str) -> String {
+    match error {
+        s if s.contains("BlindedMessageAlreadySigned") => {
+            "This token has already been redeemed. Each ecash token can only be used once.".to_string()
+        }
+        s if s.contains("ProofAlreadySpent") => {
+            "This token has already been spent. Each ecash token can only be used once.".to_string()
+        }
+        s if s.contains("ProofNotFound") => {
+            "Invalid token: The proofs in this token were not found at the mint.".to_string()
+        }
+        s if s.contains("InsufficientFunds") => {
+            "Insufficient funds: The token amount exceeds available balance.".to_string()
+        }
+        s if s.contains("InvalidToken") => {
+            "Invalid token format or corrupted token data.".to_string()
+        }
+        s if s.contains("MintConnectionError") => {
+            "Unable to connect to the mint. Please check your internet connection and try again.".to_string()
+        }
+        _ => format!("Wallet error: {}", error)
+    }
+}
 
 pub async fn list_openai_models(State(state): State<Arc<AppState>>) -> Response {
     crate::proxy::forward_request(&state.db, "v1/models").await
@@ -146,7 +170,6 @@ pub async fn refresh_models_from_proxy(
 
     let mut models_added = 0;
 
-    // Insert all new models
     for proxy_model in &proxy_models_data.data {
         match upsert_model(&state.db, &proxy_model).await {
             Ok(_) => {
@@ -177,11 +200,23 @@ pub async fn redeem_token(
     let token = payload.token.trim();
     println!("Attempting to redeem token: {}", token);
 
-    if let Ok(mint_url) = extract_mint_url_from_token(token) {
+    // Parse the token to extract information
+    let parsed_token = match cdk::nuts::Token::from_str(&token) {
+        Ok(t) => t,
+        Err(e) => {
+            return Json(TokenRedeemResponse {
+                amount: None,
+                success: false,
+                message: Some(format!("Invalid token format: {:?}", e)),
+            });
+        }
+    };
+
+    if let Ok(mint_url) = parsed_token.mint_url() {
         println!("Extracted mint URL from token: {}", mint_url);
 
         let configured_mints = state.wallet.list_mints().await;
-        if !configured_mints.contains(&mint_url) {
+        if !configured_mints.contains(&mint_url.to_string()) {
             return Json(TokenRedeemResponse {
                 amount: None,
                 success: false,
@@ -192,7 +227,12 @@ pub async fn redeem_token(
             });
         }
 
-        if let Some(wallet) = state.wallet.get_wallet_for_mint(&mint_url).await {
+        println!("{:?}", configured_mints);
+        if let Some(wallet) = state
+            .wallet
+            .get_wallet_for_mint(&mint_url.to_string())
+            .await
+        {
             match wallet.receive(token).await {
                 Ok(amount) => {
                     return Json(TokenRedeemResponse {
@@ -205,63 +245,33 @@ pub async fn redeem_token(
                     });
                 }
                 Err(e) => {
+                    let error_message = get_user_friendly_wallet_error_message(&e.to_string());
                     return Json(TokenRedeemResponse {
                         amount: None,
                         success: false,
-                        message: Some(format!(
-                            "Failed to redeem token from mint '{}': {:?}",
-                            mint_url, e
-                        )),
+                        message: Some(error_message),
                     });
                 }
             }
         }
     }
 
+    // Fallback to general wallet receive if no specific mint wallet found
     match state.wallet.receive(token).await {
         Ok(amount) => Json(TokenRedeemResponse {
             amount: Some(amount.to_string()),
             success: true,
             message: Some("Token redeemed successfully".to_string()),
         }),
-        Err(e) => Json(TokenRedeemResponse {
-            amount: None,
-            success: false,
-            message: Some(format!("Failed to redeem token: {:?}", e)),
-        }),
-    }
-}
-
-fn extract_mint_url_from_token(token: &str) -> Result<String, Box<dyn std::error::Error>> {
-    use base64::{engine::general_purpose, Engine as _};
-
-    if !token.starts_with("cashu") {
-        return Err("Invalid token format: does not start with cashu prefix".into());
-    }
-
-    let token_data = token.strip_prefix("cashu").unwrap_or(token);
-    let decoded = general_purpose::STANDARD.decode(token_data)?;
-    let token_str = String::from_utf8(decoded)?;
-
-    let token_json: serde_json::Value = serde_json::from_str(&token_str)?;
-
-    if let Some(mint) = token_json.get("mint").and_then(|m| m.as_str()) {
-        return Ok(mint.to_string());
-    }
-
-    if let Some(token_array) = token_json.get("token").and_then(|t| t.as_array()) {
-        for token_obj in token_array {
-            if let Some(mint) = token_obj.get("mint").and_then(|m| m.as_str()) {
-                return Ok(mint.to_string());
-            }
+        Err(e) => {
+            let error_message = get_user_friendly_wallet_error_message(&e.to_string());
+            Json(TokenRedeemResponse {
+                amount: None,
+                success: false,
+                message: Some(error_message),
+            })
         }
     }
-
-    if let Some(mint) = token_json.get("u").and_then(|m| m.as_str()) {
-        return Ok(mint.to_string());
-    }
-
-    Err("Could not find mint URL in token".into())
 }
 
 pub async fn get_balance(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
@@ -1094,11 +1104,12 @@ pub async fn topup_mint_handler(
                         })),
                         Err(e) => {
                             eprintln!("Failed to redeem ecash token with specific mint: {:?}", e);
+                            let error_message = get_user_friendly_wallet_error_message(&e.to_string());
                             Err((
                                 StatusCode::BAD_REQUEST,
                                 Json(json!({
                                     "error": {
-                                        "message": format!("Failed to redeem ecash token: {}", e),
+                                        "message": error_message,
                                         "type": "redeem_error"
                                     }
                                 })),
@@ -1117,11 +1128,12 @@ pub async fn topup_mint_handler(
                         })),
                         Err(e) => {
                             eprintln!("Failed to redeem ecash token: {:?}", e);
+                            let error_message = get_user_friendly_wallet_error_message(&e.to_string());
                             Err((
                                 StatusCode::BAD_REQUEST,
                                 Json(json!({
                                     "error": {
-                                        "message": format!("Failed to redeem ecash token: {}. Please ensure the token is from the correct mint ({})", e, payload.mint_url),
+                                        "message": format!("{}. Please ensure the token is from the correct mint ({})", error_message, payload.mint_url),
                                         "type": "redeem_error"
                                     }
                                 })),
