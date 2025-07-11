@@ -233,36 +233,12 @@ export default function Page() {
             )}
           </div>
 
-          <Tabs
-            defaultValue='dashboard'
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className='w-full'
-          >
-            <div className='mb-6 flex items-center justify-between'>
-              <TabsList className='grid w-[320px] grid-cols-2 rounded-lg'>
-                <TabsTrigger
-                  value='dashboard'
-                  className='rounded-lg px-4 py-2 data-[state=active]:shadow-sm'
-                >
-                  Balance
-                </TabsTrigger>
-              </TabsList>
+          <div className='space-y-6'>
+            <DefaultProviderCard />
+            <div className='col-span-full md:col-span-2'>
+              <EcashRedeem />
             </div>
-
-            <TabsContent value='dashboard' className='mt-0'>
-              <div className='space-y-6'>
-                <DefaultProviderCard />
-                <div className='col-span-full md:col-span-2'>
-                  <EcashRedeem />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value='redeem' className='mt-0'>
-              <CollectSats />
-            </TabsContent>
-          </Tabs>
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

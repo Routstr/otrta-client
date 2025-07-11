@@ -128,9 +128,6 @@ export function EcashRedeem() {
           </form>
         </Form>
       </CardContent>
-      <CardFooter className='text-muted-foreground flex justify-center border-t pt-4 text-sm'>
-        Your balance will be updated instantly after redemption
-      </CardFooter>
     </Card>
   );
 }

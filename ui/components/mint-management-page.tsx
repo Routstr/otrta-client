@@ -2,15 +2,15 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { 
-  Send, 
-  ArrowRightLeft, 
-  Zap, 
-  Activity,
-} from 'lucide-react';
+import { Send, ArrowRightLeft, Zap, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { MintList } from './mint-list';
-import { MultimintService, type MultimintSendRequest, type TransferBetweenMintsRequest, type TopupMintRequest } from '@/lib/api/services/multimint';
+import {
+  MultimintService,
+  type MultimintSendRequest,
+  type TransferBetweenMintsRequest,
+  type TopupMintRequest,
+} from '@/lib/api/services/multimint';
 import { MintService } from '@/lib/api/services/mints';
 import {
   Card,
@@ -39,26 +39,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
 
 export function MintManagementPage() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [topupDialogOpen, setTopupDialogOpen] = useState(false);
 
-  // Send form state
   const [sendForm, setSendForm] = useState<MultimintSendRequest>({
     amount: 0,
     preferred_mint: undefined,
     split_across_mints: false,
   });
 
-  // Transfer form state
-  const [transferForm, setTransferForm] = useState<TransferBetweenMintsRequest>({
-    from_mint: '',
-    to_mint: '',
-    amount: 0,
-  });
+  const [transferForm, setTransferForm] = useState<TransferBetweenMintsRequest>(
+    {
+      from_mint: '',
+      to_mint: '',
+      amount: 0,
+    }
+  );
 
   // Topup form state
   const [topupForm, setTopupForm] = useState<TopupMintRequest>({
@@ -76,7 +75,8 @@ export function MintManagementPage() {
 
   // Send mutation
   const sendMutation = useMutation({
-    mutationFn: (data: MultimintSendRequest) => MultimintService.sendMultimintToken(data),
+    mutationFn: (data: MultimintSendRequest) =>
+      MultimintService.sendMultimintToken(data),
     onSuccess: (response) => {
       setSendDialogOpen(false);
       toast.success('Token generated successfully!');
@@ -88,9 +88,9 @@ export function MintManagementPage() {
     },
   });
 
-  // Transfer mutation
   const transferMutation = useMutation({
-    mutationFn: (data: TransferBetweenMintsRequest) => MultimintService.transferBetweenMints(data),
+    mutationFn: (data: TransferBetweenMintsRequest) =>
+      MultimintService.transferBetweenMints(data),
     onSuccess: (response) => {
       setTransferDialogOpen(false);
       toast.success(response.message);
@@ -147,10 +147,11 @@ export function MintManagementPage() {
     topupMutation.mutate(topupForm);
   };
 
-  const mintOptions = activeMints?.mints?.map(mint => ({
-    value: mint.mint_url,
-    label: mint.name || MultimintService.getMintDisplayName(mint.mint_url),
-  })) || [];
+  const mintOptions =
+    activeMints?.mints?.map((mint) => ({
+      value: mint.mint_url,
+      label: mint.name || MultimintService.getMintDisplayName(mint.mint_url),
+    })) || [];
 
   return (
     <div className='space-y-6 p-6'>
@@ -166,12 +167,15 @@ export function MintManagementPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
             {/* Send Button */}
-            <Dialog open={sendDialogOpen} onOpenChange={(open) => {
-              setSendDialogOpen(open);
-              if (!open) resetForms();
-            }}>
+            <Dialog
+              open={sendDialogOpen}
+              onOpenChange={(open) => {
+                setSendDialogOpen(open);
+                if (!open) resetForms();
+              }}
+            >
               <DialogTrigger asChild>
                 <Button className='h-20 flex-col gap-2' variant='outline'>
                   <Send className='h-6 w-6' />
@@ -192,22 +196,28 @@ export function MintManagementPage() {
                       id='send-amount'
                       type='number'
                       value={sendForm.amount || ''}
-                      onChange={(e) => setSendForm(prev => ({ 
-                        ...prev, 
-                        amount: parseInt(e.target.value) || 0 
-                      }))}
+                      onChange={(e) =>
+                        setSendForm((prev) => ({
+                          ...prev,
+                          amount: parseInt(e.target.value) || 0,
+                        }))
+                      }
                       placeholder='Enter amount'
                     />
                   </div>
 
                   <div className='space-y-2'>
-                    <Label htmlFor='preferred-mint'>Preferred Mint (Optional)</Label>
+                    <Label htmlFor='preferred-mint'>
+                      Preferred Mint (Optional)
+                    </Label>
                     <Select
                       value={sendForm.preferred_mint || ''}
-                      onValueChange={(value) => setSendForm(prev => ({ 
-                        ...prev, 
-                        preferred_mint: value || undefined 
-                      }))}
+                      onValueChange={(value) =>
+                        setSendForm((prev) => ({
+                          ...prev,
+                          preferred_mint: value || undefined,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder='Select a mint (or use auto-select)' />
@@ -222,7 +232,7 @@ export function MintManagementPage() {
                     </Select>
                   </div>
 
-                  <div className='flex items-center space-x-2'>
+                  {/*<div className='flex items-center space-x-2'>
                     <Switch
                       id='split-across-mints'
                       checked={sendForm.split_across_mints}
@@ -232,27 +242,34 @@ export function MintManagementPage() {
                       }))}
                     />
                     <Label htmlFor='split-across-mints'>Split across multiple mints</Label>
-                  </div>
+                  </div> */}
                 </div>
                 <DialogFooter>
-                  <Button variant='outline' onClick={() => setSendDialogOpen(false)}>
+                  <Button
+                    variant='outline'
+                    onClick={() => setSendDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleSend}
                     disabled={sendMutation.isPending || sendForm.amount <= 0}
                   >
-                    {sendMutation.isPending ? 'Generating...' : 'Generate Token'}
+                    {sendMutation.isPending
+                      ? 'Generating...'
+                      : 'Generate Token'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
-            {/* Transfer Button */}
-            <Dialog open={transferDialogOpen} onOpenChange={(open) => {
-              setTransferDialogOpen(open);
-              if (!open) resetForms();
-            }}>
+            {/*<Dialog
+              open={transferDialogOpen}
+              onOpenChange={(open) => {
+                setTransferDialogOpen(open);
+                if (!open) resetForms();
+              }}
+            >
               <DialogTrigger asChild>
                 <Button className='h-20 flex-col gap-2' variant='outline'>
                   <ArrowRightLeft className='h-6 w-6' />
@@ -271,10 +288,12 @@ export function MintManagementPage() {
                     <Label>From Mint</Label>
                     <Select
                       value={transferForm.from_mint}
-                      onValueChange={(value) => setTransferForm(prev => ({ 
-                        ...prev, 
-                        from_mint: value 
-                      }))}
+                      onValueChange={(value) =>
+                        setTransferForm((prev) => ({
+                          ...prev,
+                          from_mint: value,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder='Select source mint' />
@@ -293,20 +312,26 @@ export function MintManagementPage() {
                     <Label>To Mint</Label>
                     <Select
                       value={transferForm.to_mint}
-                      onValueChange={(value) => setTransferForm(prev => ({ 
-                        ...prev, 
-                        to_mint: value 
-                      }))}
+                      onValueChange={(value) =>
+                        setTransferForm((prev) => ({
+                          ...prev,
+                          to_mint: value,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder='Select destination mint' />
                       </SelectTrigger>
                       <SelectContent>
-                        {mintOptions.filter(option => option.value !== transferForm.from_mint).map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
+                        {mintOptions
+                          .filter(
+                            (option) => option.value !== transferForm.from_mint
+                          )
+                          .map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -317,38 +342,48 @@ export function MintManagementPage() {
                       id='transfer-amount'
                       type='number'
                       value={transferForm.amount || ''}
-                      onChange={(e) => setTransferForm(prev => ({ 
-                        ...prev, 
-                        amount: parseInt(e.target.value) || 0 
-                      }))}
+                      onChange={(e) =>
+                        setTransferForm((prev) => ({
+                          ...prev,
+                          amount: parseInt(e.target.value) || 0,
+                        }))
+                      }
                       placeholder='Enter amount'
                     />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant='outline' onClick={() => setTransferDialogOpen(false)}>
+                  <Button
+                    variant='outline'
+                    onClick={() => setTransferDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleTransfer}
                     disabled={
-                      transferMutation.isPending || 
-                      !transferForm.from_mint || 
-                      !transferForm.to_mint || 
+                      transferMutation.isPending ||
+                      !transferForm.from_mint ||
+                      !transferForm.to_mint ||
                       transferForm.amount <= 0
                     }
                   >
-                    {transferMutation.isPending ? 'Transferring...' : 'Transfer'}
+                    {transferMutation.isPending
+                      ? 'Transferring...'
+                      : 'Transfer'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            */}
 
-            {/* Topup Button */}
-            <Dialog open={topupDialogOpen} onOpenChange={(open) => {
-              setTopupDialogOpen(open);
-              if (!open) resetForms();
-            }}>
+            <Dialog
+              open={topupDialogOpen}
+              onOpenChange={(open) => {
+                setTopupDialogOpen(open);
+                if (!open) resetForms();
+              }}
+            >
               <DialogTrigger asChild>
                 <Button className='h-20 flex-col gap-2' variant='outline'>
                   <Zap className='h-6 w-6' />
@@ -367,10 +402,12 @@ export function MintManagementPage() {
                     <Label>Select Mint</Label>
                     <Select
                       value={topupForm.mint_url}
-                      onValueChange={(value) => setTopupForm(prev => ({ 
-                        ...prev, 
-                        mint_url: value 
-                      }))}
+                      onValueChange={(value) =>
+                        setTopupForm((prev) => ({
+                          ...prev,
+                          mint_url: value,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder='Select mint to topup' />
@@ -389,19 +426,24 @@ export function MintManagementPage() {
                     <Label>Topup Method</Label>
                     <Select
                       value={topupForm.method}
-                      onValueChange={(value: 'lightning' | 'ecash') => setTopupForm(prev => ({ 
-                        ...prev, 
-                        method: value,
-                        amount: value === 'lightning' ? prev.amount : undefined,
-                        token: value === 'ecash' ? prev.token : undefined,
-                      }))}
+                      onValueChange={(value: 'lightning' | 'ecash') =>
+                        setTopupForm((prev) => ({
+                          ...prev,
+                          method: value,
+                          amount:
+                            value === 'lightning' ? prev.amount : undefined,
+                          token: value === 'ecash' ? prev.token : undefined,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value='ecash'>Ecash Token</SelectItem>
-                        <SelectItem value='lightning'>Lightning (Coming Soon)</SelectItem>
+                        <SelectItem value='lightning'>
+                          Lightning (Coming Soon)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -413,10 +455,12 @@ export function MintManagementPage() {
                         id='topup-amount'
                         type='number'
                         value={topupForm.amount || ''}
-                        onChange={(e) => setTopupForm(prev => ({ 
-                          ...prev, 
-                          amount: parseInt(e.target.value) || undefined
-                        }))}
+                        onChange={(e) =>
+                          setTopupForm((prev) => ({
+                            ...prev,
+                            amount: parseInt(e.target.value) || undefined,
+                          }))
+                        }
                         placeholder='Enter amount'
                       />
                     </div>
@@ -428,10 +472,12 @@ export function MintManagementPage() {
                       <Textarea
                         id='topup-token'
                         value={topupForm.token || ''}
-                        onChange={(e) => setTopupForm(prev => ({ 
-                          ...prev, 
-                          token: e.target.value || undefined
-                        }))}
+                        onChange={(e) =>
+                          setTopupForm((prev) => ({
+                            ...prev,
+                            token: e.target.value || undefined,
+                          }))
+                        }
                         placeholder='Paste ecash token here'
                         rows={4}
                       />
@@ -439,13 +485,16 @@ export function MintManagementPage() {
                   )}
                 </div>
                 <DialogFooter>
-                  <Button variant='outline' onClick={() => setTopupDialogOpen(false)}>
+                  <Button
+                    variant='outline'
+                    onClick={() => setTopupDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleTopup}
                     disabled={
-                      topupMutation.isPending || 
+                      topupMutation.isPending ||
                       !topupForm.mint_url ||
                       (topupForm.method === 'lightning' && !topupForm.amount) ||
                       (topupForm.method === 'ecash' && !topupForm.token)
@@ -464,4 +513,4 @@ export function MintManagementPage() {
       <MintList />
     </div>
   );
-} 
+}
