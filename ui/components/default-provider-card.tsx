@@ -163,27 +163,7 @@ export function DefaultProviderCard() {
               </span>
             </div>
           </div>
-
-          <div className='grid grid-cols-2 gap-4 text-sm'>
-            <div className='flex items-center gap-2'>
-              <Users className='h-4 w-4 text-blue-600' />
-              <div>
-                <div className='font-medium'>
-                  {defaultProvider.followers.toLocaleString()}
-                </div>
-                <div className='text-muted-foreground text-xs'>Followers</div>
-              </div>
-            </div>
-            <div className='flex items-center gap-2'>
-              <Zap className='h-4 w-4 text-yellow-600' />
-              <div>
-                <div className='font-medium'>
-                  {defaultProvider.zaps.toLocaleString()}
-                </div>
-                <div className='text-muted-foreground text-xs'>Zaps</div>
-              </div>
-            </div>
-          </div>
+          <div></div>
 
           <div className='flex items-center justify-end gap-2 text-sm'>
             <Button

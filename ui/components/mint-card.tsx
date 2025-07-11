@@ -2,16 +2,20 @@
 
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  Trash2, 
-  Power, 
-  PowerOff, 
-  Edit3, 
+import {
+  Trash2,
+  Power,
+  PowerOff,
+  Edit3,
   ExternalLink,
   AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { MintService, type Mint, type UpdateMintRequest } from '@/lib/api/services/mints';
+import {
+  MintService,
+  type Mint,
+  type UpdateMintRequest,
+} from '@/lib/api/services/mints';
 import { MultimintService } from '@/lib/api/services/multimint';
 import {
   Card,
@@ -24,7 +28,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +67,9 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
   const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editedName, setEditedName] = useState(mint.name || '');
-  const [editedCurrencyUnit, setEditedCurrencyUnit] = useState(mint.currency_unit);
+  const [editedCurrencyUnit, setEditedCurrencyUnit] = useState(
+    mint.currency_unit
+  );
 
   // Toggle mint active status
   const toggleActiveMutation = useMutation({
@@ -66,7 +78,9 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
     onSuccess: (_, { isActive }) => {
       queryClient.invalidateQueries({ queryKey: ['mints'] });
       queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
-      toast.success(`Mint ${isActive ? 'activated' : 'deactivated'} successfully`);
+      toast.success(
+        `Mint ${isActive ? 'activated' : 'deactivated'} successfully`
+      );
     },
     onError: (error) => {
       toast.error(`Failed to update mint status: ${error.message}`);
@@ -114,32 +128,42 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
   const handleUpdateMint = () => {
     updateMutation.mutate({
       id: mint.id,
-      data: { 
+      data: {
         name: editedName || undefined,
-        currency_unit: editedCurrencyUnit !== mint.currency_unit ? editedCurrencyUnit : undefined,
+        currency_unit:
+          editedCurrencyUnit !== mint.currency_unit
+            ? editedCurrencyUnit
+            : undefined,
       },
     });
   };
 
-  const displayName = mint.name || MultimintService.getMintDisplayName(mint.mint_url);
-  const formattedBalance = balance ? MultimintService.formatBalance(balance, mint.currency_unit) : null;
+  const displayName =
+    mint.name || MultimintService.getMintDisplayName(mint.mint_url);
+  const formattedBalance = balance
+    ? MultimintService.formatBalance(balance, mint.currency_unit)
+    : null;
 
   return (
-    <Card className={cn(
-      'transition-all duration-200 hover:shadow-md',
-      !mint.is_active && 'opacity-60',
-      className
-    )}>
+    <Card
+      className={cn(
+        'transition-all duration-200 hover:shadow-md',
+        !mint.is_active && 'opacity-60',
+        className
+      )}
+    >
       <CardHeader className='pb-3'>
         <div className='flex items-start justify-between'>
-          <div className='space-y-1 flex-1 min-w-0'>
+          <div className='min-w-0 flex-1 space-y-1'>
             <div className='flex items-center gap-2'>
-              <CardTitle className='text-lg truncate'>{displayName}</CardTitle>
-              <Badge 
+              <CardTitle className='truncate text-lg'>{displayName}</CardTitle>
+              <Badge
                 variant={mint.is_active ? 'default' : 'secondary'}
                 className={cn(
                   'shrink-0',
-                  mint.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                  mint.is_active
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-600'
                 )}
               >
                 {MultimintService.getMintStatusText(mint.is_active)}
@@ -149,18 +173,8 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
               {mint.mint_url}
             </CardDescription>
           </div>
-          
-          <div className='flex items-center gap-1 ml-2'>
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8'
-              onClick={() => window.open(mint.mint_url, '_blank')}
-            >
-              <ExternalLink className='h-4 w-4' />
-              <span className='sr-only'>Open mint website</span>
-            </Button>
 
+          <div className='ml-2 flex items-center gap-1'>
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant='ghost' size='icon' className='h-8 w-8'>
@@ -187,13 +201,18 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
                   </div>
                   <div className='space-y-2'>
                     <Label htmlFor='currency-unit'>Currency Unit</Label>
-                    <Select value={editedCurrencyUnit} onValueChange={setEditedCurrencyUnit}>
+                    <Select
+                      value={editedCurrencyUnit}
+                      onValueChange={setEditedCurrencyUnit}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder='Select currency unit' />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value='sat'>sat (Satoshis)</SelectItem>
-                        <SelectItem value='msat'>msat (Millisatoshis)</SelectItem>
+                        <SelectItem value='msat'>
+                          msat (Millisatoshis)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -220,7 +239,9 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
               size='icon'
               className={cn(
                 'h-8 w-8',
-                mint.is_active ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-600'
+                mint.is_active
+                  ? 'text-green-600 hover:text-green-700'
+                  : 'text-gray-400 hover:text-gray-600'
               )}
               onClick={handleToggleActive}
               disabled={toggleActiveMutation.isPending}
@@ -250,8 +271,9 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Mint</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete this mint? This action cannot be undone.
-                    Make sure the mint has zero balance before deleting.
+                    Are you sure you want to delete this mint? This action
+                    cannot be undone. Make sure the mint has zero balance before
+                    deleting.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -273,16 +295,16 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
       <CardContent className='pt-0'>
         <div className='flex items-center justify-between'>
           <div className='space-y-1'>
-            <p className='text-sm text-muted-foreground'>Balance</p>
+            <p className='text-muted-foreground text-sm'>Balance</p>
             {formattedBalance ? (
               <p className='text-lg font-semibold'>{formattedBalance}</p>
             ) : (
-              <p className='text-sm text-muted-foreground'>Loading...</p>
+              <p className='text-muted-foreground text-sm'>Loading...</p>
             )}
           </div>
-          
+
           <div className='space-y-1 text-right'>
-            <p className='text-sm text-muted-foreground'>Currency</p>
+            <p className='text-muted-foreground text-sm'>Currency</p>
             <p className='text-sm font-medium'>{mint.currency_unit}</p>
           </div>
         </div>
@@ -296,4 +318,4 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
       </CardContent>
     </Card>
   );
-} 
+}

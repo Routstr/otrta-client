@@ -24,18 +24,18 @@ interface MintListProps {
   refreshInterval?: number;
 }
 
-export function MintList({ 
-  className, 
-  showHeader = true, 
-  refreshInterval = 30000 
+export function MintList({
+  className,
+  showHeader = true,
+  refreshInterval = 30000,
 }: MintListProps) {
   // Fetch all mints
-  const { 
-    data: mintsData, 
-    isLoading: mintsLoading, 
-    isError: mintsError, 
+  const {
+    data: mintsData,
+    isLoading: mintsLoading,
+    isError: mintsError,
     error: mintsErrorMessage,
-    refetch: refetchMints 
+    refetch: refetchMints,
   } = useQuery({
     queryKey: ['mints'],
     queryFn: () => MintService.getAllMints(),
@@ -43,11 +43,11 @@ export function MintList({
   });
 
   // Fetch multimint balance
-  const { 
-    data: balanceData, 
+  const {
+    data: balanceData,
     isLoading: balanceLoading,
     isError: balanceError,
-    refetch: refetchBalance 
+    refetch: refetchBalance,
   } = useQuery({
     queryKey: ['multimint-balance'],
     queryFn: () => MultimintService.getMultimintBalance(),
@@ -60,20 +60,23 @@ export function MintList({
   };
 
   const mints = mintsData?.mints || [];
-  const activeMints = mints.filter(mint => mint.is_active);
-  const inactiveMints = mints.filter(mint => !mint.is_active);
+  const activeMints = mints.filter((mint) => mint.is_active);
+  const inactiveMints = mints.filter((mint) => !mint.is_active);
 
   // Create a map of mint URL to balance for quick lookup
   const balanceMap = new Map(
-    balanceData?.balances_by_mint.map(balance => [balance.mint_url, balance.balance]) || []
+    balanceData?.balances_by_mint.map((balance) => [
+      balance.mint_url,
+      balance.balance,
+    ]) || []
   );
 
   if (mintsLoading) {
     return (
       <Card className={className}>
         <CardContent className='flex items-center justify-center py-12'>
-          <div className='text-center space-y-3'>
-            <Loader2 className='h-8 w-8 animate-spin mx-auto text-muted-foreground' />
+          <div className='space-y-3 text-center'>
+            <Loader2 className='text-muted-foreground mx-auto h-8 w-8 animate-spin' />
             <p className='text-muted-foreground'>Loading mints...</p>
           </div>
         </CardContent>
@@ -85,16 +88,18 @@ export function MintList({
     return (
       <Card className={className}>
         <CardContent className='flex items-center justify-center py-12'>
-          <div className='text-center space-y-3'>
-            <AlertCircle className='h-8 w-8 mx-auto text-destructive' />
+          <div className='space-y-3 text-center'>
+            <AlertCircle className='text-destructive mx-auto h-8 w-8' />
             <div>
-              <p className='text-destructive font-medium'>Failed to load mints</p>
-              <p className='text-sm text-muted-foreground mt-1'>
+              <p className='text-destructive font-medium'>
+                Failed to load mints
+              </p>
+              <p className='text-muted-foreground mt-1 text-sm'>
                 {(mintsErrorMessage as Error)?.message || 'An error occurred'}
               </p>
             </div>
             <Button onClick={handleRefresh} variant='outline' size='sm'>
-              <RefreshCw className='h-4 w-4 mr-2' />
+              <RefreshCw className='mr-2 h-4 w-4' />
               Try Again
             </Button>
           </div>
@@ -106,9 +111,9 @@ export function MintList({
   if (mints.length === 0) {
     return (
       <Card className={className}>
-        <CardContent className='flex flex-col items-center justify-center py-12 space-y-4'>
-          <Wallet className='h-12 w-12 text-muted-foreground' />
-          <div className='text-center space-y-2'>
+        <CardContent className='flex flex-col items-center justify-center space-y-4 py-12'>
+          <Wallet className='text-muted-foreground h-12 w-12' />
+          <div className='space-y-2 text-center'>
             <h3 className='text-lg font-semibold'>No mints configured</h3>
             <p className='text-muted-foreground'>
               Add your first mint to start using the multimint wallet
@@ -142,11 +147,11 @@ export function MintList({
                   onClick={handleRefresh}
                   disabled={mintsLoading || balanceLoading}
                 >
-                  <RefreshCw 
+                  <RefreshCw
                     className={cn(
                       'h-4 w-4',
                       (mintsLoading || balanceLoading) && 'animate-spin'
-                    )} 
+                    )}
                   />
                   <span className='sr-only'>Refresh</span>
                 </Button>
@@ -155,29 +160,19 @@ export function MintList({
             </div>
           </CardHeader>
           <CardContent>
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+            <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
               <div className='space-y-2'>
-                <p className='text-sm text-muted-foreground'>Total Balance</p>
-                {balanceLoading ? (
-                  <div className='flex items-center gap-2'>
-                    <Loader2 className='h-4 w-4 animate-spin' />
-                    <span className='text-lg font-semibold'>Loading...</span>
-                  </div>
-                ) : balanceError ? (
-                  <p className='text-lg font-semibold text-destructive'>Error</p>
-                ) : (
-                  <p className='text-2xl font-bold'>{formattedTotalBalance}</p>
-                )}
-              </div>
-              <div className='space-y-2'>
-                <p className='text-sm text-muted-foreground'>Total Mints</p>
+                <p className='text-muted-foreground text-sm'>Total Mints</p>
                 <p className='text-2xl font-bold'>{mints.length}</p>
               </div>
               <div className='space-y-2'>
-                <p className='text-sm text-muted-foreground'>Active Mints</p>
+                <p className='text-muted-foreground text-sm'>Active Mints</p>
                 <div className='flex items-center gap-2'>
                   <p className='text-2xl font-bold'>{activeMints.length}</p>
-                  <Badge variant='secondary' className='bg-green-100 text-green-800'>
+                  <Badge
+                    variant='secondary'
+                    className='bg-green-100 text-green-800'
+                  >
                     Active
                   </Badge>
                 </div>
@@ -217,7 +212,7 @@ export function MintList({
               ))}
             </div>
           ) : (
-            <div className='text-center py-8'>
+            <div className='py-8 text-center'>
               <p className='text-muted-foreground'>No mints found</p>
             </div>
           )}
@@ -235,11 +230,11 @@ export function MintList({
               ))}
             </div>
           ) : (
-            <div className='text-center py-8 space-y-4'>
-              <AlertCircle className='h-12 w-12 mx-auto text-muted-foreground' />
+            <div className='space-y-4 py-8 text-center'>
+              <AlertCircle className='text-muted-foreground mx-auto h-12 w-12' />
               <div>
                 <p className='text-muted-foreground'>No active mints</p>
-                <p className='text-sm text-muted-foreground mt-1'>
+                <p className='text-muted-foreground mt-1 text-sm'>
                   Activate some mints or add new ones to start using your wallet
                 </p>
               </div>
@@ -260,7 +255,7 @@ export function MintList({
               ))}
             </div>
           ) : (
-            <div className='text-center py-8'>
+            <div className='py-8 text-center'>
               <p className='text-muted-foreground'>No inactive mints</p>
             </div>
           )}
@@ -268,4 +263,4 @@ export function MintList({
       </Tabs>
     </div>
   );
-} 
+}

@@ -209,23 +209,12 @@ export default function Page() {
                               Balance
                             </p>
                           </div>
-                          <Button variant='ghost' size='sm' asChild>
-                            <a
-                              href={mint.mint_url}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                              className='p-2'
-                            >
-                              <ExternalLink className='h-4 w-4' />
-                            </a>
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
                   );
                 })}
 
-                {/* Show more link if there are more than 6 mints */}
                 {mints.length > 6 && (
                   <Card className='border-dashed transition-shadow hover:shadow-md'>
                     <CardContent className='flex flex-col items-center justify-center space-y-2 py-8'>
@@ -257,12 +246,6 @@ export default function Page() {
                   className='rounded-lg px-4 py-2 data-[state=active]:shadow-sm'
                 >
                   Balance
-                </TabsTrigger>
-                <TabsTrigger
-                  value='redeem'
-                  className='rounded-lg px-4 py-2 data-[state=active]:shadow-sm'
-                >
-                  Cashback
                 </TabsTrigger>
               </TabsList>
             </div>

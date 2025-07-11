@@ -44,14 +44,9 @@ const POPULAR_MINTS = [
     description: 'Popular mobile-first Cashu mint',
   },
   {
-    name: 'Testnut',
-    url: 'https://testnut.cashu.space',
-    description: 'Testing and development mint',
-  },
-  {
-    name: 'Coinos',
-    url: 'https://mint.coinos.io',
-    description: 'Multi-currency mint by Coinos',
+    name: 'Otrta',
+    url: 'https://ecashmint.otrta.me',
+    description: 'msat mint',
   },
 ];
 
@@ -91,24 +86,26 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate URL
     if (!MultimintService.isValidMintUrl(formData.mint_url)) {
-      setUrlError('Please enter a valid mint URL (must start with http:// or https://)');
+      setUrlError(
+        'Please enter a valid mint URL (must start with http:// or https://)'
+      );
       return;
     }
-    
+
     setUrlError('');
     createMintMutation.mutate(formData);
   };
 
   const handleUrlChange = (url: string) => {
-    setFormData(prev => ({ ...prev, mint_url: url }));
+    setFormData((prev) => ({ ...prev, mint_url: url }));
     setUrlError('');
   };
 
-  const handlePopularMintSelect = (mint: typeof POPULAR_MINTS[0]) => {
-    setFormData(prev => ({
+  const handlePopularMintSelect = (mint: (typeof POPULAR_MINTS)[0]) => {
+    setFormData((prev) => ({
       ...prev,
       mint_url: mint.url,
       name: mint.name,
@@ -124,19 +121,21 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      setIsOpen(open);
-      if (!open) resetForm();
-    }}>
-      <DialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </DialogTrigger>
-      
-      <DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) resetForm();
+      }}
+    >
+      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
+
+      <DialogContent className='max-h-[90vh] max-w-2xl overflow-y-auto'>
         <DialogHeader>
           <DialogTitle>Add New Mint</DialogTitle>
           <DialogDescription>
-            Add a new Cashu mint to your wallet. You can enter a custom URL or select from popular mints.
+            Add a new Cashu mint to your wallet. You can enter a custom URL or
+            select from popular mints.
           </DialogDescription>
         </DialogHeader>
 
@@ -146,21 +145,25 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
             <Label className='text-sm font-medium'>Popular Mints</Label>
             <div className='grid gap-2'>
               {POPULAR_MINTS.map((mint) => (
-                <Card 
+                <Card
                   key={mint.url}
-                  className='cursor-pointer transition-colors hover:bg-muted/50'
+                  className='hover:bg-muted/50 cursor-pointer transition-colors'
                   onClick={() => handlePopularMintSelect(mint)}
                 >
                   <CardContent className='p-3'>
-                    <div className='flex justify-between items-start'>
-                      <div className='space-y-1 flex-1'>
-                        <div className='font-medium text-sm'>{mint.name}</div>
-                        <div className='text-xs text-muted-foreground'>{mint.description}</div>
-                        <div className='text-xs text-blue-600 font-mono truncate'>{mint.url}</div>
+                    <div className='flex items-start justify-between'>
+                      <div className='flex-1 space-y-1'>
+                        <div className='text-sm font-medium'>{mint.name}</div>
+                        <div className='text-muted-foreground text-xs'>
+                          {mint.description}
+                        </div>
+                        <div className='truncate font-mono text-xs text-blue-600'>
+                          {mint.url}
+                        </div>
                       </div>
-                      <Button 
+                      <Button
                         type='button'
-                        variant='ghost' 
+                        variant='ghost'
                         size='sm'
                         onClick={(e) => {
                           e.stopPropagation();
@@ -179,7 +182,7 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
           {/* Custom Mint Form */}
           <div className='space-y-4 border-t pt-4'>
             <Label className='text-sm font-medium'>Custom Mint</Label>
-            
+
             <div className='space-y-2'>
               <Label htmlFor='mint_url'>Mint URL *</Label>
               <Input
@@ -191,9 +194,7 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
                 required
                 className={urlError ? 'border-red-500' : ''}
               />
-              {urlError && (
-                <p className='text-sm text-red-600'>{urlError}</p>
-              )}
+              {urlError && <p className='text-sm text-red-600'>{urlError}</p>}
             </div>
 
             <div className='space-y-2'>
@@ -203,9 +204,11 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
                 type='text'
                 placeholder='e.g., My Favorite Mint'
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
               />
-              <p className='text-sm text-muted-foreground'>
+              <p className='text-muted-foreground text-sm'>
                 Leave empty to use the mint&apos;s default name
               </p>
             </div>
@@ -214,7 +217,9 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
               <Label htmlFor='currency_unit'>Currency Unit</Label>
               <Select
                 value={formData.currency_unit}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, currency_unit: value }))}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, currency_unit: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -259,4 +264,4 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
       </DialogContent>
     </Dialog>
   );
-} 
+}
