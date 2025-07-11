@@ -1,5 +1,5 @@
 use crate::db::mint::CurrencyUnit;
-use crate::multimint::MultimintWallet;
+use crate::multimint::MultimintWalletWrapper;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +23,7 @@ pub struct TokenRedeemResponse {
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_msats_per_request: u32,
-    pub wallet: MultimintWallet,
+    pub wallet: MultimintWalletWrapper,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

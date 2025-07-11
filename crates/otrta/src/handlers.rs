@@ -33,7 +33,8 @@ use std::{str::FromStr, sync::Arc};
 fn get_user_friendly_wallet_error_message(error: &str) -> String {
     match error {
         s if s.contains("BlindedMessageAlreadySigned") => {
-            "This token has already been redeemed. Each ecash token can only be used once.".to_string()
+            "This token has already been redeemed. Each ecash token can only be used once."
+                .to_string()
         }
         s if s.contains("ProofAlreadySpent") => {
             "This token has already been spent. Each ecash token can only be used once.".to_string()
@@ -48,9 +49,10 @@ fn get_user_friendly_wallet_error_message(error: &str) -> String {
             "Invalid token format or corrupted token data.".to_string()
         }
         s if s.contains("MintConnectionError") => {
-            "Unable to connect to the mint. Please check your internet connection and try again.".to_string()
+            "Unable to connect to the mint. Please check your internet connection and try again."
+                .to_string()
         }
-        _ => format!("Wallet error: {}", error)
+        _ => format!("Wallet error: {}", error),
     }
 }
 
@@ -200,7 +202,6 @@ pub async fn redeem_token(
     let token = payload.token.trim();
     println!("Attempting to redeem token: {}", token);
 
-    // Parse the token to extract information
     let parsed_token = match cdk::nuts::Token::from_str(&token) {
         Ok(t) => t,
         Err(e) => {
@@ -213,8 +214,6 @@ pub async fn redeem_token(
     };
 
     if let Ok(mint_url) = parsed_token.mint_url() {
-        println!("Extracted mint URL from token: {}", mint_url);
-
         let configured_mints = state.wallet.list_mints().await;
         if !configured_mints.contains(&mint_url.to_string()) {
             return Json(TokenRedeemResponse {
@@ -227,7 +226,6 @@ pub async fn redeem_token(
             });
         }
 
-        println!("{:?}", configured_mints);
         if let Some(wallet) = state
             .wallet
             .get_wallet_for_mint(&mint_url.to_string())
@@ -256,7 +254,6 @@ pub async fn redeem_token(
         }
     }
 
-    // Fallback to general wallet receive if no specific mint wallet found
     match state.wallet.receive(token).await {
         Ok(amount) => Json(TokenRedeemResponse {
             amount: Some(amount.to_string()),
@@ -363,7 +360,7 @@ pub async fn send_token(
         .wallet
         .send(
             payload.amount as u64,
-            crate::multimint::MultimintSendOptions::default(),
+            crate::multimint::LocalMultimintSendOptions::default(),
         )
         .await
     {
@@ -948,7 +945,7 @@ pub async fn send_multimint_token_handler(
     let unit = payload
         .unit
         .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok());
-    let send_options = crate::multimint::MultimintSendOptions {
+    let send_options = crate::multimint::LocalMultimintSendOptions {
         preferred_mint: payload.preferred_mint,
         unit,
         split_across_mints: payload.split_across_mints.unwrap_or(false),
@@ -1104,7 +1101,8 @@ pub async fn topup_mint_handler(
                         })),
                         Err(e) => {
                             eprintln!("Failed to redeem ecash token with specific mint: {:?}", e);
-                            let error_message = get_user_friendly_wallet_error_message(&e.to_string());
+                            let error_message =
+                                get_user_friendly_wallet_error_message(&e.to_string());
                             Err((
                                 StatusCode::BAD_REQUEST,
                                 Json(json!({
@@ -1128,7 +1126,8 @@ pub async fn topup_mint_handler(
                         })),
                         Err(e) => {
                             eprintln!("Failed to redeem ecash token: {:?}", e);
-                            let error_message = get_user_friendly_wallet_error_message(&e.to_string());
+                            let error_message =
+                                get_user_friendly_wallet_error_message(&e.to_string());
                             Err((
                                 StatusCode::BAD_REQUEST,
                                 Json(json!({
