@@ -1,20 +1,20 @@
 use axum::{
-    Router,
     routing::{delete, get, post, put},
+    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{DatabaseSettings, Settings, get_configuration};
+use connection::{get_configuration, DatabaseSettings, Settings};
 use ecash_402_wallet::wallet::CashuWalletClient;
 use otrta::{
     db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
     multimint::MultimintWalletWrapper,
-    proxy::forward_any_request_get,
+    proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -49,7 +49,7 @@ async fn main() {
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),
         default_msats_per_request: configuration.application.default_msats_per_request,
-        wallet,
+        wallet: Arc::new(wallet),
     });
 
     let job_runner = BackgroundJobRunner::new(Arc::clone(&app_state));
@@ -122,8 +122,8 @@ async fn main() {
             post(handlers::transfer_between_mints_handler),
         )
         .route("/api/multimint/topup", post(handlers::topup_mint_handler))
-        // .route("/{*path}", post(forward_any_request))
-        // .route("/v1/{*path}", post(forward_any_request))
+        .route("/{*path}", post(forward_any_request))
+        .route("/v1/{*path}", post(forward_any_request))
         .route("/{*path}", get(forward_any_request_get))
         .route("/v1/{*path}", get(forward_any_request_get))
         .with_state(app_state)
@@ -216,7 +216,6 @@ async fn initialize_wallet(
 
             create_with_seed(connection_pool, &seed).await?;
 
-            // Create multimint wallet with the new seed
             let multimint_wallet = MultimintWalletWrapper::from_existing_wallet(
                 &wallet,
                 &configuration.application.mint_url,

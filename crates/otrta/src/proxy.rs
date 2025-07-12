@@ -1,11 +1,16 @@
 use crate::{
-    db::{models::get_model, provider::get_default_provider, Pool},
+    db::{
+        models::get_model,
+        provider::get_default_provider,
+        transaction::{add_transaction, TransactionDirection},
+        Pool,
+    },
     models::*,
     wallet::{finalize_request, send_with_retry},
 };
 use axum::{
     body::Body,
-    extract::{Path, Request, State},
+    extract::{Path, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -33,48 +38,10 @@ pub async fn forward_any_request_get(
 pub async fn forward_any_request(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
-    request: Request,
+    headers: HeaderMap,
+    Json(body_data): Json<serde_json::Value>,
 ) -> Response<Body> {
-    let headers = request.headers().clone();
-    let body_bytes = match axum::body::to_bytes(request.into_body(), usize::MAX).await {
-        Ok(bytes) => bytes,
-        Err(_) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": {
-                        "message": "Failed to read request body",
-                        "type": "request_error"
-                    }
-                })),
-            )
-                .into_response();
-        }
-    };
-
-    let body_data: serde_json::Value = if body_bytes.is_empty() {
-        serde_json::json!({})
-    } else {
-        match serde_json::from_slice(&body_bytes) {
-            Ok(data) => data,
-            Err(_) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": {
-                            "message": "Invalid JSON in request body",
-                            "type": "parse_error"
-                        }
-                    })),
-                )
-                    .into_response();
-            }
-        }
-    };
-
-    forward_request_with_payment_with_body(headers, &state, &path, Some(body_data), false)
-        .await
-        .into_response()
+    forward_request_with_payment_with_body(headers, &state, &path, Some(body_data), false).await
 }
 
 pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
@@ -189,96 +156,120 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
     if !token.is_empty() {
         req_builder = req_builder.header("X-Cashu", &token);
+
+        add_transaction(
+            &state.db,
+            &token,
+            &cost.to_string(),
+            TransactionDirection::Outgoing,
+        )
+        .await
+        .unwrap();
     }
 
     if let Some(accept) = original_headers.get(header::ACCEPT) {
         req_builder = req_builder.header(header::ACCEPT, accept);
     }
 
-    match req_builder.send().await {
-        Ok(resp) => {
-            let status = resp.status();
-            let headers = resp.headers().clone();
+    let response = if let Ok(resp) = req_builder.send().await {
+        let status = resp.status();
+        let headers = resp.headers().clone();
 
-            if status != StatusCode::OK {
-                // Only handle payment headers for non-free models
-                if !is_free_model && !token.is_empty() {
-                    if let Some(change_sats) = headers.get("X-Cashu") {
-                        if let Ok(in_token) = change_sats.to_str() {
-                            state.wallet.receive(in_token).await.unwrap();
-                        }
-                    }
-                }
-                return Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .body(Body::from("Server Error"))
-                    .unwrap();
-            }
-
-            let mut response = Response::builder().status(status);
-
-            if is_streaming && !headers.contains_key(header::CONTENT_TYPE) {
-                response = response.header(header::CONTENT_TYPE, "text/event-stream");
-            }
-
-            // Only handle payment finalization for non-free models
+        if status != StatusCode::OK {
             if !is_free_model && !token.is_empty() {
                 if let Some(change_sats) = headers.get("X-Cashu") {
                     if let Ok(in_token) = change_sats.to_str() {
-                        finalize_request(&state.db, &state.wallet, &token, cost, in_token).await;
+                        let res = state.wallet.receive(in_token).await.unwrap();
+                        add_transaction(
+                            &state.db,
+                            &in_token,
+                            &res.to_string(),
+                            TransactionDirection::Incoming,
+                        )
+                        .await
+                        .unwrap();
                     }
                 }
             }
+            return Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from("Server Error"))
+                .unwrap();
+        }
 
-            let response_headers = response.headers_mut().unwrap();
-            for (name, value) in headers.iter() {
-                if name != "connection" && name != "transfer-encoding" {
-                    response_headers.insert(name, value.clone());
-                }
-            }
+        let mut response = Response::builder().status(status);
 
-            let stream = resp.bytes_stream().map(|result| {
-                result.map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("Error reading from upstream: {}", e),
+        if is_streaming && !headers.contains_key(header::CONTENT_TYPE) {
+            response = response.header(header::CONTENT_TYPE, "text/event-stream");
+        }
+
+        if !is_free_model {
+            if let Some(change_sats) = headers.get("X-Cashu") {
+                if let Ok(in_token) = change_sats.to_str() {
+                    let res = state.wallet.receive(in_token).await.unwrap();
+                    add_transaction(
+                        &state.db,
+                        &in_token,
+                        &res.to_string(),
+                        TransactionDirection::Incoming,
                     )
-                })
-            });
-
-            let body = Body::from_stream(stream);
-
-            return response.body(body).unwrap_or_else(|e| {
-                let state_clone = state.clone();
-                tokio::spawn(async move {
-                    if let Err(err) = state_clone.wallet.redeem_pendings().await {
-                        eprintln!("Error redeeming pendings: {:?}", err);
-                    }
-                });
-
-                eprintln!("Error creating streaming response: {}", e);
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::from("Error creating streaming response"))
-                    .unwrap()
-            });
-        }
-        Err(error) => {
-            // Only redeem pendings for non-free models
-            if !is_free_model && !token.is_empty() {
-                let _ = state.wallet.redeem_pendings().await;
-            }
-
-            let error_json = Json(json!({
-                "error": {
-                    "message": format!("Error forwarding request: {}", error),
-                    "type": "gateway_error"
+                    .await
+                    .unwrap();
                 }
-            }));
-
-            (StatusCode::INTERNAL_SERVER_ERROR, error_json).into_response()
+            }
         }
-    }
+
+        let response_headers = response.headers_mut().unwrap();
+        for (name, value) in headers.iter() {
+            if name != "connection" && name != "transfer-encoding" {
+                response_headers.insert(name, value.clone());
+            }
+        }
+
+        let stream = resp.bytes_stream().map(|result| {
+            result.map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Error reading from upstream: {}", e),
+                )
+            })
+        });
+
+        let body = Body::from_stream(stream);
+
+        return response.body(body).unwrap_or_else(|e| {
+            let state_clone = state.clone();
+            tokio::spawn(async move {
+                if let Err(err) = state_clone.wallet.redeem_pendings().await {
+                    eprintln!("Error redeeming pendings: {:?}", err);
+                }
+            });
+
+            eprintln!("Error creating streaming response: {}", e);
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from("Error creating streaming response"))
+                .unwrap()
+        });
+    } else {
+        let res = state.wallet.receive(&token).await.unwrap();
+        add_transaction(
+            &state.db,
+            &token,
+            &res.to_string(),
+            TransactionDirection::Incoming,
+        )
+        .await
+        .unwrap();
+        let error_json = Json(json!({
+            "error": {
+            "message": format!("Error forwarding request"),
+            "type": "gateway_error"
+        }}));
+        (StatusCode::INTERNAL_SERVER_ERROR, error_json).into_response()
+    };
+
+    return response;
 }
 
 pub async fn forward_request(db: &Pool, path: &str) -> Response<Body> {
