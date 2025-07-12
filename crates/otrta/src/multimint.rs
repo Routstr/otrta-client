@@ -1,8 +1,6 @@
 use crate::db::mint::CurrencyUnit;
 use ecash_402_wallet::multimint::{MultimintSendOptions, MultimintWallet};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 fn convert_currency_unit(unit: CurrencyUnit) -> cdk::nuts::CurrencyUnit {
     match unit {
@@ -40,16 +38,15 @@ pub struct LocalMultimintSendOptions {
     pub split_across_mints: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct MultimintWalletWrapper {
-    inner: Arc<RwLock<MultimintWallet>>,
+    inner: MultimintWallet,
 }
 
 impl MultimintWalletWrapper {
     pub async fn new(seed: &str, base_db_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let wallet = MultimintWallet::new(seed, base_db_path).await?;
-        Ok(Self {
-            inner: Arc::new(RwLock::new(wallet)),
-        })
+        Ok(Self { inner: wallet })
     }
 
     pub async fn from_existing_wallet(
@@ -60,9 +57,7 @@ impl MultimintWalletWrapper {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let wallet =
             MultimintWallet::from_existing_wallet(_wallet, mint_url, seed, base_db_path).await?;
-        Ok(Self {
-            inner: Arc::new(RwLock::new(wallet)),
-        })
+        Ok(Self { inner: wallet })
     }
 
     pub async fn add_mint(
@@ -70,22 +65,19 @@ impl MultimintWalletWrapper {
         mint_url: &str,
         unit: CurrencyUnit,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut wallet = self.inner.write().await;
-        wallet
+        self.inner
             .add_mint(mint_url, Some(convert_currency_unit(unit)))
             .await?;
         Ok(())
     }
 
     pub async fn remove_mint(&self, mint_url: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let mut wallet = self.inner.write().await;
-        wallet.remove_mint(mint_url).await?;
+        self.inner.remove_mint(mint_url).await?;
         Ok(())
     }
 
     pub async fn list_mints(&self) -> Vec<String> {
-        let wallet = self.inner.read().await;
-        wallet.list_mints().await
+        self.inner.list_mints().await
     }
 
     pub async fn set_mint_active(
@@ -93,16 +85,14 @@ impl MultimintWalletWrapper {
         mint_url: &str,
         active: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut wallet = self.inner.write().await;
-        wallet.set_mint_active(mint_url, active).await?;
+        self.inner.set_mint_active(mint_url, active).await?;
         Ok(())
     }
 
     pub async fn get_total_balance(
         &self,
     ) -> Result<LocalMultimintBalance, Box<dyn std::error::Error>> {
-        let wallet = self.inner.read().await;
-        let balance = wallet.get_total_balance().await?;
+        let balance = self.inner.get_total_balance().await?;
 
         let balances_by_mint: Vec<LocalMintBalance> = balance
             .balances_by_mint
@@ -125,8 +115,7 @@ impl MultimintWalletWrapper {
         &self,
         mint_url: &str,
     ) -> Result<u64, Box<dyn std::error::Error>> {
-        let wallet = self.inner.read().await;
-        let balance = wallet.get_mint_balance(mint_url).await?;
+        let balance = self.inner.get_mint_balance(mint_url).await?;
         Ok(balance)
     }
 
@@ -135,21 +124,18 @@ impl MultimintWalletWrapper {
         amount: u64,
         options: LocalMultimintSendOptions,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let wallet = self.inner.read().await;
-
         let send_options = MultimintSendOptions {
             preferred_mint: options.preferred_mint,
             unit: options.unit.map(convert_currency_unit),
             split_across_mints: options.split_across_mints,
         };
 
-        let token = wallet.send(amount, send_options).await?;
+        let token = self.inner.send(amount, send_options).await?;
         Ok(token)
     }
 
     pub async fn receive(&self, token: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let mut wallet = self.inner.write().await;
-        let result = wallet.receive(token).await?;
+        let result = self.inner.receive(token).await?;
         Ok(result)
     }
 
@@ -159,8 +145,8 @@ impl MultimintWalletWrapper {
         to_mint: &str,
         amount: u64,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let mut wallet = self.inner.write().await;
-        let result = wallet
+        let result = self
+            .inner
             .transfer_between_mints(from_mint, to_mint, amount)
             .await?;
         Ok(result)
@@ -170,13 +156,11 @@ impl MultimintWalletWrapper {
         &self,
         mint_url: &str,
     ) -> Option<ecash_402_wallet::wallet::CashuWalletClient> {
-        let wallet = self.inner.read().await;
-        wallet.get_wallet_for_mint(mint_url).cloned()
+        self.inner.get_wallet_for_mint(mint_url).cloned()
     }
 
     pub async fn redeem_pendings(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let wallet = self.inner.read().await;
-        wallet.redeem_pendings().await?;
+        self.inner.redeem_pendings().await?;
         Ok(())
     }
 
@@ -195,8 +179,7 @@ impl MultimintWalletWrapper {
     }
 
     pub async fn pending(&self) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-        let wallet = self.inner.read().await;
-        let all_pending = wallet.get_all_pending().await?;
+        let all_pending = self.inner.get_all_pending().await?;
 
         let mut result = serde_json::Map::new();
         for (mint_url, pending) in all_pending {

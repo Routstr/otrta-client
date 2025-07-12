@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::db::mint::CurrencyUnit;
 use crate::multimint::MultimintWalletWrapper;
 use chrono::{DateTime, Utc};
@@ -23,7 +25,7 @@ pub struct TokenRedeemResponse {
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_msats_per_request: u32,
-    pub wallet: MultimintWalletWrapper,
+    pub wallet: Arc<MultimintWalletWrapper>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
