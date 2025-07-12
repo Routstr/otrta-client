@@ -14,6 +14,7 @@ pub enum SendAmoundResponse {
 pub async fn send_with_retry(
     wallet: &MultimintWalletWrapper,
     amount: i64,
+    mint_url: &str,
     retries: Option<i32>,
 ) -> Result<String, SendAmoundResponse> {
     for _ in 1..if let Some(retry_count) = retries {
@@ -21,10 +22,12 @@ pub async fn send_with_retry(
     } else {
         3
     } {
-        if let Ok(token_result) = wallet
-            .send(amount as u64, LocalMultimintSendOptions::default())
-            .await
-        {
+        let option = LocalMultimintSendOptions {
+            preferred_mint: Some(mint_url.to_string()),
+            ..Default::default()
+        };
+
+        if let Ok(token_result) = wallet.send(amount as u64, option).await {
             return Ok(token_result);
         }
     }

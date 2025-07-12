@@ -160,7 +160,13 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     let token = if is_free_model {
         String::new()
     } else {
-        let token_result = send_with_retry(&state.wallet, cost, Some(3)).await;
+        let token_result = send_with_retry(
+            &state.wallet,
+            cost,
+            server_config.mints.first().unwrap(),
+            Some(3),
+        )
+        .await;
 
         match token_result {
             Ok(token) => token,
