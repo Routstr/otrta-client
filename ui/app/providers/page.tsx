@@ -206,17 +206,9 @@ export default function ProvidersPage() {
                           </div>
                         </div>
                         <CardDescription>
-                          <a
-                            href={provider.url}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            className='text-primary flex items-center gap-1 hover:underline'
-                          >
-                            <span className='truncate'>
-                              {provider.url.replace('https://', '')}
-                            </span>
-                            <ExternalLinkIcon className='h-3 w-3 flex-shrink-0' />
-                          </a>
+                          <span className='truncate'>
+                            {provider.url.replace('https://', '')}
+                          </span>
                         </CardDescription>
                       </div>
                       {provider.is_custom && (
