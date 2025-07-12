@@ -6,7 +6,7 @@ use crate::{
         Pool,
     },
     models::*,
-    wallet::{finalize_request, send_with_retry},
+    wallet::send_with_retry,
 };
 use axum::{
     body::Body,
@@ -122,6 +122,19 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             .min_cost_per_request
             .unwrap_or_else(|| state.default_msats_per_request as i64),
         None => state.default_msats_per_request as i64,
+    };
+
+    if server_config.mints.is_empty() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": {
+                    "message": format!("no mint found for provider"),
+                    "type": "payment_error",
+                }
+            })),
+        )
+            .into_response();
     };
 
     let token = if is_free_model {
