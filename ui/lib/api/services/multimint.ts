@@ -57,7 +57,7 @@ export const TopupMintRequestSchema = z.object({
 export const TopupMintResponseSchema = z.object({
   success: z.boolean(),
   message: z.string(),
-  invoice: z.string().optional(),
+  invoice: z.string().nullable(),
 });
 
 export type MintBalance = z.infer<typeof MintBalanceSchema>;
