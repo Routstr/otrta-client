@@ -1,5 +1,5 @@
 use axum::{
-    Router,
+    Router, middleware,
     routing::{delete, get, post, put},
 };
 mod background;
@@ -8,6 +8,7 @@ use background::BackgroundJobRunner;
 use connection::{DatabaseSettings, Settings, get_configuration};
 use ecash_402_wallet::wallet::CashuWalletClient;
 use otrta::{
+    auth::{AuthConfig, auth_middleware},
     db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
@@ -55,7 +56,13 @@ async fn main() {
     let job_runner = BackgroundJobRunner::new(Arc::clone(&app_state));
     job_runner.start_all_jobs().await;
 
-    let app = Router::new()
+    let auth_config = AuthConfig {
+        enabled: configuration.application.enable_authentication,
+        max_age_seconds: 300,
+        whitelisted_npubs: configuration.application.whitelisted_npubs.clone(),
+    };
+
+    let mut app = Router::new()
         .route("/api/openai-models", get(handlers::list_openai_models))
         .route("/api/proxy/models", get(handlers::get_proxy_models))
         .route("/api/providers", get(handlers::get_providers))
@@ -126,7 +133,17 @@ async fn main() {
         .route("/v1/{*path}", post(forward_any_request))
         .route("/{*path}", get(forward_any_request_get))
         .route("/v1/{*path}", get(forward_any_request_get))
-        .with_state(app_state)
+        .with_state(app_state);
+
+    if auth_config.enabled {
+        let auth_config_clone = auth_config.clone();
+        app = app.layer(middleware::from_fn_with_state(
+            auth_config_clone,
+            auth_middleware,
+        ));
+    }
+
+    let app = app
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

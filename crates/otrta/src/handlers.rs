@@ -358,18 +358,19 @@ pub async fn send_token(
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
     println!("{:?}", payload.mint_url);
-    
+
     // Parse the unit from the request, default to msat if not provided
-    let unit = payload.unit
+    let unit = payload
+        .unit
         .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok())
         .unwrap_or(crate::db::mint::CurrencyUnit::Msat);
-    
+
     // Convert amount to msat if needed (multimint wallet expects msat internally)
     let amount_in_msat = match unit {
         crate::db::mint::CurrencyUnit::Sat => payload.amount * 1000,
         crate::db::mint::CurrencyUnit::Msat => payload.amount,
     };
-    
+
     match state
         .wallet
         .send(
@@ -969,7 +970,11 @@ pub async fn send_multimint_token_handler(
         split_across_mints: payload.split_across_mints.unwrap_or(false),
     };
 
-    match state.wallet.send(payload.amount, send_options, &state.db).await {
+    match state
+        .wallet
+        .send(payload.amount, send_options, &state.db)
+        .await
+    {
         Ok(token) => Ok(Json(MultimintSendTokenResponse {
             tokens: token,
             success: true,

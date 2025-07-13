@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from './providers';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ProtectedRoute } from '@/lib/auth/ProtectedRoute';
 
 // const geistSans = Geist({
 //   variable: '--font-geist-sans',
@@ -28,7 +29,9 @@ export default function RootLayout({
     <html lang='en' suppressHydrationWarning>
       <body className={`antialiased`}>
         <ThemeProvider attribute='class' defaultTheme='system' enableSystem>
-          <Providers>{children}</Providers>
+          <Providers>
+            <ProtectedRoute>{children}</ProtectedRoute>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>

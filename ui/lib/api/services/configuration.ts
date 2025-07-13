@@ -74,6 +74,14 @@ export class ConfigurationService {
   }
 
   /**
+   * Check if authentication is enabled on the server
+   */
+  static isAuthenticationEnabled(): boolean {
+    // Check if ENABLE_AUTHENTICATION environment variable is set to true
+    return process.env.NEXT_PUBLIC_ENABLE_AUTHENTICATION === 'true';
+  }
+
+  /**
    * Get authorization headers for requests including API key if configured
    * This ensures the server knows which external service to forward to if needed
    */

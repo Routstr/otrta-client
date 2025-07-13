@@ -181,7 +181,11 @@ impl MultimintWalletWrapper {
         Ok(balance.total_balance.to_string())
     }
 
-    pub async fn send_simple(&self, amount: u64, db: &Pool) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn send_simple(
+        &self,
+        amount: u64,
+        db: &Pool,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         self.send(amount, LocalMultimintSendOptions::default(), db)
             .await
     }
