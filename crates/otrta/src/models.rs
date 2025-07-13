@@ -56,6 +56,7 @@ pub struct ProxyModel {
     pub provider: Option<String>,
     pub soft_deleted: Option<bool>,
     pub model_type: Option<String>,
+    pub modality: Option<String>,
     pub description: Option<String>,
     pub context_length: Option<i32>,
     pub is_free: Option<bool>,

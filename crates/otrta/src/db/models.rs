@@ -409,6 +409,7 @@ pub fn models_to_proxy_models(models: Vec<ModelRecord>) -> Vec<ProxyModel> {
             provider: model.provider,
             soft_deleted: Some(model.soft_deleted),
             model_type: model.model_type,
+            modality: model.modality,
             description: model.description,
             context_length: model.context_length,
             is_free: Some(model.is_free),

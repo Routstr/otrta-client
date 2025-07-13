@@ -24,6 +24,7 @@ export const ProxyModelSchema = z.object({
   provider: z.string().nullable(),
   soft_deleted: z.boolean().nullable(),
   model_type: z.string().nullable(),
+  modality: z.string().nullable(),
   description: z.string().nullable(),
   context_length: z.number().int().nullable(),
   is_free: z.boolean().nullable(),
