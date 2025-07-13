@@ -27,9 +27,8 @@ interface MintListProps {
 export function MintList({
   className,
   showHeader = true,
-  refreshInterval = 30000,
+  refreshInterval = 10000,
 }: MintListProps) {
-  // Fetch all mints
   const {
     data: mintsData,
     isLoading: mintsLoading,
@@ -42,7 +41,6 @@ export function MintList({
     refetchInterval: refreshInterval,
   });
 
-  // Fetch multimint balance
   const {
     data: balanceData,
     isLoading: balanceLoading,
@@ -62,7 +60,6 @@ export function MintList({
   const activeMints = mints.filter((mint) => mint.is_active);
   const inactiveMints = mints.filter((mint) => !mint.is_active);
 
-  // Create a map of mint URL to balance for quick lookup
   const balanceMap = new Map(
     balanceData?.balances_by_mint.map((balance) => [
       balance.mint_url,
@@ -123,8 +120,6 @@ export function MintList({
       </Card>
     );
   }
-
-
 
   return (
     <div className={cn('space-y-6', className)}>

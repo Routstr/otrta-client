@@ -16,12 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Settings,
-  AlertTriangle,
-  Wallet,
-  Plus,
-} from 'lucide-react';
+import { Settings, AlertTriangle, Wallet, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { MintService } from '@/lib/api/services/mints';
@@ -31,7 +26,6 @@ export default function Page() {
   const { defaultProvider, isLoading: isLoadingProvider } =
     useDefaultProvider();
 
-  // Fetch mints and balances
   const { data: mintsData, isLoading: isLoadingMints } = useQuery({
     queryKey: ['mints'],
     queryFn: () => MintService.getAllMints(),
@@ -40,12 +34,12 @@ export default function Page() {
   const { data: balanceData, isLoading: isLoadingBalance } = useQuery({
     queryKey: ['multimint-balance'],
     queryFn: () => MultimintService.getMultimintBalance(),
+    refetchInterval: 10000,
   });
 
   const mints = mintsData?.mints || [];
   const activeMints = mints.filter((mint) => mint.is_active);
 
-  // Create a map of mint URL to balance info (including unit)
   const balanceMap = new Map(
     balanceData?.balances_by_mint.map((balance) => [
       balance.mint_url,
