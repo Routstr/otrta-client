@@ -15,8 +15,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   ServerIcon,
   CheckIcon,
-  Users,
-  Zap,
   ShieldCheck,
   ExternalLinkIcon,
   Settings,

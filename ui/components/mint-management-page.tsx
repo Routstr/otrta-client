@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, ArrowRightLeft, Zap, Activity } from 'lucide-react';
+import { Send, Zap, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { MintList } from './mint-list';
 import {
   MultimintService,
   type MultimintSendRequest,
-  type TransferBetweenMintsRequest,
   type TopupMintRequest,
 } from '@/lib/api/services/multimint';
 import { MintService } from '@/lib/api/services/mints';
@@ -42,7 +41,6 @@ import {
 
 export function MintManagementPage() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [topupDialogOpen, setTopupDialogOpen] = useState(false);
 
   const [sendForm, setSendForm] = useState<MultimintSendRequest>({
@@ -51,13 +49,7 @@ export function MintManagementPage() {
     split_across_mints: false,
   });
 
-  const [transferForm, setTransferForm] = useState<TransferBetweenMintsRequest>(
-    {
-      from_mint: '',
-      to_mint: '',
-      amount: 0,
-    }
-  );
+
 
   // Topup form state
   const [topupForm, setTopupForm] = useState<TopupMintRequest>({
@@ -88,17 +80,7 @@ export function MintManagementPage() {
     },
   });
 
-  const transferMutation = useMutation({
-    mutationFn: (data: TransferBetweenMintsRequest) =>
-      MultimintService.transferBetweenMints(data),
-    onSuccess: (response) => {
-      setTransferDialogOpen(false);
-      toast.success(response.message);
-    },
-    onError: (error) => {
-      toast.error(`Failed to transfer: ${error.message}`);
-    },
-  });
+
 
   // Topup mutation
   const topupMutation = useMutation({
@@ -122,11 +104,6 @@ export function MintManagementPage() {
       preferred_mint: undefined,
       split_across_mints: false,
     });
-    setTransferForm({
-      from_mint: '',
-      to_mint: '',
-      amount: 0,
-    });
     setTopupForm({
       mint_url: '',
       method: 'ecash',
@@ -137,10 +114,6 @@ export function MintManagementPage() {
 
   const handleSend = () => {
     sendMutation.mutate(sendForm);
-  };
-
-  const handleTransfer = () => {
-    transferMutation.mutate(transferForm);
   };
 
   const handleTopup = () => {
@@ -263,119 +236,7 @@ export function MintManagementPage() {
               </DialogContent>
             </Dialog>
 
-            {/*<Dialog
-              open={transferDialogOpen}
-              onOpenChange={(open) => {
-                setTransferDialogOpen(open);
-                if (!open) resetForms();
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button className='h-20 flex-col gap-2' variant='outline'>
-                  <ArrowRightLeft className='h-6 w-6' />
-                  <span>Transfer</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Transfer Between Mints</DialogTitle>
-                  <DialogDescription>
-                    Move funds from one mint to another
-                  </DialogDescription>
-                </DialogHeader>
-                <div className='space-y-4'>
-                  <div className='space-y-2'>
-                    <Label>From Mint</Label>
-                    <Select
-                      value={transferForm.from_mint}
-                      onValueChange={(value) =>
-                        setTransferForm((prev) => ({
-                          ...prev,
-                          from_mint: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder='Select source mint' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mintOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  <div className='space-y-2'>
-                    <Label>To Mint</Label>
-                    <Select
-                      value={transferForm.to_mint}
-                      onValueChange={(value) =>
-                        setTransferForm((prev) => ({
-                          ...prev,
-                          to_mint: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder='Select destination mint' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mintOptions
-                          .filter(
-                            (option) => option.value !== transferForm.from_mint
-                          )
-                          .map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className='space-y-2'>
-                    <Label htmlFor='transfer-amount'>Amount (msats)</Label>
-                    <Input
-                      id='transfer-amount'
-                      type='number'
-                      value={transferForm.amount || ''}
-                      onChange={(e) =>
-                        setTransferForm((prev) => ({
-                          ...prev,
-                          amount: parseInt(e.target.value) || 0,
-                        }))
-                      }
-                      placeholder='Enter amount'
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant='outline'
-                    onClick={() => setTransferDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleTransfer}
-                    disabled={
-                      transferMutation.isPending ||
-                      !transferForm.from_mint ||
-                      !transferForm.to_mint ||
-                      transferForm.amount <= 0
-                    }
-                  >
-                    {transferMutation.isPending
-                      ? 'Transferring...'
-                      : 'Transfer'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            */}
 
             <Dialog
               open={topupDialogOpen}

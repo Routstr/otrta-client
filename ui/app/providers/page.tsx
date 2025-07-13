@@ -30,7 +30,6 @@ import {
   ChevronDown,
   ChevronUp,
   CoinsIcon,
-  ExternalLinkIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';

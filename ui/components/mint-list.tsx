@@ -46,7 +46,6 @@ export function MintList({
   const {
     data: balanceData,
     isLoading: balanceLoading,
-    isError: balanceError,
     refetch: refetchBalance,
   } = useQuery({
     queryKey: ['multimint-balance'],
@@ -125,8 +124,7 @@ export function MintList({
     );
   }
 
-  const totalBalance = balanceData?.total_balance || 0;
-  const formattedTotalBalance = MultimintService.formatBalance(totalBalance);
+
 
   return (
     <div className={cn('space-y-6', className)}>

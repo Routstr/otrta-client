@@ -36,8 +36,6 @@ services:
 
       # Wallet data persistence
       - WALLET_DATA_DIR=/app/wallet_data
-    env_file:
-      - .env
     ports:
       - 3333:3333
     networks:

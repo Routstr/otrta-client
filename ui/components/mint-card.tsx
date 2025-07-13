@@ -7,7 +7,6 @@ import {
   Power,
   PowerOff,
   Edit3,
-  ExternalLink,
   AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';

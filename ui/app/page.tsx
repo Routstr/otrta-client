@@ -4,11 +4,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { EcashRedeem } from '@/components/ecash-redeem';
-import { WalletBalance } from '@/components/wallet-balance';
-import { CollectSats } from '@/components/collect-sats';
 import { DefaultProviderCard } from '@/components/default-provider-card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@radix-ui/react-tabs';
-import { useState } from 'react';
 import { useDefaultProvider } from '@/lib/hooks/useProviders';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -25,7 +21,6 @@ import {
   AlertTriangle,
   Wallet,
   Plus,
-  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
@@ -33,7 +28,6 @@ import { MintService } from '@/lib/api/services/mints';
 import { MultimintService } from '@/lib/api/services/multimint';
 
 export default function Page() {
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
   const { defaultProvider, isLoading: isLoadingProvider } =
     useDefaultProvider();
 
