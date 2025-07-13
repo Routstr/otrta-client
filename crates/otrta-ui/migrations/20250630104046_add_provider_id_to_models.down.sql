@@ -1,5 +1,5 @@
--- Add down migration script here
-
--- Remove provider_id field from models table
+-- Drop the index first
 DROP INDEX IF EXISTS idx_models_provider_id;
-ALTER TABLE models DROP COLUMN IF EXISTS provider_id;
+
+-- Drop the provider_id column
+ALTER TABLE models DROP COLUMN provider_id;

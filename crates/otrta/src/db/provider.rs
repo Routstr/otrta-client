@@ -77,12 +77,10 @@ pub async fn get_provider_by_id(db: &Pool, id: i32) -> Result<Option<Provider>, 
 }
 
 pub async fn set_default_provider(db: &Pool, id: i32) -> Result<(), sqlx::Error> {
-    // First, unset all existing defaults
     sqlx::query("UPDATE providers SET is_default = FALSE")
         .execute(db)
         .await?;
 
-    // Then set the specified provider as default
     sqlx::query("UPDATE providers SET is_default = TRUE WHERE id = $1")
         .bind(id)
         .execute(db)
