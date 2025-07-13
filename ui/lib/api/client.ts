@@ -1,5 +1,7 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse, AxiosInstance } from 'axios';
 import { ConfigurationService } from './services/configuration';
+import { nostrAuth } from './services/nostr-auth';
+import { authStateManager } from '../auth/auth-state';
 
 // Define the Nostr Event interface
 interface NostrEvent {
@@ -23,9 +25,62 @@ interface NostrWindow extends Window {
 }
 
 class ApiClient {
+  private axiosInstance: AxiosInstance;
+  private isRedirecting = false;
+
+  constructor() {
+    this.axiosInstance = axios.create({
+      baseURL: this.getBaseUrl(),
+      withCredentials: false,
+    });
+
+    // Add response interceptor to handle 401 errors
+    this.axiosInstance.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error.response?.status === 401 && ConfigurationService.isAuthenticationEnabled()) {
+          await this.handle401Error();
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
   // Helper method to get the base URL (always local)
   private getBaseUrl(): string {
     return ConfigurationService.getLocalBaseUrl();
+  }
+
+  // Handle 401 errors by triggering nostr login
+  private async handle401Error(): Promise<void> {
+    if (this.isRedirecting) return; // Prevent multiple redirects
+    
+    this.isRedirecting = true;
+    authStateManager.setRedirecting(true);
+    
+    try {
+      console.log('401 Unauthorized - redirecting to Nostr login');
+      
+      // Initialize nostr auth if not already initialized
+      if (!nostrAuth.isAuthenticated()) {
+        await nostrAuth.initialize({
+          theme: 'default',
+          darkMode: document.documentElement.classList.contains('dark'),
+          bunkers: 'nsec.app,highlighter.com,nostrsigner.com',
+          perms: 'sign_event:1,sign_event:0,nip04_encrypt,nip04_decrypt',
+          methods: ['connect', 'extension', 'readOnly', 'local'],
+          noBanner: true,
+        });
+        
+        // Launch the authentication flow
+        await nostrAuth.launchAuth();
+      }
+    } catch (error) {
+      console.error('Failed to handle 401 error:', error);
+    } finally {
+      this.isRedirecting = false;
+      authStateManager.setRedirecting(false);
+    }
   }
 
   // Helper method to construct headers
@@ -65,13 +120,12 @@ class ApiClient {
     const config: AxiosRequestConfig = {
       headers: await this.getHeaders('GET', endpoint),
       params,
-      withCredentials: false, // For API calls without credentials
     };
 
     try {
       console.log(`Making GET request to ${this.getBaseUrl()}${endpoint}`);
-      const response: AxiosResponse<T> = await axios.get<T>(
-        `${this.getBaseUrl()}${endpoint}`,
+      const response: AxiosResponse<T> = await this.axiosInstance.get<T>(
+        endpoint,
         config
       );
       return response.data;
@@ -85,7 +139,6 @@ class ApiClient {
   async post<T>(endpoint: string, data: Record<string, unknown>): Promise<T> {
     const config: AxiosRequestConfig = {
       headers: await this.getHeaders('POST', endpoint),
-      withCredentials: false, // For API calls without credentials
     };
 
     try {
@@ -93,8 +146,8 @@ class ApiClient {
         `Making POST request to ${this.getBaseUrl()}${endpoint}`,
         data
       );
-      const response: AxiosResponse<T> = await axios.post<T>(
-        `${this.getBaseUrl()}${endpoint}`,
+      const response: AxiosResponse<T> = await this.axiosInstance.post<T>(
+        endpoint,
         data,
         config
       );
@@ -109,7 +162,6 @@ class ApiClient {
   async put<T>(endpoint: string, data: Record<string, unknown>): Promise<T> {
     const config: AxiosRequestConfig = {
       headers: await this.getHeaders('PUT', endpoint),
-      withCredentials: false, // For API calls without credentials
     };
 
     try {
@@ -117,8 +169,8 @@ class ApiClient {
         `Making PUT request to ${this.getBaseUrl()}${endpoint}`,
         data
       );
-      const response: AxiosResponse<T> = await axios.put<T>(
-        `${this.getBaseUrl()}${endpoint}`,
+      const response: AxiosResponse<T> = await this.axiosInstance.put<T>(
+        endpoint,
         data,
         config
       );
@@ -133,13 +185,12 @@ class ApiClient {
   async delete<T>(endpoint: string): Promise<T> {
     const config: AxiosRequestConfig = {
       headers: await this.getHeaders('DELETE', endpoint),
-      withCredentials: false, // For API calls without credentials
     };
 
     try {
       console.log(`Making DELETE request to ${this.getBaseUrl()}${endpoint}`);
-      const response: AxiosResponse<T> = await axios.delete<T>(
-        `${this.getBaseUrl()}${endpoint}`,
+      const response: AxiosResponse<T> = await this.axiosInstance.delete<T>(
+        endpoint,
         config
       );
       return response.data;
