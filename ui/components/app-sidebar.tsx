@@ -77,7 +77,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <Link href='/' className='flex items-center gap-2'>
                 <Image
-                  src='/otrta.svg'
+                  src='/routstr.svg'
                   alt='OTRTA Logo'
                   width={32}
                   height={32}
