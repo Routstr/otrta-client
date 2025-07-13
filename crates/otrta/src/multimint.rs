@@ -1,4 +1,6 @@
 use crate::db::mint::CurrencyUnit;
+use crate::db::transaction::{add_transaction, TransactionDirection};
+use crate::db::Pool;
 use ecash_402_wallet::multimint::{MultimintSendOptions, MultimintWallet};
 use serde::{Deserialize, Serialize};
 
@@ -123,6 +125,7 @@ impl MultimintWalletWrapper {
         &self,
         amount: u64,
         options: LocalMultimintSendOptions,
+        db: &Pool,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let send_options = MultimintSendOptions {
             preferred_mint: options.preferred_mint,
@@ -131,6 +134,15 @@ impl MultimintWalletWrapper {
         };
 
         let token = self.inner.send(amount, send_options).await?;
+
+        add_transaction(
+            db,
+            &token,
+            &amount.to_string(),
+            TransactionDirection::Outgoing,
+        )
+        .await?;
+
         Ok(token)
     }
 
@@ -169,8 +181,8 @@ impl MultimintWalletWrapper {
         Ok(balance.total_balance.to_string())
     }
 
-    pub async fn send_simple(&self, amount: u64) -> Result<String, Box<dyn std::error::Error>> {
-        self.send(amount, LocalMultimintSendOptions::default())
+    pub async fn send_simple(&self, amount: u64, db: &Pool) -> Result<String, Box<dyn std::error::Error>> {
+        self.send(amount, LocalMultimintSendOptions::default(), db)
             .await
     }
 

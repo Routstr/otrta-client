@@ -18,6 +18,7 @@ use crate::{
         Pool,
     },
     models::*,
+    multimint::LocalMultimintSendOptions,
 };
 use axum::{
     extract::{Path, Query, State},
@@ -356,11 +357,29 @@ pub async fn send_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
+    println!("{:?}", payload.mint_url);
+    
+    // Parse the unit from the request, default to msat if not provided
+    let unit = payload.unit
+        .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok())
+        .unwrap_or(crate::db::mint::CurrencyUnit::Msat);
+    
+    // Convert amount to msat if needed (multimint wallet expects msat internally)
+    let amount_in_msat = match unit {
+        crate::db::mint::CurrencyUnit::Sat => payload.amount * 1000,
+        crate::db::mint::CurrencyUnit::Msat => payload.amount,
+    };
+    
     match state
         .wallet
         .send(
-            payload.amount as u64,
-            crate::multimint::LocalMultimintSendOptions::default(),
+            amount_in_msat as u64,
+            LocalMultimintSendOptions {
+                preferred_mint: Some(payload.mint_url),
+                unit: Some(unit),
+                ..Default::default()
+            },
+            &state.db,
         )
         .await
     {
@@ -941,7 +960,6 @@ pub async fn send_multimint_token_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<MultimintSendTokenRequest>,
 ) -> Result<Json<MultimintSendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    // Create send options from the request payload
     let unit = payload
         .unit
         .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok());
@@ -951,7 +969,7 @@ pub async fn send_multimint_token_handler(
         split_across_mints: payload.split_across_mints.unwrap_or(false),
     };
 
-    match state.wallet.send(payload.amount, send_options).await {
+    match state.wallet.send(payload.amount, send_options, &state.db).await {
         Ok(token) => Ok(Json(MultimintSendTokenResponse {
             tokens: token,
             success: true,

@@ -37,6 +37,8 @@ pub struct ServerConfig {
 #[derive(Deserialize)]
 pub struct SendTokenRequest {
     pub amount: i64,
+    pub mint_url: String,
+    pub unit: Option<String>,
 }
 
 #[derive(Serialize)]

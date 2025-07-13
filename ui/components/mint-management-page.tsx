@@ -5,9 +5,9 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Send, Zap, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { MintList } from './mint-list';
+import { CollectSats } from './collect-sats';
 import {
   MultimintService,
-  type MultimintSendRequest,
   type TopupMintRequest,
 } from '@/lib/api/services/multimint';
 import { MintService } from '@/lib/api/services/mints';
@@ -43,15 +43,6 @@ export function MintManagementPage() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [topupDialogOpen, setTopupDialogOpen] = useState(false);
 
-  const [sendForm, setSendForm] = useState<MultimintSendRequest>({
-    amount: 0,
-    preferred_mint: undefined,
-    split_across_mints: false,
-  });
-
-
-
-  // Topup form state
   const [topupForm, setTopupForm] = useState<TopupMintRequest>({
     mint_url: '',
     method: 'ecash',
@@ -59,61 +50,37 @@ export function MintManagementPage() {
     token: undefined,
   });
 
-  // Fetch active mints for dropdowns
+  // Query for active mints
   const { data: activeMints } = useQuery({
     queryKey: ['active-mints'],
     queryFn: () => MintService.getActiveMints(),
   });
 
-  // Send mutation
-  const sendMutation = useMutation({
-    mutationFn: (data: MultimintSendRequest) =>
-      MultimintService.sendMultimintToken(data),
-    onSuccess: (response) => {
-      setSendDialogOpen(false);
-      toast.success('Token generated successfully!');
-      // You could copy to clipboard or show the token here
-      console.log('Generated token:', response.tokens);
-    },
-    onError: (error) => {
-      toast.error(`Failed to send: ${error.message}`);
-    },
-  });
-
-
-
-  // Topup mutation
+  // Mutation for topup
   const topupMutation = useMutation({
     mutationFn: (data: TopupMintRequest) => MultimintService.topupMint(data),
     onSuccess: (response) => {
-      setTopupDialogOpen(false);
-      toast.success(response.message);
-      if (response.invoice) {
-        // Handle lightning invoice display
-        console.log('Lightning invoice:', response.invoice);
+      if (response.success) {
+        toast.success(response.message);
+        setTopupDialogOpen(false);
+        resetForms();
+      } else {
+        toast.error(response.message || 'Topup failed');
       }
     },
     onError: (error) => {
-      toast.error(`Failed to topup: ${error.message}`);
+      console.error('Topup error:', error);
+      toast.error('Failed to topup mint. Please try again.');
     },
   });
 
   const resetForms = () => {
-    setSendForm({
-      amount: 0,
-      preferred_mint: undefined,
-      split_across_mints: false,
-    });
     setTopupForm({
       mint_url: '',
       method: 'ecash',
       amount: undefined,
       token: undefined,
     });
-  };
-
-  const handleSend = () => {
-    sendMutation.mutate(sendForm);
   };
 
   const handleTopup = () => {
@@ -144,10 +111,7 @@ export function MintManagementPage() {
             {/* Send Button */}
             <Dialog
               open={sendDialogOpen}
-              onOpenChange={(open) => {
-                setSendDialogOpen(open);
-                if (!open) resetForms();
-              }}
+              onOpenChange={setSendDialogOpen}
             >
               <DialogTrigger asChild>
                 <Button className='h-20 flex-col gap-2' variant='outline'>
@@ -155,88 +119,18 @@ export function MintManagementPage() {
                   <span>Send Tokens</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className='max-w-3xl'>
                 <DialogHeader>
-                  <DialogTitle>Send Tokens</DialogTitle>
+                  <DialogTitle>Send Ecash Token</DialogTitle>
                   <DialogDescription>
-                    Generate tokens to send to another wallet
+                    Generate tokens with QR codes to send to another wallet
                   </DialogDescription>
                 </DialogHeader>
-                <div className='space-y-4'>
-                  <div className='space-y-2'>
-                    <Label htmlFor='send-amount'>Amount (msats)</Label>
-                    <Input
-                      id='send-amount'
-                      type='number'
-                      value={sendForm.amount || ''}
-                      onChange={(e) =>
-                        setSendForm((prev) => ({
-                          ...prev,
-                          amount: parseInt(e.target.value) || 0,
-                        }))
-                      }
-                      placeholder='Enter amount'
-                    />
-                  </div>
-
-                  <div className='space-y-2'>
-                    <Label htmlFor='preferred-mint'>
-                      Preferred Mint (Optional)
-                    </Label>
-                    <Select
-                      value={sendForm.preferred_mint || ''}
-                      onValueChange={(value) =>
-                        setSendForm((prev) => ({
-                          ...prev,
-                          preferred_mint: value || undefined,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder='Select a mint (or use auto-select)' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mintOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/*<div className='flex items-center space-x-2'>
-                    <Switch
-                      id='split-across-mints'
-                      checked={sendForm.split_across_mints}
-                      onCheckedChange={(checked) => setSendForm(prev => ({ 
-                        ...prev, 
-                        split_across_mints: checked 
-                      }))}
-                    />
-                    <Label htmlFor='split-across-mints'>Split across multiple mints</Label>
-                  </div> */}
+                <div className='mt-4'>
+                  <CollectSats />
                 </div>
-                <DialogFooter>
-                  <Button
-                    variant='outline'
-                    onClick={() => setSendDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSend}
-                    disabled={sendMutation.isPending || sendForm.amount <= 0}
-                  >
-                    {sendMutation.isPending
-                      ? 'Generating...'
-                      : 'Generate Token'}
-                  </Button>
-                </DialogFooter>
               </DialogContent>
             </Dialog>
-
-
 
             <Dialog
               open={topupDialogOpen}

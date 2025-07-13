@@ -16,6 +16,7 @@ pub async fn send_with_retry(
     amount: i64,
     mint_url: &str,
     retries: Option<i32>,
+    db: &Pool,
 ) -> Result<String, SendAmoundResponse> {
     for _ in 1..if let Some(retry_count) = retries {
         retry_count
@@ -27,7 +28,7 @@ pub async fn send_with_retry(
             ..Default::default()
         };
 
-        if let Ok(token_result) = wallet.send(amount as u64, option).await {
+        if let Ok(token_result) = wallet.send(amount as u64, option, db).await {
             return Ok(token_result);
         }
     }

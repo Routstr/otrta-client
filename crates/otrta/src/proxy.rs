@@ -145,6 +145,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             cost,
             server_config.mints.first().unwrap(),
             Some(3),
+            &state.db,
         )
         .await;
 

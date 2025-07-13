@@ -27,7 +27,7 @@ export const MultimintSendRequestSchema = z.object({
 export const MultimintSendResponseSchema = z.object({
   tokens: z.string(),
   success: z.boolean(),
-  message: z.string().optional(),
+  message: z.string().nullable(),
 });
 
 // Schema for transfer between mints request
@@ -40,7 +40,7 @@ export const TransferBetweenMintsRequestSchema = z.object({
 // Schema for transfer between mints response
 export const TransferBetweenMintsResponseSchema = z.object({
   success: z.boolean(),
-  message: z.string(),
+  message: z.string().nullable(),
 });
 
 // Schema for topup mint request
@@ -56,7 +56,7 @@ export const TopupMintRequestSchema = z.object({
 // Schema for topup mint response
 export const TopupMintResponseSchema = z.object({
   success: z.boolean(),
-  message: z.string(),
+  message: z.string().nullable(),
   invoice: z.string().nullable(),
 });
 

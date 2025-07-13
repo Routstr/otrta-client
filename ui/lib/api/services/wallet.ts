@@ -9,18 +9,19 @@ export const RedeemTokenRequestSchema = z.object({
 export const RedeemTokenResponseSchema = z.object({
   success: z.boolean(),
   amount: z.number().optional(),
-  message: z.string().optional(),
+  message: z.string().nullable(),
 });
 // Schema for sending tokens
 export const SendTokenRequestSchema = z.object({
   amount: z.number().positive(),
-  offline: z.boolean().optional(),
+  mint_url: z.string().url(),
+  unit: z.enum(['sat', 'msat']).optional(),
 });
 
 export const SendTokenResponseSchema = z.object({
   token: z.string(),
-  balance: z.number(),
-  npub: z.string().optional(),
+  success: z.boolean(),
+  message: z.string().nullable(),
 });
 
 export type RedeemTokenRequest = z.infer<typeof RedeemTokenRequestSchema>;
@@ -59,14 +60,15 @@ export class WalletService {
     }
   }
 
-  static async sendToken(amount: number): Promise<SendTokenResponse> {
+  static async sendToken(amount: number, mint_url: string, unit?: 'sat' | 'msat'): Promise<SendTokenResponse> {
     try {
+      const request = SendTokenRequestSchema.parse({ amount, mint_url, unit });
       const response = await apiClient.post<SendTokenResponse>(
         '/api/wallet/send',
-        { amount: amount }
+        request
       );
 
-      return response;
+      return SendTokenResponseSchema.parse(response);
     } catch (error) {
       console.error('Error generating token:', error);
       throw new Error('Failed to generate token. Please try again.');
