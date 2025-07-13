@@ -157,11 +157,11 @@ export default function Page() {
                     unit: string
                   ) => {
                     if (unit.toLowerCase() === 'msat') {
-                      return `${amount.toLocaleString()} msat`;
+                      return `${amount.toLocaleString('en-US')} msat`;
                     } else if (unit.toLowerCase() === 'sat') {
-                      return `${amount.toLocaleString()} sats`;
+                      return `${amount.toLocaleString('en-US')} sats`;
                     }
-                    return `${amount.toLocaleString()} ${unit}`;
+                    return `${amount.toLocaleString('en-US')} ${unit}`;
                   };
 
                   return (

@@ -69,11 +69,9 @@ export function ModelSelector() {
     return inputCost + outputCost + minCost;
   };
 
-  // Separate free and paid models, then group by provider
   const { freeModels, groupedProxyModels } = useMemo(() => {
     if (!proxyModels) return { freeModels: [], groupedProxyModels: {} };
 
-    // Sort models function
     const sortModels = (models: ProxyModel[]): ProxyModel[] => {
       const sorted = [...models];
 
@@ -95,7 +93,6 @@ export function ModelSelector() {
     const free: ProxyModel[] = [];
     const paid: ProxyModel[] = [];
 
-    // Separate models by free status
     proxyModels.forEach((model) => {
       if (model.is_free) {
         free.push(model);
@@ -104,11 +101,9 @@ export function ModelSelector() {
       }
     });
 
-    // Sort both arrays
     const sortedFree = sortModels(free);
     const sortedPaid = sortModels(paid);
 
-    // Group paid models by provider
     const groupedPaid = sortedPaid.reduce<Record<string, ProxyModel[]>>(
       (acc, model) => {
         const provider = model.provider || 'Unknown';
@@ -127,33 +122,29 @@ export function ModelSelector() {
     };
   }, [proxyModels, sortBy]);
 
-  // Helper function to get both msat and sat values
   const getCostValues = (msats: number) => {
     if (msats === 0) return { primary: 'Free', secondary: null };
 
     const roundedMsats = Math.round(msats);
     const sats = roundedMsats / 1000;
 
-    // If it's a whole number of sats, show sat value prominently
     if (roundedMsats % 1000 === 0) {
       return {
-        primary: `${sats.toLocaleString()} sat`,
-        secondary: `${roundedMsats.toLocaleString()} msat`,
+        primary: `${sats.toLocaleString('en-US')} sat`,
+        secondary: `${roundedMsats.toLocaleString('en-US')} msat`,
       };
     }
 
-    // If it's less than 1 sat, show msat prominently
     if (sats < 1) {
       return {
-        primary: `${roundedMsats.toLocaleString()} msat`,
+        primary: `${roundedMsats.toLocaleString('en-US')} msat`,
         secondary: `${sats.toFixed(3)} sat`,
       };
     }
 
-    // For values between 1-999 sats, show both clearly
     return {
       primary: `${sats.toFixed(3)} sat`,
-      secondary: `${roundedMsats.toLocaleString()} msat`,
+      secondary: `${roundedMsats.toLocaleString('en-US')} msat`,
     };
   };
 
@@ -161,12 +152,10 @@ export function ModelSelector() {
     return `${model.name}_${model.provider}_${index}`;
   };
 
-  // Set hovered model
   const handleModelHover = (modelId: string | null) => {
     setHoveredModelId(modelId);
   };
 
-  // Copy model name to clipboard
   const copyModelName = (
     event: React.MouseEvent,
     modelName: string,
@@ -180,7 +169,6 @@ export function ModelSelector() {
         setCopiedModelId(modelId || modelName);
         toast.success(`Copied "${modelName}" to clipboard`);
 
-        // Reset the copied state after 2 seconds
         setTimeout(() => {
           setCopiedModelId(null);
         }, 2000);
@@ -191,7 +179,6 @@ export function ModelSelector() {
       });
   };
 
-  // Custom placeholder based on model type
   const getPlaceholder = () => {
     if (!selectedModelId || !modelInfo)
       return 'Enter text to test the model...';
@@ -266,7 +253,6 @@ export function ModelSelector() {
             </div>
           ) : (
             <div className='w-full'>
-              {/* Paid Models Section */}
               {Object.entries(groupedProxyModels).map(
                 ([provider, modelGroup]) => (
                   <div key={provider} className='mb-6 w-full'>
@@ -337,7 +323,8 @@ export function ModelSelector() {
                               {model.context_length && (
                                 <div className='text-muted-foreground text-xs'>
                                   Context:{' '}
-                                  {model.context_length.toLocaleString()} tokens
+                                  {model.context_length.toLocaleString('en-US')}{' '}
+                                  tokens
                                 </div>
                               )}
                               <div className='space-y-1'>
@@ -435,7 +422,6 @@ export function ModelSelector() {
                   </div>
                 )
               )}
-              {/* Free Models Section - Only show if there are free models */}
               {freeModels.length > 0 && (
                 <div className='mb-8 w-full'>
                   <div className='mb-3 flex items-center gap-2'>
@@ -507,7 +493,8 @@ export function ModelSelector() {
                             </div>
                             {model.context_length && (
                               <div className='text-muted-foreground text-xs'>
-                                Context: {model.context_length.toLocaleString()}{' '}
+                                Context:{' '}
+                                {model.context_length.toLocaleString('en-US')}{' '}
                                 tokens
                               </div>
                             )}
@@ -523,7 +510,6 @@ export function ModelSelector() {
         </CardContent>
       </Card>
 
-      {/* Model information */}
       {selectedModelId && (
         <div className='overflow-hidden rounded-md border p-4'>
           <h3 className='mb-2 font-medium text-wrap'>
@@ -552,7 +538,7 @@ export function ModelSelector() {
                 <>
                   <div className='font-medium'>Context Length:</div>
                   <div className='truncate'>
-                    {modelInfo.contextLength.toLocaleString()} tokens
+                    {modelInfo.contextLength.toLocaleString('en-US')} tokens
                   </div>
                 </>
               )}
@@ -577,7 +563,6 @@ export function ModelSelector() {
         </div>
       )}
 
-      {/* Model testing section */}
       {selectedModelId && (
         <Card>
           <CardHeader>
