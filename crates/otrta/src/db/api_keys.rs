@@ -63,8 +63,12 @@ fn convert_row_to_api_key(
         last_used_at: last_used_at.map(|dt| dt.to_rfc3339()),
         expires_at: expires_at.map(|dt| dt.to_rfc3339()),
         is_active: is_active.unwrap_or(true),
-        created_at: created_at.unwrap_or_else(|| chrono::Utc::now()).to_rfc3339(),
-        updated_at: updated_at.unwrap_or_else(|| chrono::Utc::now()).to_rfc3339(),
+        created_at: created_at
+            .unwrap_or_else(|| chrono::Utc::now())
+            .to_rfc3339(),
+        updated_at: updated_at
+            .unwrap_or_else(|| chrono::Utc::now())
+            .to_rfc3339(),
     }
 }
 
@@ -75,7 +79,7 @@ pub async fn get_all_api_keys(
     page_size: i64,
 ) -> Result<ApiKeyListResponse, sqlx::Error> {
     let offset = (page - 1) * page_size;
-    
+
     let (api_keys, total) = if let Some(org_id) = organization_id {
         let rows = sqlx::query!(
             r#"
@@ -101,18 +105,23 @@ pub async fn get_all_api_keys(
         .await?
         .unwrap_or(0);
 
-        let api_keys = rows.into_iter().map(|row| convert_row_to_api_key(
-            row.id,
-            row.name,
-            row.key,
-            row.user_id,
-            row.organization_id,
-            row.last_used_at,
-            row.expires_at,
-            row.is_active,
-            row.created_at,
-            row.updated_at,
-        )).collect();
+        let api_keys = rows
+            .into_iter()
+            .map(|row| {
+                convert_row_to_api_key(
+                    row.id,
+                    row.name,
+                    row.key,
+                    row.user_id,
+                    row.organization_id,
+                    row.last_used_at,
+                    row.expires_at,
+                    row.is_active,
+                    row.created_at,
+                    row.updated_at,
+                )
+            })
+            .collect();
 
         (api_keys, total)
     } else {
@@ -135,18 +144,23 @@ pub async fn get_all_api_keys(
             .await?
             .unwrap_or(0);
 
-        let api_keys = rows.into_iter().map(|row| convert_row_to_api_key(
-            row.id,
-            row.name,
-            row.key,
-            row.user_id,
-            row.organization_id,
-            row.last_used_at,
-            row.expires_at,
-            row.is_active,
-            row.created_at,
-            row.updated_at,
-        )).collect();
+        let api_keys = rows
+            .into_iter()
+            .map(|row| {
+                convert_row_to_api_key(
+                    row.id,
+                    row.name,
+                    row.key,
+                    row.user_id,
+                    row.organization_id,
+                    row.last_used_at,
+                    row.expires_at,
+                    row.is_active,
+                    row.created_at,
+                    row.updated_at,
+                )
+            })
+            .collect();
 
         (api_keys, total)
     };
@@ -164,7 +178,7 @@ pub async fn get_all_api_keys(
 
 pub async fn get_api_key_by_id(pool: &PgPool, id: &str) -> Result<Option<ApiKey>, sqlx::Error> {
     let id_uuid = Uuid::parse_str(id).map_err(|_| sqlx::Error::RowNotFound)?;
-    
+
     let row = sqlx::query!(
         r#"
         SELECT id, name, key, user_id, organization_id, last_used_at, expires_at, 
@@ -232,15 +246,17 @@ pub async fn create_api_key(
 ) -> Result<ApiKey, sqlx::Error> {
     let api_key = generate_api_key();
     let is_active = request.is_active.unwrap_or(true);
-    
+
     let expires_at = if let Some(expires_str) = &request.expires_at {
-        Some(DateTime::parse_from_rfc3339(expires_str)
-            .map_err(|_| sqlx::Error::RowNotFound)?
-            .with_timezone(&Utc))
+        Some(
+            DateTime::parse_from_rfc3339(expires_str)
+                .map_err(|_| sqlx::Error::RowNotFound)?
+                .with_timezone(&Utc),
+        )
     } else {
         None
     };
-    
+
     let row = sqlx::query!(
         r#"
         INSERT INTO api_keys (name, key, user_id, organization_id, expires_at, is_active)
@@ -278,15 +294,17 @@ pub async fn update_api_key(
     request: UpdateApiKeyRequest,
 ) -> Result<Option<ApiKey>, sqlx::Error> {
     let id_uuid = Uuid::parse_str(id).map_err(|_| sqlx::Error::RowNotFound)?;
-    
+
     let expires_at = if let Some(expires_str) = &request.expires_at {
-        Some(DateTime::parse_from_rfc3339(expires_str)
-            .map_err(|_| sqlx::Error::RowNotFound)?
-            .with_timezone(&Utc))
+        Some(
+            DateTime::parse_from_rfc3339(expires_str)
+                .map_err(|_| sqlx::Error::RowNotFound)?
+                .with_timezone(&Utc),
+        )
     } else {
         None
     };
-    
+
     let row = sqlx::query!(
         r#"
         UPDATE api_keys
@@ -326,7 +344,7 @@ pub async fn update_api_key(
 
 pub async fn delete_api_key(pool: &PgPool, id: &str) -> Result<bool, sqlx::Error> {
     let id_uuid = Uuid::parse_str(id).map_err(|_| sqlx::Error::RowNotFound)?;
-    
+
     let result = sqlx::query!("DELETE FROM api_keys WHERE id = $1", id_uuid)
         .execute(pool)
         .await?;
@@ -336,7 +354,7 @@ pub async fn delete_api_key(pool: &PgPool, id: &str) -> Result<bool, sqlx::Error
 
 pub async fn update_last_used_at(pool: &PgPool, id: &str) -> Result<(), sqlx::Error> {
     let id_uuid = Uuid::parse_str(id).map_err(|_| sqlx::Error::RowNotFound)?;
-    
+
     sqlx::query!(
         "UPDATE api_keys SET last_used_at = NOW() WHERE id = $1",
         id_uuid
@@ -348,13 +366,11 @@ pub async fn update_last_used_at(pool: &PgPool, id: &str) -> Result<(), sqlx::Er
 }
 
 fn generate_api_key() -> String {
-    use rand::prelude::*;
     use rand::distributions::Alphanumeric;
-    
+    use rand::prelude::*;
+
     let mut rng = thread_rng();
-    let key: String = (0..32)
-        .map(|_| rng.sample(Alphanumeric) as char)
-        .collect();
-    
+    let key: String = (0..32).map(|_| rng.sample(Alphanumeric) as char).collect();
+
     format!("otrta_{}", key)
-} 
+}

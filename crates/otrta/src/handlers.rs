@@ -1205,7 +1205,7 @@ pub async fn get_all_api_keys_handler(
 ) -> Result<Json<crate::db::api_keys::ApiKeyListResponse>, (StatusCode, Json<serde_json::Value>)> {
     let page = params.page.unwrap_or(1);
     let page_size = params.page_size.unwrap_or(10);
-    
+
     match crate::db::api_keys::get_all_api_keys(&state.db, None, page, page_size).await {
         Ok(response) => Ok(Json(response)),
         Err(e) => {

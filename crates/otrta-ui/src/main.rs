@@ -133,7 +133,10 @@ async fn main() {
         .route("/api/api-keys", post(handlers::create_api_key_handler))
         .route("/api/api-keys/{id}", get(handlers::get_api_key_handler))
         .route("/api/api-keys/{id}", put(handlers::update_api_key_handler))
-        .route("/api/api-keys/{id}", delete(handlers::delete_api_key_handler))
+        .route(
+            "/api/api-keys/{id}",
+            delete(handlers::delete_api_key_handler),
+        )
         .with_state(app_state.clone());
 
     if auth_config.enabled {
