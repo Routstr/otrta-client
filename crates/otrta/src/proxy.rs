@@ -170,15 +170,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
     if !token.is_empty() {
         req_builder = req_builder.header("X-Cashu", &token);
-
-        add_transaction(
-            &state.db,
-            &token,
-            &cost.to_string(),
-            TransactionDirection::Outgoing,
-        )
-        .await
-        .unwrap();
     }
 
     if let Some(accept) = original_headers.get(header::ACCEPT) {

@@ -29,6 +29,15 @@ pub async fn send_with_retry(
         };
 
         if let Ok(token_result) = wallet.send(amount as u64, option, db).await {
+            add_transaction(
+                db,
+                &token_result,
+                &amount.to_string(),
+                TransactionDirection::Outgoing,
+            )
+            .await
+            .unwrap();
+
             return Ok(token_result);
         }
     }
