@@ -1,6 +1,14 @@
 import { apiClient } from '../client';
 import { ApiKey, CreateApiKey, UpdateApiKey } from '../schemas/api-keys';
 
+interface ApiKeyListResponse {
+  api_keys: ApiKey[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export class ApiKeyService {
   static async listApiKeys(organizationId?: string): Promise<ApiKey[]> {
     try {
@@ -9,7 +17,8 @@ export class ApiKeyService {
         params.organization_id = organizationId;
       }
 
-      return await apiClient.get<ApiKey[]>('/api/api-keys', params);
+      const response = await apiClient.get<ApiKeyListResponse>('/api/api-keys', params);
+      return response.api_keys;
     } catch (error) {
       console.error('Error fetching API keys:', error);
       throw error;

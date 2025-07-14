@@ -55,13 +55,13 @@ export default function api<Request, Response>({
         created_at: Math.floor(new Date().getTime() / 1000),
         content: 'application/json',
         tags: [
-          ['u', `${process.env.API_URL}${path}`],
+          ['u', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}${path}`],
           ['method', method],
         ],
       });
 
       const response = await axios({
-        baseURL: process.env.NEXT_PUBLIC_API_URL,
+        baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333',
         headers: {
           authorization: `Nostr ${btoa(JSON.stringify(auth_event))}`,
           'Content-Type': 'application/json',

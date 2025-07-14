@@ -27,27 +27,8 @@ import {
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-
-interface ApiKey {
-  id: string;
-  name: string;
-  key: string;
-  user_id: string;
-  organization_id: string;
-  last_used_at: string | null;
-  expires_at: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-interface CreateApiKeyRequest {
-  name: string;
-  user_id: string;
-  organization_id: string;
-  expires_at?: string;
-  is_active?: boolean;
-}
+import { ApiKeyService } from '@/lib/api/services/api-keys';
+import { ApiKey, CreateApiKey, UpdateApiKey } from '@/lib/api/schemas/api-keys';
 
 export function ApiKeySettings() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -63,10 +44,8 @@ export function ApiKeySettings() {
   const fetchApiKeys = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/api-keys');
-      if (!response.ok) throw new Error('Failed to fetch API keys');
-      const data = await response.json();
-      setApiKeys(data.api_keys || []);
+      const data = await ApiKeyService.listApiKeys();
+      setApiKeys(data);
     } catch (error) {
       console.error('Error fetching API keys:', error);
       toast.error('Failed to load API keys');
@@ -83,7 +62,7 @@ export function ApiKeySettings() {
 
     setIsLoading(true);
     try {
-      const createRequest: CreateApiKeyRequest = {
+      const createRequest: CreateApiKey = {
         name: newKeyName,
         user_id: newKeyUserId,
         organization_id: newKeyOrgId,
@@ -94,20 +73,7 @@ export function ApiKeySettings() {
         createRequest.expires_at = new Date(newKeyExpires).toISOString();
       }
 
-      const response = await fetch('/api/api-keys', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(createRequest),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'Failed to create API key');
-      }
-
-      const newKey = await response.json();
+      const newKey = await ApiKeyService.createApiKey(createRequest);
       setApiKeys([...apiKeys, newKey]);
       setIsCreateDialogOpen(false);
       setNewKeyName('');
@@ -126,15 +92,7 @@ export function ApiKeySettings() {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/api-keys/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'Failed to delete API key');
-      }
-
+      await ApiKeyService.deleteApiKey(id);
       setApiKeys(apiKeys.filter(key => key.id !== id));
       toast.success('API key deleted successfully');
     } catch (error) {
@@ -164,20 +122,8 @@ export function ApiKeySettings() {
   const updateApiKeyStatus = async (id: string, isActive: boolean) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/api-keys/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ is_active: isActive }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'Failed to update API key');
-      }
-
-      const updatedKey = await response.json();
+      const updateRequest: UpdateApiKey = { is_active: isActive };
+      const updatedKey = await ApiKeyService.updateApiKey(id, updateRequest);
       setApiKeys(apiKeys.map(key => key.id === id ? updatedKey : key));
       toast.success(isActive ? 'API key activated' : 'API key deactivated');
     } catch (error) {
@@ -188,12 +134,12 @@ export function ApiKeySettings() {
     }
   };
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'Never';
     return new Date(dateString).toLocaleDateString();
   };
 
-  const isExpired = (expiresAt: string | null) => {
+  const isExpired = (expiresAt: string | undefined) => {
     if (!expiresAt) return false;
     return new Date(expiresAt) < new Date();
   };

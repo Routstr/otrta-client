@@ -34,11 +34,13 @@ class ApiClient {
       withCredentials: false,
     });
 
-    // Add response interceptor to handle 401 errors
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401 && ConfigurationService.isAuthenticationEnabled()) {
+        if (
+          error.response?.status === 401 &&
+          ConfigurationService.isAuthenticationEnabled()
+        ) {
           await this.handle401Error();
         }
         return Promise.reject(error);
@@ -46,22 +48,19 @@ class ApiClient {
     );
   }
 
-  // Helper method to get the base URL (always local)
   private getBaseUrl(): string {
     return ConfigurationService.getLocalBaseUrl();
   }
 
-  // Handle 401 errors by triggering nostr login
   private async handle401Error(): Promise<void> {
-    if (this.isRedirecting) return; // Prevent multiple redirects
-    
+    if (this.isRedirecting) return;
+
     this.isRedirecting = true;
     authStateManager.setRedirecting(true);
-    
+
     try {
       console.log('401 Unauthorized - redirecting to Nostr login');
-      
-      // Initialize nostr auth if not already initialized
+
       if (!nostrAuth.isAuthenticated()) {
         await nostrAuth.initialize({
           theme: 'default',
@@ -71,8 +70,7 @@ class ApiClient {
           methods: ['connect', 'extension', 'readOnly', 'local'],
           noBanner: true,
         });
-        
-        // Launch the authentication flow
+
         await nostrAuth.launchAuth();
       }
     } catch (error) {
@@ -84,11 +82,17 @@ class ApiClient {
   }
 
   // Helper method to construct headers
-  private async getHeaders(method: string, path: string): Promise<Record<string, string>> {
+  private async getHeaders(
+    method: string,
+    path: string
+  ): Promise<Record<string, string>> {
     const headers = ConfigurationService.getAuthHeaders();
-    
+
     // Add NIP-98 authentication if enabled and nostr is available
-    if (ConfigurationService.isAuthenticationEnabled() && typeof window !== 'undefined') {
+    if (
+      ConfigurationService.isAuthenticationEnabled() &&
+      typeof window !== 'undefined'
+    ) {
       try {
         const nostrWindow = window as unknown as NostrWindow;
         if (nostrWindow.nostr) {
@@ -101,14 +105,15 @@ class ApiClient {
               ['method', method],
             ],
           });
-          
-          headers['Authorization'] = `Nostr ${btoa(JSON.stringify(auth_event))}`;
+
+          headers['Authorization'] =
+            `Nostr ${btoa(JSON.stringify(auth_event))}`;
         }
       } catch (error) {
         console.warn('Failed to create NIP-98 authentication:', error);
       }
     }
-    
+
     return headers;
   }
 
@@ -130,7 +135,6 @@ class ApiClient {
       );
       return response.data;
     } catch (error) {
-      // console.error(`Error fetching from ${endpoint}:`, error);
       throw error;
     }
   }
