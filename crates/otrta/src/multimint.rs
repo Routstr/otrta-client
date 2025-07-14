@@ -134,6 +134,15 @@ impl MultimintWalletWrapper {
         };
 
         let token = self.inner.send(amount, send_options).await?;
+
+        add_transaction(
+            db,
+            &token,
+            &amount.to_string(),
+            TransactionDirection::Outgoing,
+        )
+        .await?;
+
         Ok(token)
     }
 
