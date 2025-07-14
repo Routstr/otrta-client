@@ -1,21 +1,22 @@
 use axum::{
-    Router, middleware,
+    middleware,
     routing::{delete, get, post, put},
+    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{DatabaseSettings, Settings, get_configuration};
+use connection::{get_configuration, DatabaseSettings, Settings};
 use ecash_402_wallet::wallet::CashuWalletClient;
 use otrta::{
-    auth::{AuthConfig, auth_middleware},
+    auth::{auth_middleware, AuthConfig},
     db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
     multimint::MultimintWalletWrapper,
     proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -157,14 +158,7 @@ async fn main() {
     let app = protected_routes.merge(unprotected_routes);
 
     let app = app
-        .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods(Any)
-                .allow_headers(Any)
-                .expose_headers(Any)
-                .allow_private_network(true),
-        )
+        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
     println!(
         "Server starting on http://{}:{}",
