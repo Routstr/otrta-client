@@ -62,7 +62,7 @@ async fn main() {
         whitelisted_npubs: configuration.application.whitelisted_npubs.clone(),
     };
 
-    let mut app = Router::new()
+    let mut protected_routes = Router::new()
         .route("/api/openai-models", get(handlers::list_openai_models))
         .route("/api/proxy/models", get(handlers::get_proxy_models))
         .route("/api/providers", get(handlers::get_providers))
@@ -134,19 +134,24 @@ async fn main() {
         .route("/api/api-keys/{id}", get(handlers::get_api_key_handler))
         .route("/api/api-keys/{id}", put(handlers::update_api_key_handler))
         .route("/api/api-keys/{id}", delete(handlers::delete_api_key_handler))
+        .with_state(app_state.clone());
+
+    if auth_config.enabled {
+        let auth_config_clone = auth_config.clone();
+        protected_routes = protected_routes.layer(middleware::from_fn_with_state(
+            auth_config_clone,
+            auth_middleware,
+        ));
+    }
+
+    let unprotected_routes = Router::new()
         .route("/{*path}", post(forward_any_request))
         .route("/v1/{*path}", post(forward_any_request))
         .route("/{*path}", get(forward_any_request_get))
         .route("/v1/{*path}", get(forward_any_request_get))
         .with_state(app_state);
 
-    if auth_config.enabled {
-        let auth_config_clone = auth_config.clone();
-        app = app.layer(middleware::from_fn_with_state(
-            auth_config_clone,
-            auth_middleware,
-        ));
-    }
+    let app = protected_routes.merge(unprotected_routes);
 
     let app = app
         .layer(
