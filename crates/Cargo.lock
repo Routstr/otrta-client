@@ -2920,6 +2920,7 @@ dependencies = [
  "futures-util",
  "hex",
  "nostr 0.33.0",
+ "rand 0.8.5",
  "reqwest",
  "rust_decimal",
  "secp256k1 0.29.1",

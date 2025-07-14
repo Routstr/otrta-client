@@ -129,6 +129,11 @@ async fn main() {
             post(handlers::transfer_between_mints_handler),
         )
         .route("/api/multimint/topup", post(handlers::topup_mint_handler))
+        .route("/api/api-keys", get(handlers::get_all_api_keys_handler))
+        .route("/api/api-keys", post(handlers::create_api_key_handler))
+        .route("/api/api-keys/{id}", get(handlers::get_api_key_handler))
+        .route("/api/api-keys/{id}", put(handlers::update_api_key_handler))
+        .route("/api/api-keys/{id}", delete(handlers::delete_api_key_handler))
         .route("/{*path}", post(forward_any_request))
         .route("/v1/{*path}", post(forward_any_request))
         .route("/{*path}", get(forward_any_request_get))
