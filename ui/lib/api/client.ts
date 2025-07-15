@@ -33,7 +33,7 @@ class ApiClient {
       baseURL: this.getBaseUrl(),
       withCredentials: false,
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       timeout: 30000,
@@ -92,7 +92,7 @@ class ApiClient {
     path: string
   ): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json',
     };
 
@@ -150,7 +150,10 @@ class ApiClient {
     } catch (error: unknown) {
       const err = error as { code?: string; message?: string };
       if (err.code === 'ERR_NETWORK' || err.message?.includes('CORS')) {
-        console.error('CORS or network error - check server configuration:', error);
+        console.error(
+          'CORS or network error - check server configuration:',
+          error
+        );
         throw new ApiError(
           'Unable to connect to server. Please check your network connection and server configuration.',
           0,
@@ -169,10 +172,7 @@ class ApiClient {
 
     try {
       const fullUrl = `${this.getBaseUrl()}${endpoint}`;
-      console.log(
-        `Making POST request to ${fullUrl}`,
-        data
-      );
+      console.log(`Making POST request to ${fullUrl}`, data);
       const response: AxiosResponse<T> = await this.axiosInstance.post<T>(
         endpoint,
         data,
@@ -182,7 +182,10 @@ class ApiClient {
     } catch (error: unknown) {
       const err = error as { code?: string; message?: string };
       if (err.code === 'ERR_NETWORK' || err.message?.includes('CORS')) {
-        console.error('CORS or network error - check server configuration:', error);
+        console.error(
+          'CORS or network error - check server configuration:',
+          error
+        );
         throw new ApiError(
           'Unable to connect to server. Please check your network connection and server configuration.',
           0,
