@@ -32,6 +32,11 @@ class ApiClient {
     this.axiosInstance = axios.create({
       baseURL: this.getBaseUrl(),
       withCredentials: false,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
     });
 
     this.axiosInstance.interceptors.response.use(
@@ -49,7 +54,7 @@ class ApiClient {
   }
 
   private getBaseUrl(): string {
-    return ConfigurationService.getLocalBaseUrl();
+    return ConfigurationService.getBaseUrl();
   }
 
   private async handle401Error(): Promise<void> {
@@ -86,7 +91,14 @@ class ApiClient {
     method: string,
     path: string
   ): Promise<Record<string, string>> {
-    const headers = ConfigurationService.getAuthHeaders();
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    };
+
+    // Add any additional auth headers from configuration
+    const configHeaders = ConfigurationService.getAuthHeaders();
+    Object.assign(headers, configHeaders);
 
     // Add NIP-98 authentication if enabled and nostr is available
     if (
@@ -128,13 +140,23 @@ class ApiClient {
     };
 
     try {
-      console.log(`Making GET request to ${this.getBaseUrl()}${endpoint}`);
+      const fullUrl = `${this.getBaseUrl()}${endpoint}`;
+      console.log(`Making GET request to ${fullUrl}`);
       const response: AxiosResponse<T> = await this.axiosInstance.get<T>(
         endpoint,
         config
       );
       return response.data;
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string };
+      if (err.code === 'ERR_NETWORK' || err.message?.includes('CORS')) {
+        console.error('CORS or network error - check server configuration:', error);
+        throw new ApiError(
+          'Unable to connect to server. Please check your network connection and server configuration.',
+          0,
+          error
+        );
+      }
       throw error;
     }
   }
@@ -146,8 +168,9 @@ class ApiClient {
     };
 
     try {
+      const fullUrl = `${this.getBaseUrl()}${endpoint}`;
       console.log(
-        `Making POST request to ${this.getBaseUrl()}${endpoint}`,
+        `Making POST request to ${fullUrl}`,
         data
       );
       const response: AxiosResponse<T> = await this.axiosInstance.post<T>(
@@ -156,7 +179,16 @@ class ApiClient {
         config
       );
       return response.data;
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string };
+      if (err.code === 'ERR_NETWORK' || err.message?.includes('CORS')) {
+        console.error('CORS or network error - check server configuration:', error);
+        throw new ApiError(
+          'Unable to connect to server. Please check your network connection and server configuration.',
+          0,
+          error
+        );
+      }
       console.error(`Error posting to ${endpoint}:`, error);
       throw error;
     }
