@@ -158,7 +158,14 @@ async fn main() {
     let app = protected_routes.merge(unprotected_routes);
 
     let app = app
-        .layer(CorsLayer::permissive())
+        .layer(
+            CorsLayer::permissive()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any)
+                .expose_headers(Any)
+                .allow_private_network(true),
+        )
         .layer(TraceLayer::new_for_http());
     println!(
         "Server starting on http://{}:{}",
