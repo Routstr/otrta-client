@@ -7,9 +7,13 @@ use axum::{
 use base64::Engine;
 use nostr::{Event, Kind, ToBech32};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::error::AppError;
+use crate::db::api_keys::{get_api_key_by_key, update_last_used_at};
+use crate::models::AppState;
+use chrono::{DateTime, Utc};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AuthConfig {
@@ -28,12 +32,18 @@ impl Default for AuthConfig {
     }
 }
 
+#[derive(Clone)]
+pub struct AuthState {
+    pub config: AuthConfig,
+    pub app_state: Arc<AppState>,
+}
+
 pub async fn auth_middleware(
-    State(config): State<AuthConfig>,
+    State(auth_state): State<AuthState>,
     request: Request,
     next: Next,
 ) -> Response {
-    if !config.enabled {
+    if !auth_state.config.enabled {
         return next.run(request).await;
     }
 
@@ -47,31 +57,43 @@ pub async fn auth_middleware(
         Err(_) => return AppError::Unauthorized.into_response(),
     };
 
-    if !auth_str.starts_with("Nostr ") {
-        return AppError::Unauthorized.into_response();
+    // Check if it's a Bearer token
+    if auth_str.starts_with("Bearer ") {
+        let token = &auth_str[7..];
+        if let Err(err) = validate_bearer_token(&auth_state.app_state.db, token).await {
+            return err.into_response();
+        }
+        info!("Bearer token authentication successful");
+        return next.run(request).await;
     }
 
-    let encoded_event = &auth_str[6..];
-    let decoded_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded_event) {
-        Ok(bytes) => bytes,
-        Err(_) => return AppError::Unauthorized.into_response(),
-    };
+    // Check if it's a Nostr token
+    if auth_str.starts_with("Nostr ") {
+        let encoded_event = &auth_str[6..];
+        let decoded_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded_event) {
+            Ok(bytes) => bytes,
+            Err(_) => return AppError::Unauthorized.into_response(),
+        };
 
-    let event_json = match std::str::from_utf8(&decoded_bytes) {
-        Ok(json) => json,
-        Err(_) => return AppError::Unauthorized.into_response(),
-    };
+        let event_json = match std::str::from_utf8(&decoded_bytes) {
+            Ok(json) => json,
+            Err(_) => return AppError::Unauthorized.into_response(),
+        };
 
-    let event: Event = match serde_json::from_str(event_json) {
-        Ok(event) => event,
-        Err(_) => return AppError::Unauthorized.into_response(),
-    };
+        let event: Event = match serde_json::from_str(event_json) {
+            Ok(event) => event,
+            Err(_) => return AppError::Unauthorized.into_response(),
+        };
 
-    if let Err(err) = validate_auth_event(&event, &request, &config) {
-        return err.into_response();
+        if let Err(err) = validate_auth_event(&event, &request, &auth_state.config) {
+            return err.into_response();
+        }
+        info!("Nostr authentication successful");
+        return next.run(request).await;
     }
 
-    next.run(request).await
+    // Invalid authorization format
+    AppError::Unauthorized.into_response()
 }
 
 fn validate_auth_event(
@@ -157,6 +179,50 @@ fn validate_auth_event(
     if !url_found || !method_found {
         warn!("Missing required tags (u or method)");
         return Err(AppError::Unauthorized);
+    }
+
+    Ok(())
+}
+
+async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<(), AppError> {
+    // Get the API key from the database
+    let api_key = match get_api_key_by_key(db, token).await {
+        Ok(Some(key)) => key,
+        Ok(None) => {
+            warn!("Invalid API key provided");
+            return Err(AppError::Unauthorized);
+        }
+        Err(e) => {
+            warn!("Database error while validating API key: {}", e);
+            return Err(AppError::InternalServerError);
+        }
+    };
+
+    // Check if the key is active
+    if !api_key.is_active {
+        warn!("Inactive API key used: {}", api_key.id);
+        return Err(AppError::Unauthorized);
+    }
+
+    // Check if the key has expired
+    if let Some(expires_at_str) = &api_key.expires_at {
+        let expires_at = DateTime::parse_from_rfc3339(expires_at_str)
+            .map_err(|_| AppError::InternalServerError)?
+            .with_timezone(&Utc);
+        
+        let now = Utc::now();
+        if now > expires_at {
+            warn!("Expired API key used: {} (expired at {})", api_key.id, expires_at);
+            return Err(AppError::Unauthorized);
+        }
+    }
+
+    // Update the last_used_at timestamp
+    if let Err(e) = update_last_used_at(db, &api_key.id).await {
+        warn!("Failed to update last_used_at for API key {}: {}", api_key.id, e);
+        // Don't fail the request for this error, just log it
+    } else {
+        info!("Updated last_used_at for API key: {}", api_key.id);
     }
 
     Ok(())

@@ -9,7 +9,7 @@ use background::BackgroundJobRunner;
 use connection::{get_configuration, DatabaseSettings, Settings};
 use ecash_402_wallet::wallet::CashuWalletClient;
 use otrta::{
-    auth::{auth_middleware, AuthConfig},
+    auth::{auth_middleware, AuthConfig, AuthState},
     db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
@@ -141,9 +141,12 @@ async fn main() {
         .with_state(app_state.clone());
 
     if auth_config.enabled {
-        let auth_config_clone = auth_config.clone();
+        let auth_state = AuthState {
+            config: auth_config.clone(),
+            app_state: app_state.clone(),
+        };
         protected_routes = protected_routes.layer(middleware::from_fn_with_state(
-            auth_config_clone,
+            auth_state,
             auth_middleware,
         ));
     }

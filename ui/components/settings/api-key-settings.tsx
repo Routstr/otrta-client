@@ -23,12 +23,15 @@ import {
   Copy,
   RefreshCw,
   AlertTriangle,
+  Shield,
+  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { ApiKeyService } from '@/lib/api/services/api-keys';
 import { ApiKey, CreateApiKey, UpdateApiKey } from '@/lib/api/schemas/api-keys';
+import { ConfigurationService } from '@/lib/api/services/configuration';
 
 export function ApiKeySettings() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -40,6 +43,23 @@ export function ApiKeySettings() {
   const [newKeyOrgId, setNewKeyOrgId] = useState('default-org');
   const [newKeyExpires, setNewKeyExpires] = useState('');
   const [newKeyActive, setNewKeyActive] = useState(true);
+  const [currentAuthKey, setCurrentAuthKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCurrentAuthKey(ConfigurationService.getApiKey());
+  }, []);
+
+  const setAuthenticationKey = (apiKey: string) => {
+    ConfigurationService.setApiKey(apiKey);
+    setCurrentAuthKey(apiKey);
+    toast.success('API key set for authentication');
+  };
+
+  const clearAuthenticationKey = () => {
+    ConfigurationService.clearApiKey();
+    setCurrentAuthKey(null);
+    toast.success('Authentication API key cleared');
+  };
 
   const fetchApiKeys = async () => {
     setIsLoading(true);
@@ -236,6 +256,25 @@ export function ApiKeySettings() {
         </div>
       </CardHeader>
       <CardContent>
+        {currentAuthKey && (
+          <div className="mb-6">
+            <Alert>
+              <ShieldCheck className="h-4 w-4" />
+              <AlertDescription>
+                Authentication is configured. API key ending in &quot;...{currentAuthKey.slice(-8)}&quot; will be used for requests.
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={clearAuthenticationKey}
+                  className="ml-2 p-0 h-auto"
+                >
+                  Clear authentication
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+        
         {isLoading && apiKeys.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <RefreshCw className="h-6 w-6 animate-spin mr-2" />
@@ -259,6 +298,12 @@ export function ApiKeySettings() {
                         <Badge variant={apiKey.is_active ? "default" : "secondary"}>
                           {apiKey.is_active ? "Active" : "Inactive"}
                         </Badge>
+                        {currentAuthKey === apiKey.key && (
+                          <Badge variant="outline" className="border-green-500 text-green-700">
+                            <ShieldCheck className="h-3 w-3 mr-1" />
+                            Auth Key
+                          </Badge>
+                        )}
                         {isExpired(apiKey.expires_at) && (
                           <Badge variant="destructive">
                             <AlertTriangle className="h-3 w-3 mr-1" />
@@ -313,6 +358,27 @@ export function ApiKeySettings() {
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
+                      {currentAuthKey === apiKey.key ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearAuthenticationKey}
+                          disabled={isLoading}
+                        >
+                          <Shield className="h-4 w-4 mr-1" />
+                          Clear Auth
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAuthenticationKey(apiKey.key)}
+                          disabled={isLoading || !apiKey.is_active || isExpired(apiKey.expires_at)}
+                        >
+                          <Shield className="h-4 w-4 mr-1" />
+                          Use for Auth
+                        </Button>
+                      )}
                       <Switch
                         checked={apiKey.is_active}
                         onCheckedChange={(checked) => updateApiKeyStatus(apiKey.id, checked)}
