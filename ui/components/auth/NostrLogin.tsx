@@ -1,127 +1,298 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { nostrAuth } from '@/lib/api/services/nostr-auth';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Key, Shield } from 'lucide-react';
-import { toast } from 'sonner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Smartphone, Globe, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import { nostrAuth, NostrUser } from '@/lib/api/services/nostr-auth';
 
 interface NostrLoginProps {
-  onAuthenticated?: () => void;
+  onLogin?: (user: NostrUser) => void;
+  onError?: (error: string) => void;
+  autoRedirect?: boolean;
 }
 
-export function NostrLogin({ onAuthenticated }: NostrLoginProps) {
+export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLoginProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<NostrUser | null>(null);
+  const [hasExtension, setHasExtension] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const [redirectCounter, setRedirectCounter] = useState(3);
+  const [permissionStatus, setPermissionStatus] = useState<{
+    hasGetPublicKey: boolean;
+    hasSignEvent: boolean;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        await nostrAuth.initialize({
-          theme: 'default',
-          darkMode: document.documentElement.classList.contains('dark'),
-          bunkers: 'nsec.app,highlighter.com,nostrsigner.com',
-          perms: 'sign_event:1,sign_event:0,nip04_encrypt,nip04_decrypt',
-          methods: ['connect', 'extension', 'readOnly', 'local'],
-          noBanner: true,
-          onAuth: (npub) => {
-            console.log('Authentication successful:', npub);
-            onAuthenticated?.();
-          },
-        });
-        setIsInitialized(true);
-      } catch (err) {
-        console.error('Failed to initialize nostr-login:', err);
-        setError('Failed to initialize authentication system');
+    // Initialize nostr auth
+    nostrAuth.initialize({
+      onAuth: (user) => {
+        setCurrentUser(user);
+        setSuccess(`Logged in as ${user.npub.substring(0, 16)}...`);
+        onLogin?.(user);
+      },
+      onLogout: () => {
+        setCurrentUser(null);
+        setSuccess(null);
+        setError(null);
+        setRedirectCounter(3);
+        setPermissionStatus(null);
       }
-    };
+    });
 
-    if (typeof window !== 'undefined') {
-      initializeAuth();
-    }
-  }, [onAuthenticated]);
-
-  const handleLogin = async () => {
-    if (!isInitialized) {
-      toast.error('Authentication system not initialized');
-      return;
+    // Check for existing auth
+    const user = nostrAuth.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
     }
 
+    // Check for browser extension (but don't trigger permission requests)
+    const extensionAvailable = !!window.nostr;
+    setHasExtension(extensionAvailable);
+
+    // Check if on Android
+    setIsAndroid(/Android/i.test(navigator.userAgent));
+
+    // Listen for auth changes
+    const unsubscribe = nostrAuth.onAuthChange((user) => {
+      setCurrentUser(user);
+    });
+
+    return unsubscribe;
+  }, [onLogin]);
+
+  const checkPermissions = async () => {
+    try {
+      const status = await nostrAuth.checkExtensionPermissions();
+      setPermissionStatus(status);
+    } catch (err) {
+      console.error('Failed to check permissions:', err);
+    }
+  };
+
+  // Auto-redirect countdown when user is logged in
+  useEffect(() => {
+    if (currentUser && autoRedirect && redirectCounter > 0) {
+      const timer = setTimeout(() => {
+        if (redirectCounter === 1) {
+          router.push('/');
+        } else {
+          setRedirectCounter(prev => prev - 1);
+        }
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser, autoRedirect, redirectCounter, router]);
+
+  const handleManualRedirect = () => {
+    router.push('/');
+  };
+
+  const handleExtensionLogin = async () => {
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      await nostrAuth.launchAuth();
+      await nostrAuth.loginWithExtension();
+      // Refresh permission status after successful login
+      await checkPermissions();
     } catch (err) {
-      console.error('Login failed:', err);
-      setError('Login failed. Please try again.');
-      toast.error('Login failed. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Extension login failed';
+      setError(errorMessage);
+      onError?.(errorMessage);
+      // Also refresh permission status after failed attempt to show current state
+      await checkPermissions();
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (error) {
+  const handleAmberLogin = async () => {
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await nostrAuth.loginWithAmber();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Amber login failed';
+      setError(errorMessage);
+      onError?.(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+
+  // If already logged in, show user info
+  if (currentUser) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Shield className="w-12 h-12 mx-auto mb-4 text-destructive" />
-            <CardTitle className="text-2xl font-bold">Authentication Error</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-muted-foreground mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()} variant="outline">
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            Connected
+          </CardTitle>
+          <CardDescription>
+            You are logged in to Nostr
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Public Key (npub)</Label>
+            <div className="flex items-center gap-2">
+              <Input 
+                value={currentUser.npub} 
+                readOnly 
+                className="text-sm font-mono"
+              />
+              <Badge variant="secondary" className="capitalize">
+                {currentUser.method}
+              </Badge>
+            </div>
+          </div>
+
+          {success && (
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {autoRedirect && redirectCounter > 0 && (
+            <Alert>
+              <ArrowRight className="h-4 w-4" />
+              <AlertDescription>
+                Redirecting to dashboard in {redirectCounter} second{redirectCounter !== 1 ? 's' : ''}...
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Button 
+            onClick={handleManualRedirect}
+            className="w-full"
+          >
+            <ArrowRight className="h-4 w-4 mr-2" />
+            Go to Dashboard
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <Key className="w-12 h-12 mx-auto mb-4 text-primary" />
-          <CardTitle className="text-2xl font-bold">Welcome to OTRTA</CardTitle>
-          <p className="text-muted-foreground">
-            Sign in with your Nostr identity to access the platform
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Authentication methods supported:
-            </p>
-            <ul className="text-sm space-y-1 text-muted-foreground">
-              <li>• Browser extensions (Alby, nos2x, etc.)</li>
-              <li>• NIP-46 Connect (nsec.app, highlighter.com)</li>
-              <li>• Manual nsec input</li>
-              <li>• Read-only access</li>
-            </ul>
-          </div>
-          
-          <Button
-            onClick={handleLogin}
-            disabled={isLoading || !isInitialized}
-            className="w-full"
-            size="lg"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              'Sign In with Nostr'
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Connect to Nostr</CardTitle>
+        <CardDescription>
+          Choose your preferred method to authenticate with Nostr
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="extension" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="extension" disabled={!hasExtension}>
+              <Globe className="h-4 w-4" />
+              Extension
+            </TabsTrigger>
+            <TabsTrigger value="amber">
+              <Smartphone className="h-4 w-4" />
+              Amber
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="mt-4 space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+
+            <TabsContent value="extension" className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                Connect using a browser extension like Alby, nos2x, or similar.
+              </div>
+              {!hasExtension && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No Nostr extension detected. Please install a Nostr extension first.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {hasExtension && permissionStatus && (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Current permissions:</strong>
+                    <br />• getPublicKey: {permissionStatus.hasGetPublicKey ? '✅ Granted' : '❌ Not granted'}
+                    <br />• signEvent (kind 27235): {permissionStatus.hasSignEvent ? '✅ Granted' : '❌ Not granted'}
+                    {(!permissionStatus.hasGetPublicKey || !permissionStatus.hasSignEvent) && (
+                      <><br /><br /><strong>Missing permissions will be requested during login.</strong></>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {hasExtension && !permissionStatus && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Required permissions:</strong>
+                    <br />• getPublicKey (always)
+                    <br />• signEvent (kind: 27235)
+                    <br />Please allow both permissions when prompted.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <Button 
+                onClick={handleExtensionLogin}
+                disabled={isLoading || !hasExtension}
+                className="w-full"
+              >
+                {isLoading ? 'Requesting permissions...' : 'Connect with Extension'}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="amber" className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                Connect using the Amber app for secure key management.
+              </div>
+              {!isAndroid && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Amber works best on Android devices. On other platforms, this will attempt to open Amber if available.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <Button 
+                onClick={handleAmberLogin}
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isLoading ? 'Connecting...' : 'Connect with Amber'}
+              </Button>
+            </TabsContent>
+
+
+
+          </div>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 } 

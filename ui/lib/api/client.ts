@@ -70,13 +70,10 @@ class ApiClient {
         await nostrAuth.initialize({
           theme: 'default',
           darkMode: document.documentElement.classList.contains('dark'),
-          bunkers: 'nsec.app,highlighter.com,nostrsigner.com',
-          perms: 'sign_event:1,sign_event:0,nip04_encrypt,nip04_decrypt',
-          methods: ['connect', 'extension', 'readOnly', 'local'],
-          noBanner: true,
         });
 
-        await nostrAuth.launchAuth();
+        // Redirect to login page instead of launching modal
+        window.location.href = '/login';
       }
     } catch (error) {
       console.error('Failed to handle 401 error:', error);

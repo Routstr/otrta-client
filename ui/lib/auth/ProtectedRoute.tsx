@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
 import { NostrLogin } from '@/components/auth/NostrLogin';
 import { ConfigurationService } from '@/lib/api/services/configuration';
@@ -15,7 +15,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isAuthEnabled, setIsAuthEnabled] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const { isAuthenticated, isLoading } = useNostrAuth();
+  const { isAuthenticated, isLoading, validateAuth } = useNostrAuth();
+  const hasValidated = useRef(false);
 
   useEffect(() => {
     // Check if authentication is enabled
@@ -35,6 +36,20 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    // Validate authentication on component mount for extension users
+    // but only once, not repeatedly  
+    if (isAuthenticated && !hasValidated.current) {
+      hasValidated.current = true;
+      // Small delay to ensure initialization is complete
+      const timeoutId = setTimeout(() => {
+        validateAuth();
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isAuthenticated, validateAuth]);
 
   // Show loading screen while checking authentication settings
   if (isCheckingAuth) {

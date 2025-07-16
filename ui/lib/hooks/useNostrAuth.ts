@@ -12,6 +12,7 @@ export interface UseNostrAuthReturn {
   login: () => Promise<void>;
   loginWithNsec: (nsec: string) => Promise<void>;
   logout: () => Promise<void>;
+  validateAuth: () => Promise<boolean>;
 }
 
 export function useNostrAuth(): UseNostrAuthReturn {
@@ -29,14 +30,7 @@ export function useNostrAuth(): UseNostrAuthReturn {
         await nostrAuth.initialize({
           theme: 'default',
           darkMode: document.documentElement.classList.contains('dark'),
-          bunkers: 'nsec.app,highlighter.com,nostrsigner.com',
-          perms: 'sign_event:1,sign_event:0,nip04_encrypt,nip04_decrypt',
-          methods: ['connect', 'extension', 'readOnly', 'local'],
-          noBanner: true,
         });
-
-        // Check for existing authentication
-        await nostrAuth.checkExistingAuth();
         
         // Set initial user state
         setUser(nostrAuth.getCurrentUser());
@@ -71,13 +65,7 @@ export function useNostrAuth(): UseNostrAuthReturn {
       await nostrAuth.initialize({
         theme: 'default',
         darkMode: document.documentElement.classList.contains('dark'),
-        bunkers: 'nsec.app,highlighter.com,nostrsigner.com',
-        perms: 'sign_event:1,sign_event:0,nip04_encrypt,nip04_decrypt',
-        methods: ['connect', 'extension', 'readOnly', 'local'],
-        noBanner: true,
       });
-
-      await nostrAuth.checkExistingAuth();
       setUser(nostrAuth.getCurrentUser());
     } catch (err) {
       console.error('Failed to initialize auth:', err);
@@ -92,7 +80,8 @@ export function useNostrAuth(): UseNostrAuthReturn {
       setIsLoading(true);
       setError(null);
       
-      await nostrAuth.launchAuth();
+      // Redirect to login page since we no longer have modal auth
+      window.location.href = '/login';
     } catch (err) {
       console.error('Login failed:', err);
       setError('Login failed. Please try again.');
@@ -131,6 +120,21 @@ export function useNostrAuth(): UseNostrAuthReturn {
     }
   };
 
+  const validateAuth = async (): Promise<boolean> => {
+    try {
+      const isValid = await nostrAuth.validateCurrentAuth();
+      if (!isValid) {
+        setUser(null);
+        setError('Authentication expired. Please log in again.');
+      }
+      return isValid;
+    } catch (err) {
+      console.error('Auth validation failed:', err);
+      setError('Failed to validate authentication');
+      return false;
+    }
+  };
+
   return {
     user,
     isAuthenticated: !!user,
@@ -140,5 +144,6 @@ export function useNostrAuth(): UseNostrAuthReturn {
     login,
     loginWithNsec,
     logout,
+    validateAuth,
   };
 }
