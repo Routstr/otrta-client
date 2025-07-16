@@ -262,7 +262,7 @@ export class NostrAuth {
         const secret = this.generateRandomHex(16);
         
         // Default relay for NIP-46 communication (you may want to make this configurable)
-        const relay = 'wss://relay.damus.io';
+        const relay = 'wss://relay.nsec.app';
         
         // Create NIP-46 nostrconnect URL for "Direct connection initiated by the client"
         const permissions = 'sign_event,get_public_key';
