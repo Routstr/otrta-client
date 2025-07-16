@@ -181,34 +181,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         let headers = resp.headers().clone();
 
         if status != StatusCode::OK {
-            if !is_free_model && !token.is_empty() {
-                if let Some(change_sats) = headers.get("X-Cashu") {
-                    if let Ok(in_token) = change_sats.to_str() {
-                        let res = state.wallet.receive(in_token).await.unwrap();
-                        add_transaction(
-                            &state.db,
-                            &in_token,
-                            &res.to_string(),
-                            TransactionDirection::Incoming,
-                        )
-                        .await
-                        .unwrap();
-                    }
-                }
-            }
-            return Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("Server Error"))
-                .unwrap();
-        }
-
-        let mut response = Response::builder().status(status);
-
-        if is_streaming && !headers.contains_key(header::CONTENT_TYPE) {
-            response = response.header(header::CONTENT_TYPE, "text/event-stream");
-        }
-
-        if !is_free_model {
             if let Some(change_sats) = headers.get("X-Cashu") {
                 if let Ok(in_token) = change_sats.to_str() {
                     let res = state.wallet.receive(in_token).await.unwrap();
@@ -221,6 +193,26 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     .await
                     .unwrap();
                 }
+            }
+        }
+
+        let mut response = Response::builder().status(status);
+
+        if is_streaming && !headers.contains_key(header::CONTENT_TYPE) {
+            response = response.header(header::CONTENT_TYPE, "text/event-stream");
+        }
+
+        if let Some(change_sats) = headers.get("X-Cashu") {
+            if let Ok(in_token) = change_sats.to_str() {
+                let res = state.wallet.receive(in_token).await.unwrap();
+                add_transaction(
+                    &state.db,
+                    &in_token,
+                    &res.to_string(),
+                    TransactionDirection::Incoming,
+                )
+                .await
+                .unwrap();
             }
         }
 
