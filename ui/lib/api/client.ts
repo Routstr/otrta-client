@@ -64,17 +64,21 @@ class ApiClient {
     authStateManager.setRedirecting(true);
 
     try {
-      console.log('401 Unauthorized - redirecting to Nostr login');
+      console.log('401 Unauthorized - logging out and redirecting to login');
 
-      if (!nostrAuth.isAuthenticated()) {
-        await nostrAuth.initialize({
-          theme: 'default',
-          darkMode: document.documentElement.classList.contains('dark'),
-        });
-
-        // Redirect to login page instead of launching modal
-        window.location.href = '/login';
+      // Clear auth since server rejected the authentication
+      if (nostrAuth.isAuthenticated()) {
+        nostrAuth.clearAuth();
       }
+
+      // Initialize nostr auth for fresh login
+      await nostrAuth.initialize({
+        theme: 'default',
+        darkMode: document.documentElement.classList.contains('dark'),
+      });
+
+      // Redirect to login page
+      window.location.href = '/login';
     } catch (error) {
       console.error('Failed to handle 401 error:', error);
     } finally {

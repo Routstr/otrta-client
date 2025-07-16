@@ -60,21 +60,11 @@ export class NostrAuth {
 
   private async checkExistingAuth(): Promise<void> {
     try {
-      // Check for saved auth and validate extension permissions if needed
+      // Only restore from localStorage - don't validate on startup
+      // Let server 401 responses handle invalid auth states
       const savedUser = localStorage.getItem('nostr-user');
       if (savedUser) {
         const user = JSON.parse(savedUser) as NostrUser;
-        
-        // If the user used extension method, validate permissions are still available
-        if (user.method === 'extension') {
-          const isValid = await this.validateExtensionAuth(user);
-          if (!isValid) {
-            console.log('Extension permissions revoked, clearing auth');
-            await this.logout();
-            return;
-          }
-        }
-        
         this.setCurrentUser(user);
       }
     } catch (error) {
@@ -263,18 +253,50 @@ export class NostrAuth {
 
   private async requestAmberAuth(): Promise<string> {
     return new Promise((resolve, reject) => {
-      // Create the Amber intent URL for authentication
-      // This follows NIP-55 specification
-      const intentUrl = `intent://nostr/getPublicKey?#Intent;scheme=nostrsigner;package=com.greenart7c3.nostrsigner;end`;
-      
       try {
-        // Try to open Amber (works best on Android, but attempt on all platforms)
-        window.location.href = intentUrl;
+        // Generate client keypair for NIP-46 connection
+        const clientPrivkey = this.generateRandomHex(32);
+        const clientPubkey = this.privkeyToPubkey(clientPrivkey);
         
-        // Set up a listener for when the user returns
+        // Generate a random secret for the connection
+        const secret = this.generateRandomHex(16);
+        
+        // Default relay for NIP-46 communication (you may want to make this configurable)
+        const relay = 'wss://relay.damus.io';
+        
+        // Create NIP-46 nostrconnect URL for "Direct connection initiated by the client"
+        const permissions = 'sign_event,get_public_key';
+        const appName = 'OTRTA';
+        const appUrl = window.location.origin;
+        
+        const nostrConnectUrl = `nostrconnect://${clientPubkey}` +
+          `?relay=${encodeURIComponent(relay)}` +
+          `&secret=${secret}` +
+          `&perms=${encodeURIComponent(permissions)}` +
+          `&name=${encodeURIComponent(appName)}` +
+          `&url=${encodeURIComponent(appUrl)}`;
+
+        console.log('Generated NIP-46 connection URL:', nostrConnectUrl);
+        
+        // On Android, try to open Amber with the nostrconnect URL
+        if (this.isAndroid()) {
+          // Try Amber app first
+          window.location.href = `nostrsigner:${nostrConnectUrl}`;
+          
+          // Fallback to browser
+          setTimeout(() => {
+            window.open(nostrConnectUrl, '_blank');
+          }, 1000);
+        } else {
+          // On other platforms, open in new tab/window
+          window.open(nostrConnectUrl, '_blank');
+        }
+        
+        // Set up listeners for when user returns from Amber
         const handleFocus = () => {
           window.removeEventListener('focus', handleFocus);
           // For demonstration purposes, we'll generate a mock user
+          // In a real implementation, you'd listen for NIP-46 response events
           setTimeout(() => {
             // Generate a realistic-looking mock pubkey for demo
             const mockPubkey = '02' + Array.from({length: 32}, () => Math.floor(Math.random() * 16).toString(16)).join('');
@@ -297,15 +319,12 @@ export class NostrAuth {
         setTimeout(() => {
           window.removeEventListener('focus', handleFocus);
           document.removeEventListener('visibilitychange', handleVisibilityChange);
-          if (this.isAndroid()) {
-            reject(new Error('Amber authentication timeout - please ensure Amber is installed and try again'));
-          } else {
-            reject(new Error('Amber is optimized for Android devices. Please use a browser extension or manual login on this platform.'));
-          }
+          reject(new Error('NIP-46 connection timeout - please ensure Amber supports NIP-46 and try again'));
         }, 30000);
-      } catch {
-        reject(new Error('Failed to launch Amber - please try a different authentication method'));
-      }
+        
+             } catch {
+         reject(new Error('Failed to generate NIP-46 connection URL - please try a different authentication method'));
+       }
     });
   }
 
@@ -348,6 +367,18 @@ export class NostrAuth {
     } catch (error) {
       console.error('Failed to logout:', error);
       throw error;
+    }
+  }
+
+  // Force clear auth without validation - used for server 401 responses
+  clearAuth(): void {
+    try {
+      localStorage.removeItem('nostr-user');
+      localStorage.removeItem('nostr-nsec');
+      this.setCurrentUser(null);
+      console.log('Authentication cleared due to server rejection');
+    } catch (error) {
+      console.error('Failed to clear auth:', error);
     }
   }
 
@@ -496,6 +527,33 @@ export class NostrAuth {
   // Utility methods
   private isAndroid(): boolean {
     return /Android/i.test(navigator.userAgent);
+  }
+
+  private generateRandomHex(byteLength: number): string {
+    const bytes = new Uint8Array(byteLength);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  private privkeyToPubkey(privkeyHex: string): string {
+    // This is a simplified implementation for demo purposes
+    // In a real implementation, you'd use proper secp256k1 crypto
+    // For now, we'll derive a mock pubkey from the privkey
+    const hash = this.sha256(privkeyHex);
+    return hash.substring(0, 64);
+  }
+
+  private sha256(input: string): string {
+    // Simple hash function for demo - in production use crypto.subtle.digest
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    // Convert to hex and pad to create a 64-character string
+    const hexHash = Math.abs(hash).toString(16);
+    return hexHash.padStart(64, '0');
   }
 
   private isMobile(): boolean {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
 import { NostrLogin } from '@/components/auth/NostrLogin';
 import { ConfigurationService } from '@/lib/api/services/configuration';
@@ -15,8 +15,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isAuthEnabled, setIsAuthEnabled] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const { isAuthenticated, isLoading, validateAuth } = useNostrAuth();
-  const hasValidated = useRef(false);
+  const { isAuthenticated, isLoading } = useNostrAuth();
 
   useEffect(() => {
     // Check if authentication is enabled
@@ -37,19 +36,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    // Validate authentication on component mount for extension users
-    // but only once, not repeatedly  
-    if (isAuthenticated && !hasValidated.current) {
-      hasValidated.current = true;
-      // Small delay to ensure initialization is complete
-      const timeoutId = setTimeout(() => {
-        validateAuth();
-      }, 500);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isAuthenticated, validateAuth]);
+  // Remove client-side validation - only show login on 401 server responses
+  // useEffect(() => {
+  //   // Client-side validation removed to prevent false logouts
+  // }, []);
 
   // Show loading screen while checking authentication settings
   if (isCheckingAuth) {

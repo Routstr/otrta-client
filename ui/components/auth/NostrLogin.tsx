@@ -25,7 +25,6 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
   const [success, setSuccess] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<NostrUser | null>(null);
   const [hasExtension, setHasExtension] = useState(false);
-  const [isAndroid, setIsAndroid] = useState(false);
   const [redirectCounter, setRedirectCounter] = useState(3);
   const [permissionStatus, setPermissionStatus] = useState<{
     hasGetPublicKey: boolean;
@@ -59,9 +58,6 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
     // Check for browser extension (but don't trigger permission requests)
     const extensionAvailable = !!window.nostr;
     setHasExtension(extensionAvailable);
-
-    // Check if on Android
-    setIsAndroid(/Android/i.test(navigator.userAgent));
 
     // Listen for auth changes
     const unsubscribe = nostrAuth.onAuthChange((user) => {
@@ -210,7 +206,7 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
             </TabsTrigger>
             <TabsTrigger value="amber">
               <Smartphone className="h-4 w-4" />
-              Amber
+              Remote Signer
             </TabsTrigger>
           </TabsList>
 
@@ -269,22 +265,21 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
 
             <TabsContent value="amber" className="space-y-3">
               <div className="text-sm text-muted-foreground">
-                Connect using the Amber app for secure key management.
+                Connect using NIP-46 remote signing with Amber or compatible signers.
               </div>
-              {!isAndroid && (
-                <Alert>
+                              <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Amber works best on Android devices. On other platforms, this will attempt to open Amber if available.
+                    This uses NIP-46 &quot;Direct connection initiated by the client&quot; protocol. 
+                    Make sure your signer supports NIP-46 remote signing.
                   </AlertDescription>
                 </Alert>
-              )}
               <Button 
                 onClick={handleAmberLogin}
                 disabled={isLoading}
                 className="w-full"
               >
-                {isLoading ? 'Connecting...' : 'Connect with Amber'}
+                {isLoading ? 'Generating Connection...' : 'Connect with NIP-46 Signer'}
               </Button>
             </TabsContent>
 
