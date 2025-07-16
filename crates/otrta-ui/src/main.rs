@@ -9,7 +9,7 @@ use background::BackgroundJobRunner;
 use connection::{get_configuration, DatabaseSettings, Settings};
 use ecash_402_wallet::wallet::CashuWalletClient;
 use otrta::{
-    auth::{auth_middleware, AuthConfig, AuthState},
+    auth::{bearer_auth_middleware, nostr_auth_middleware, AuthConfig, AuthState},
     db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
@@ -140,23 +140,29 @@ async fn main() {
         )
         .with_state(app_state.clone());
 
+    let mut unprotected_routes = Router::new()
+        .route("/{*path}", post(forward_any_request))
+        .route("/v1/{*path}", post(forward_any_request))
+        .route("/{*path}", get(forward_any_request_get))
+        .route("/v1/{*path}", get(forward_any_request_get))
+        .with_state(app_state.clone());
+
     if auth_config.enabled {
         let auth_state = AuthState {
             config: auth_config.clone(),
             app_state: app_state.clone(),
         };
+
+        unprotected_routes = unprotected_routes.layer(middleware::from_fn_with_state(
+            auth_state.clone(),
+            bearer_auth_middleware,
+        ));
+
         protected_routes = protected_routes.layer(middleware::from_fn_with_state(
             auth_state,
-            auth_middleware,
+            nostr_auth_middleware,
         ));
     }
-
-    let unprotected_routes = Router::new()
-        .route("/{*path}", post(forward_any_request))
-        .route("/v1/{*path}", post(forward_any_request))
-        .route("/{*path}", get(forward_any_request_get))
-        .route("/v1/{*path}", get(forward_any_request_get))
-        .with_state(app_state);
 
     let app = protected_routes.merge(unprotected_routes);
 

@@ -9,8 +9,8 @@ use nostr::{Event, Kind, ToBech32};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 
-use crate::error::AppError;
 use crate::db::api_keys::{get_api_key_by_key, update_last_used_at};
+use crate::error::AppError;
 use crate::models::AppState;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
@@ -38,7 +38,7 @@ pub struct AuthState {
     pub app_state: Arc<AppState>,
 }
 
-pub async fn auth_middleware(
+pub async fn bearer_auth_middleware(
     State(auth_state): State<AuthState>,
     request: Request,
     next: Next,
@@ -57,7 +57,6 @@ pub async fn auth_middleware(
         Err(_) => return AppError::Unauthorized.into_response(),
     };
 
-    // Check if it's a Bearer token
     if auth_str.starts_with("Bearer ") {
         let token = &auth_str[7..];
         if let Err(err) = validate_bearer_token(&auth_state.app_state.db, token).await {
@@ -67,7 +66,36 @@ pub async fn auth_middleware(
         return next.run(request).await;
     }
 
-    // Check if it's a Nostr token
+    warn!(
+        "Bearer token required but {} provided",
+        if auth_str.starts_with("Nostr ") {
+            "Nostr token"
+        } else {
+            "invalid format"
+        }
+    );
+    AppError::Unauthorized.into_response()
+}
+
+pub async fn nostr_auth_middleware(
+    State(auth_state): State<AuthState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if !auth_state.config.enabled {
+        return next.run(request).await;
+    }
+
+    let auth_header = match request.headers().get(AUTHORIZATION) {
+        Some(header) => header,
+        None => return AppError::Unauthorized.into_response(),
+    };
+
+    let auth_str = match auth_header.to_str() {
+        Ok(str) => str,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
     if auth_str.starts_with("Nostr ") {
         let encoded_event = &auth_str[6..];
         let decoded_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded_event) {
@@ -92,7 +120,14 @@ pub async fn auth_middleware(
         return next.run(request).await;
     }
 
-    // Invalid authorization format
+    warn!(
+        "Nostr token required but {} provided",
+        if auth_str.starts_with("Bearer ") {
+            "Bearer token"
+        } else {
+            "invalid format"
+        }
+    );
     AppError::Unauthorized.into_response()
 }
 
@@ -139,7 +174,7 @@ fn validate_auth_event(
             match values[0].as_str() {
                 "u" => {
                     // TODO: FIX ME
-                    let expected_url = format!(
+                    let _expected_url = format!(
                         "{}://{}{}",
                         request
                             .uri()
@@ -209,17 +244,23 @@ async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<(), App
         let expires_at = DateTime::parse_from_rfc3339(expires_at_str)
             .map_err(|_| AppError::InternalServerError)?
             .with_timezone(&Utc);
-        
+
         let now = Utc::now();
         if now > expires_at {
-            warn!("Expired API key used: {} (expired at {})", api_key.id, expires_at);
+            warn!(
+                "Expired API key used: {} (expired at {})",
+                api_key.id, expires_at
+            );
             return Err(AppError::Unauthorized);
         }
     }
 
     // Update the last_used_at timestamp
     if let Err(e) = update_last_used_at(db, &api_key.id).await {
-        warn!("Failed to update last_used_at for API key {}: {}", api_key.id, e);
+        warn!(
+            "Failed to update last_used_at for API key {}: {}",
+            api_key.id, e
+        );
         // Don't fail the request for this error, just log it
     } else {
         info!("Updated last_used_at for API key: {}", api_key.id);
