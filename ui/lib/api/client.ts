@@ -1,28 +1,9 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosInstance } from 'axios';
 import { ConfigurationService } from './services/configuration';
-import { nostrAuth } from './services/nostr-auth';
+import { nostrAuthSimple as nostrAuth } from './services/nostr-auth-simple';
 import { authStateManager } from '../auth/auth-state';
 
-// Define the Nostr Event interface
-interface NostrEvent {
-  kind: number;
-  created_at: number;
-  content: string;
-  tags: string[][];
-}
-
-// Define the Nostr interface for the window object
-interface NostrWindow extends Window {
-  nostr: {
-    getPublicKey(): Promise<string>;
-    signEvent: (event: NostrEvent) => Promise<NostrEvent>;
-    nip04?: {
-      encrypt(pubkey: string, plaintext: string): Promise<string>;
-      decrypt(pubkey: string, ciphertext: string): Promise<string>;
-    };
-    [key: string]: unknown;
-  };
-}
+// Nostr window interface is defined in nostr-auth.ts
 
 class ApiClient {
   private axiosInstance: AxiosInstance;
@@ -68,7 +49,7 @@ class ApiClient {
 
       // Clear auth since server rejected the authentication
       if (nostrAuth.isAuthenticated()) {
-        nostrAuth.clearAuth();
+        await nostrAuth.logout();
       }
 
       // Initialize nostr auth for fresh login
@@ -107,9 +88,8 @@ class ApiClient {
       typeof window !== 'undefined'
     ) {
       try {
-        const nostrWindow = window as unknown as NostrWindow;
-        if (nostrWindow.nostr) {
-          const auth_event = await nostrWindow.nostr.signEvent({
+        if (window.nostr) {
+          const auth_event = await window.nostr.signEvent({
             kind: 27235,
             created_at: Math.floor(new Date().getTime() / 1000),
             content: 'application/json',
@@ -117,7 +97,8 @@ class ApiClient {
               ['u', `${this.getBaseUrl()}${path}`],
               ['method', method],
             ],
-          });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any);
 
           headers['Authorization'] =
             `Nostr ${btoa(JSON.stringify(auth_event))}`;

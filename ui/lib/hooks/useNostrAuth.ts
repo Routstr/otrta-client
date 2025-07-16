@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { nostrAuth, NostrUser } from '@/lib/api/services/nostr-auth';
+import { nostrAuthSimple as nostrAuth, NostrUser } from '@/lib/api/services/nostr-auth-simple';
 
 export interface UseNostrAuthReturn {
   user: NostrUser | null;
@@ -122,7 +122,8 @@ export function useNostrAuth(): UseNostrAuthReturn {
 
   const validateAuth = async (): Promise<boolean> => {
     try {
-      const isValid = await nostrAuth.validateCurrentAuth();
+      // For the simplified service, we just check if user is authenticated
+      const isValid = nostrAuth.isAuthenticated();
       if (!isValid) {
         setUser(null);
         setError('Authentication expired. Please log in again.');

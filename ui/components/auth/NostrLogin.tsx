@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Smartphone, Globe, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
-import { nostrAuth, NostrUser } from '@/lib/api/services/nostr-auth';
+import { nostrAuthSimple as nostrAuth, NostrUser } from '@/lib/api/services/nostr-auth-simple';
 
 interface NostrLoginProps {
   onLogin?: (user: NostrUser) => void;

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { NostrLogin } from '@/components/auth/NostrLogin';
-import { NostrUser } from '@/lib/api/services/nostr-auth';
+import { NostrUser } from '@/lib/api/services/nostr-auth-simple';
 import { toast } from 'sonner';
 
 export default function NostrLoginPage() {

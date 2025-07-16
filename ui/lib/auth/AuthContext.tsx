@@ -2,18 +2,7 @@ import React, { createContext, useContext, useState } from 'react';
 import { User } from '@/lib/api/schemas/users';
 import { UserService } from '@/lib/api/services/users';
 
-// Nostr extension interface
-interface NostrWindow extends Window {
-  nostr: {
-    getPublicKey: () => Promise<string>;
-    signEvent: (event: unknown) => Promise<unknown>;
-    nip04?: {
-      encrypt(pubkey: string, plaintext: string): Promise<string>;
-      decrypt(pubkey: string, ciphertext: string): Promise<string>;
-    };
-    [key: string]: unknown;
-  };
-}
+// Nostr window interface is defined in nostr-auth-simple.ts
 
 // Define the shape of our auth context state
 type AuthContextType = {
@@ -84,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Check if window.nostr exists
       if (typeof window !== 'undefined' && 'nostr' in window) {
         // Request public key from extension
-        const publicKey = await (window as NostrWindow).nostr.getPublicKey();
+        const publicKey = await window.nostr!.getPublicKey();
 
         // Store the public key
         setNostrPublicKey(publicKey);

@@ -12,26 +12,7 @@ export enum HTTPStatusCode {
   OK = 200,
 }
 
-// Define the Nostr Event interface
-interface NostrEvent {
-  kind: number;
-  created_at: number;
-  content: string;
-  tags: string[][];
-}
-
-// Define the Nostr interface for the window object
-interface NostrWindow extends Window {
-  nostr: {
-    getPublicKey(): Promise<string>;
-    signEvent: (event: NostrEvent) => Promise<NostrEvent>;
-    nip04?: {
-      encrypt(pubkey: string, plaintext: string): Promise<string>;
-      decrypt(pubkey: string, ciphertext: string): Promise<string>;
-    };
-    [key: string]: unknown;
-  };
-}
+// Nostr interfaces are defined in nostr-auth.ts
 
 export default function api<Request, Response>({
   method,
@@ -48,9 +29,7 @@ export default function api<Request, Response>({
     requestSchema.parse(requestData);
 
     async function apiCall() {
-      const auth_event = await (
-        window as unknown as NostrWindow
-      ).nostr.signEvent({
+      const auth_event = await window.nostr!.signEvent({
         kind: 27235,
         created_at: Math.floor(new Date().getTime() / 1000),
         content: 'application/json',
@@ -58,7 +37,8 @@ export default function api<Request, Response>({
           ['u', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}${path}`],
           ['method', method],
         ],
-      });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
 
       const response = await axios({
         baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333',
