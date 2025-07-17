@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n            id,\n            created_at,\n            token,\n            amount,\n            direction as \"direction: TransactionDirection\"\n        FROM transactions\n        ORDER BY created_at DESC\n        LIMIT $1 OFFSET $2\n        ",
+  "query": "\n        SELECT \n            id,\n            created_at,\n            token,\n            amount,\n            direction as \"direction: TransactionDirection\",\n            api_key_id::text\n        FROM transactions\n        ORDER BY created_at DESC\n        LIMIT $1 OFFSET $2\n        ",
   "describe": {
     "columns": [
       {
@@ -37,6 +37,11 @@
             }
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "api_key_id",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -50,8 +55,9 @@
       false,
       false,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "7cd6931100dadb8a5d6073f76b8c686e4557735880dfaa0e2085bdce1ca7a83d"
+  "hash": "c3a093897321ce0d631b1ed28cf0963a4e3906321ca648b3e6328296909e2ca6"
 }
