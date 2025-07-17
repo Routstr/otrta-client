@@ -14,7 +14,9 @@ use crate::{
             RefreshProvidersResponse,
         },
         server_config::{create_config, get_default_config, update_config, ServerConfigRecord},
-        transaction::{get_transactions, get_api_key_statistics, TransactionListResponse, ApiKeyStatistics},
+        transaction::{
+            get_api_key_statistics, get_transactions, ApiKeyStatistics, TransactionListResponse,
+        },
         Pool,
     },
     models::*,
@@ -153,7 +155,6 @@ pub async fn refresh_models_from_proxy(
         }
     };
 
-    println!("{:?}", proxy_models_data);
     // Delete all existing models first
     let deleted_count = match delete_all_models(&state.db).await {
         Ok(count) => count,
@@ -360,26 +361,28 @@ pub async fn get_api_key_statistics_handler(
     params: Query<StatisticsParams>,
 ) -> Result<Json<ApiKeyStatistics>, (StatusCode, Json<serde_json::Value>)> {
     let start_date = params.start_date.as_ref().and_then(|d| {
-        chrono::DateTime::parse_from_rfc3339(d).ok().map(|dt| dt.with_timezone(&chrono::Utc))
+        chrono::DateTime::parse_from_rfc3339(d)
+            .ok()
+            .map(|dt| dt.with_timezone(&chrono::Utc))
     });
-    
+
     let end_date = params.end_date.as_ref().and_then(|d| {
-        chrono::DateTime::parse_from_rfc3339(d).ok().map(|dt| dt.with_timezone(&chrono::Utc))
+        chrono::DateTime::parse_from_rfc3339(d)
+            .ok()
+            .map(|dt| dt.with_timezone(&chrono::Utc))
     });
 
     match get_api_key_statistics(&state.db, &api_key_id, start_date, end_date).await {
         Ok(statistics) => Ok(Json(statistics)),
-        Err(sqlx::Error::RowNotFound) => {
-            Err((
-                StatusCode::NOT_FOUND,
-                Json(json!({
-                    "error": {
-                        "message": "API key not found or no statistics available",
-                        "type": "not_found"
-                    }
-                })),
-            ))
-        }
+        Err(sqlx::Error::RowNotFound) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "API key not found or no statistics available",
+                    "type": "not_found"
+                }
+            })),
+        )),
         Err(e) => {
             eprintln!("Failed to get API key statistics: {}", e);
             Err((

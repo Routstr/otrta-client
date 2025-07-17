@@ -1,8 +1,8 @@
+use bigdecimal::{BigDecimal, ToPrimitive};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use bigdecimal::{BigDecimal, ToPrimitive};
 
 #[derive(Debug, Clone, sqlx::Type, Serialize, Deserialize)]
 #[sqlx(type_name = "transaction_direction")]
@@ -142,14 +142,10 @@ pub async fn get_api_key_statistics(
     start_date: Option<DateTime<Utc>>,
     end_date: Option<DateTime<Utc>>,
 ) -> Result<ApiKeyStatistics, sqlx::Error> {
-    let start_date = start_date.unwrap_or_else(|| {
-        Utc::now() - chrono::Duration::days(30)
-    });
+    let start_date = start_date.unwrap_or_else(|| Utc::now() - chrono::Duration::days(30));
     let end_date = end_date.unwrap_or_else(|| Utc::now());
-    
-    let api_key_uuid = Uuid::parse_str(api_key_id).map_err(|_| {
-        sqlx::Error::RowNotFound
-    })?;
+
+    let api_key_uuid = Uuid::parse_str(api_key_id).map_err(|_| sqlx::Error::RowNotFound)?;
 
     let summary = sqlx::query!(
         r#"
@@ -191,11 +187,13 @@ pub async fn get_api_key_statistics(
     let daily_stats: Vec<DailyStats> = daily_stats
         .into_iter()
         .map(|row| {
-            let incoming = row.incoming
+            let incoming = row
+                .incoming
                 .unwrap_or(BigDecimal::from(0))
                 .to_i64()
                 .unwrap_or(0);
-            let outgoing = row.outgoing
+            let outgoing = row
+                .outgoing
                 .unwrap_or(BigDecimal::from(0))
                 .to_i64()
                 .unwrap_or(0);
@@ -208,11 +206,13 @@ pub async fn get_api_key_statistics(
         })
         .collect();
 
-    let total_incoming = summary.total_incoming
+    let total_incoming = summary
+        .total_incoming
         .unwrap_or(BigDecimal::from(0))
         .to_i64()
         .unwrap_or(0);
-    let total_outgoing = summary.total_outgoing
+    let total_outgoing = summary
+        .total_outgoing
         .unwrap_or(BigDecimal::from(0))
         .to_i64()
         .unwrap_or(0);
