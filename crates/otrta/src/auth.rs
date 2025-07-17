@@ -59,11 +59,15 @@ pub async fn bearer_auth_middleware(
 
     if auth_str.starts_with("Bearer ") {
         let token = &auth_str[7..];
-        if let Err(err) = validate_bearer_token(&auth_state.app_state.db, token).await {
-            return err.into_response();
+        match validate_bearer_token(&auth_state.app_state.db, token).await {
+            Ok(api_key_id) => {
+                let mut request = request;
+                request.extensions_mut().insert(api_key_id);
+                info!("Bearer token authentication successful");
+                return next.run(request).await;
+            }
+            Err(err) => return err.into_response(),
         }
-        info!("Bearer token authentication successful");
-        return next.run(request).await;
     }
 
     warn!(
@@ -219,8 +223,7 @@ fn validate_auth_event(
     Ok(())
 }
 
-async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<(), AppError> {
-    // Get the API key from the database
+async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<String, AppError> {
     let api_key = match get_api_key_by_key(db, token).await {
         Ok(Some(key)) => key,
         Ok(None) => {
@@ -233,13 +236,11 @@ async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<(), App
         }
     };
 
-    // Check if the key is active
     if !api_key.is_active {
         warn!("Inactive API key used: {}", api_key.id);
         return Err(AppError::Unauthorized);
     }
 
-    // Check if the key has expired
     if let Some(expires_at_str) = &api_key.expires_at {
         let expires_at = DateTime::parse_from_rfc3339(expires_at_str)
             .map_err(|_| AppError::InternalServerError)?
@@ -255,16 +256,14 @@ async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<(), App
         }
     }
 
-    // Update the last_used_at timestamp
     if let Err(e) = update_last_used_at(db, &api_key.id).await {
         warn!(
             "Failed to update last_used_at for API key {}: {}",
             api_key.id, e
         );
-        // Don't fail the request for this error, just log it
     } else {
         info!("Updated last_used_at for API key: {}", api_key.id);
     }
 
-    Ok(())
+    Ok(api_key.id)
 }

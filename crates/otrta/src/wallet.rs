@@ -17,6 +17,7 @@ pub async fn send_with_retry(
     mint_url: &str,
     retries: Option<i32>,
     db: &Pool,
+    api_key_id: Option<&str>,
 ) -> Result<String, SendAmoundResponse> {
     for _ in 1..if let Some(retry_count) = retries {
         retry_count
@@ -28,7 +29,7 @@ pub async fn send_with_retry(
             ..Default::default()
         };
 
-        if let Ok(token_result) = wallet.send(amount as u64, option, db).await {
+        if let Ok(token_result) = wallet.send(amount as u64, option, db, api_key_id).await {
             return Ok(token_result);
         }
     }
@@ -51,6 +52,7 @@ pub async fn finalize_request(
             token_send,
             &sats_send.to_string(),
             TransactionDirection::Outgoing,
+            None,
         )
         .await
         .unwrap();
@@ -60,6 +62,7 @@ pub async fn finalize_request(
             token_received,
             &res.to_string(),
             TransactionDirection::Incoming,
+            None,
         )
         .await
         .unwrap();

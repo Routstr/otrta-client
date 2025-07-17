@@ -1,22 +1,21 @@
 use axum::{
-    middleware,
+    Router, middleware,
     routing::{delete, get, post, put},
-    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{get_configuration, DatabaseSettings, Settings};
+use connection::{DatabaseSettings, Settings, get_configuration};
 use ecash_402_wallet::wallet::CashuWalletClient;
 use otrta::{
-    auth::{bearer_auth_middleware, nostr_auth_middleware, AuthConfig, AuthState},
+    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware},
     db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
     multimint::MultimintWalletWrapper,
     proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},

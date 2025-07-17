@@ -381,6 +381,7 @@ pub async fn send_token(
                 ..Default::default()
             },
             &state.db,
+            None,
         )
         .await
     {
@@ -972,7 +973,7 @@ pub async fn send_multimint_token_handler(
 
     match state
         .wallet
-        .send(payload.amount, send_options, &state.db)
+        .send(payload.amount, send_options, &state.db, None)
         .await
     {
         Ok(token) => Ok(Json(MultimintSendTokenResponse {

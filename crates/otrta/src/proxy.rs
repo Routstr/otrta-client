@@ -10,7 +10,7 @@ use crate::{
 };
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Request, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -38,10 +38,31 @@ pub async fn forward_any_request_get(
 pub async fn forward_any_request(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(body_data): Json<serde_json::Value>,
+    request: Request,
 ) -> Response<Body> {
-    forward_request_with_payment_with_body(headers, &state, &path, Some(body_data), false).await
+    let (parts, body) = request.into_parts();
+    let api_key_id = parts.extensions.get::<String>().map(|s| s.as_str());
+    let headers = parts.headers;
+
+    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(_) => return (StatusCode::BAD_REQUEST, "Failed to read request body").into_response(),
+    };
+
+    let body_data: serde_json::Value = match serde_json::from_slice(&body_bytes) {
+        Ok(data) => data,
+        Err(_) => serde_json::Value::Null,
+    };
+
+    forward_request_with_payment_with_body(
+        headers,
+        &state,
+        &path,
+        Some(body_data),
+        false,
+        api_key_id,
+    )
+    .await
 }
 
 pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
@@ -50,6 +71,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     path: &str,
     body: Option<T>,
     is_streaming: bool,
+    api_key_id: Option<&str>,
 ) -> Response<Body> {
     let server_config = if let Ok(Some(config)) = get_default_provider(&state.db).await {
         config
@@ -146,6 +168,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             server_config.mints.first().unwrap(),
             Some(3),
             &state.db,
+            api_key_id,
         )
         .await;
 
@@ -189,6 +212,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         &in_token,
                         &res.to_string(),
                         TransactionDirection::Incoming,
+                        api_key_id,
                     )
                     .await
                     .unwrap();
@@ -210,6 +234,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     &in_token,
                     &res.to_string(),
                     TransactionDirection::Incoming,
+                    api_key_id,
                 )
                 .await
                 .unwrap();
@@ -255,6 +280,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             &token,
             &res.to_string(),
             TransactionDirection::Incoming,
+            api_key_id,
         )
         .await
         .unwrap();

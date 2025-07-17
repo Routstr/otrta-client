@@ -27,6 +27,7 @@ pub struct Transaction {
     pub token: String,
     pub amount: String,
     pub direction: TransactionDirection,
+    pub api_key_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,18 +49,20 @@ pub async fn add_transaction(
     token: &str,
     amount: &str,
     direction: TransactionDirection,
+    api_key_id: Option<&str>,
 ) -> Result<Uuid, sqlx::Error> {
     let rec = sqlx::query!(
         r#"
-        INSERT INTO transactions (id, created_at, token, amount, direction)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO transactions (id, created_at, token, amount, direction, api_key_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
         "#,
         Uuid::new_v4(),
         Utc::now(),
         token,
         amount,
-        direction as TransactionDirection
+        direction as TransactionDirection,
+        api_key_id.map(|id| Uuid::parse_str(id).ok()).flatten()
     )
     .fetch_one(pool)
     .await?;
@@ -92,7 +95,8 @@ pub async fn get_transactions(
             created_at,
             token,
             amount,
-            direction as "direction: TransactionDirection"
+            direction as "direction: TransactionDirection",
+            api_key_id::text
         FROM transactions
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
