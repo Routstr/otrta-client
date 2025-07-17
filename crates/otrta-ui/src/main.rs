@@ -106,6 +106,7 @@ async fn main() {
         .route("/api/server-config", post(handlers::update_server_config))
         .route("/api/credits", get(handlers::get_all_credits))
         .route("/api/transactions", get(handlers::get_all_transactions))
+        .route("/api/statistics/{api_key_id}", get(handlers::get_api_key_statistics_handler))
         .route("/api/mints", get(handlers::get_all_mints_handler))
         .route("/api/mints", post(handlers::create_mint_handler))
         .route("/api/mints/active", get(handlers::get_active_mints_handler))
