@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -51,37 +52,47 @@ export default function LandingPage() {
     <div className='bg-background min-h-screen'>
       <nav className='bg-background/95 supports-[backdrop-filter]:bg-background/60 border-b backdrop-blur'>
         <div className='container flex h-16 items-center justify-between'>
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className='flex items-center space-x-2'
-          >
-            <span className='text-xl font-bold'>OTRTA</span>
-          </motion.div>
+          <div className='flex-1'>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className='ml-10'
+            >
+              <div className='flex items-center gap-2'>
+                <Image
+                  src='/routstr.svg'
+                  alt='OTRTA Logo'
+                  width={32}
+                  height={32}
+                  className='rounded-lg dark:invert'
+                />
+                <span className='text-2xl font-bold tracking-wide'>otrta</span>
+              </div>
+            </motion.div>
+          </div>
 
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className='flex items-center space-x-4'
+            className='absolute right-4 flex items-center space-x-3'
           >
-            <Button variant='ghost' asChild>
+            <Button variant='ghost' size='sm' asChild>
               <Link
                 href='https://github.com/9qeklajc/ecash-402-client'
                 target='_blank'
               >
-                <Github className='mr-2 h-4 w-4' />
-                GitHub
+                <Github className='h-4 w-4' />
               </Link>
             </Button>
             {isAuthenticated ? (
-              <Button asChild>
+              <Button size='sm' asChild>
                 <Link href='/dashboard'>
                   Dashboard
                   <ArrowRight className='ml-2 h-4 w-4' />
                 </Link>
               </Button>
             ) : (
-              <Button asChild>
+              <Button size='sm' asChild>
                 <Link href='/login'>
                   Sign In
                   <ArrowRight className='ml-2 h-4 w-4' />
@@ -168,7 +179,7 @@ export default function LandingPage() {
           >
             <div className='mb-16 text-center'>
               <h2 className='mb-4 text-3xl font-bold sm:text-4xl'>
-                Why OTRTA?
+                Why otrta?
               </h2>
               <p className='text-muted-foreground mx-auto max-w-2xl'>
                 Addressing the micropayment challenge for AI services through
@@ -573,7 +584,7 @@ export default function LandingPage() {
         <div className='container px-4 py-8'>
           <div className='flex flex-col items-center justify-between space-y-4 md:flex-row md:space-y-0'>
             <div className='flex items-center space-x-2'>
-              <span className='font-semibold'>OTRTA</span>
+              <span className='font-semibold'>otrta</span>
             </div>
             <p className='text-muted-foreground text-center text-sm'>
               Privacy-focused AI payments with e-cash technology
