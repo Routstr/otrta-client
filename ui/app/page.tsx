@@ -1,12 +1,6 @@
 'use client';
 
-import { AppSidebar } from '@/components/app-sidebar';
-import { SiteHeader } from '@/components/site-header';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { EcashRedeem } from '@/components/ecash-redeem';
-import { DefaultProviderCard } from '@/components/default-provider-card';
-import { useDefaultProvider } from '@/lib/hooks/useProviders';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,219 +10,430 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, AlertTriangle, Wallet, Plus } from 'lucide-react';
+import { ArrowRight, Shield, Zap, Wallet, Heart, Github, Star } from 'lucide-react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { MintService } from '@/lib/api/services/mints';
-import { MultimintService } from '@/lib/api/services/multimint';
+import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
 
-export default function Page() {
-  const { defaultProvider, isLoading: isLoadingProvider } =
-    useDefaultProvider();
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.6 }
+};
 
-  const { data: mintsData, isLoading: isLoadingMints } = useQuery({
-    queryKey: ['mints'],
-    queryFn: () => MintService.getAllMints(),
-  });
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
 
-  const { data: balanceData, isLoading: isLoadingBalance } = useQuery({
-    queryKey: ['multimint-balance'],
-    queryFn: () => MultimintService.getMultimintBalance(),
-    refetchInterval: 10000,
-  });
+const scaleOnHover = {
+  whileHover: { scale: 1.05 },
+  transition: { type: "spring" as const, stiffness: 300 }
+};
 
-  const mints = mintsData?.mints || [];
-  const activeMints = mints.filter((mint) => mint.is_active);
-
-  const balanceMap = new Map(
-    balanceData?.balances_by_mint.map((balance) => [
-      balance.mint_url,
-      balance,
-    ]) || []
-  );
+export default function LandingPage() {
+  const { isAuthenticated } = useNostrAuth();
 
   return (
-    <SidebarProvider>
-      <AppSidebar variant='inset' />
-      <SidebarInset className='p-0'>
-        <SiteHeader />
-        <div className='container mx-auto px-4 py-6 md:py-8'>
-          <div className='mb-6 space-y-2'>
-            <h1 className='text-3xl font-bold tracking-tight'>
-              Wallet Dashboard
-            </h1>
-            <p className='text-muted-foreground'>
-              Manage your wallet and redeem ecash tokens.
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center space-x-2"
+          >
+            <Wallet className="h-6 w-6" />
+            <span className="font-bold text-xl">Wallet Gateway</span>
+          </motion.div>
+          
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center space-x-4"
+          >
+            <Button variant="ghost" asChild>
+              <Link href="https://github.com/9qeklajc/ecash-402-client" target="_blank">
+                <Github className="h-4 w-4 mr-2" />
+                GitHub
+              </Link>
+            </Button>
+            {isAuthenticated ? (
+              <Button asChild>
+                <Link href="/dashboard">
+                  Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link href="/login">
+                  Sign In
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+          </motion.div>
+        </div>
+      </nav>
 
-          {!isLoadingProvider && !defaultProvider && (
-            <Alert className='mb-6 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20'>
-              <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400' />
-              <AlertDescription className='flex items-center justify-between'>
-                <div>
-                  <strong className='text-amber-800 dark:text-amber-200'>
-                    Setup Required:
-                  </strong>
-                  <span className='ml-2 text-amber-700 dark:text-amber-300'>
-                    Configure at least one provider to start using the service.
-                  </span>
-                </div>
-                <Button
-                  asChild
-                  variant='outline'
-                  size='sm'
-                  className='ml-4 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20'
-                >
-                  <Link href='/providers'>
-                    <Settings className='mr-2 h-4 w-4' />
-                    Configure Providers
+      <main>
+        <section className="container px-4 py-24 md:py-32">
+          <motion.div 
+            variants={staggerContainer}
+            initial="initial"
+            animate="animate"
+            className="mx-auto max-w-4xl text-center"
+          >
+            <motion.div variants={fadeInUp}>
+              <Badge variant="secondary" className="mb-4">
+                Privacy-First AI Payments
+              </Badge>
+            </motion.div>
+            
+            <motion.h1 
+              variants={fadeInUp}
+              className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl"
+            >
+              Anonymous AI Access
+              <br />
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Powered by e-cash
+              </span>
+            </motion.h1>
+            
+            <motion.p 
+              variants={fadeInUp}
+              className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground sm:text-xl"
+            >
+                             Access OpenAI&apos;s language models without revealing your identity using 
+              Cashu e-cash notes. Pay exactly what you consume with millisatoshi precision.
+            </motion.p>
+            
+            <motion.div 
+              variants={fadeInUp}
+              className="flex flex-col gap-4 sm:flex-row sm:justify-center"
+            >
+              {!isAuthenticated && (
+                <Button size="lg" asChild>
+                  <Link href="/register">
+                    Get Started
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-              </AlertDescription>
-            </Alert>
-          )}
+              )}
+              <Button variant="outline" size="lg" asChild>
+                <Link href="https://github.com/9qeklajc/ecash-402-client" target="_blank">
+                  <Github className="mr-2 h-4 w-4" />
+                  View on GitHub
+                </Link>
+              </Button>
+            </motion.div>
+          </motion.div>
+        </section>
 
-          {/* Mint Management Section */}
-          <div className='mb-8 space-y-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <h2 className='text-xl font-semibold tracking-tight'>
-                  Your Mints
-                </h2>
-                <p className='text-muted-foreground text-sm'>
-                  Manage your Cashu mints and view individual balances
-                </p>
-              </div>
-              <Button asChild variant='outline'>
-                <Link href='/mints'>
-                  <Settings className='mr-2 h-4 w-4' />
-                  Manage Mints
+        <section className="container px-4 py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="mx-auto max-w-6xl"
+          >
+            <div className="mb-16 text-center">
+              <h2 className="mb-4 text-3xl font-bold sm:text-4xl">
+                Why Wallet Gateway?
+              </h2>
+              <p className="mx-auto max-w-2xl text-muted-foreground">
+                Addressing the micropayment challenge for AI services through innovative e-cash technology
+              </p>
+            </div>
+            
+            <motion.div 
+              variants={staggerContainer}
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true }}
+              className="grid gap-8 md:grid-cols-3"
+            >
+              <motion.div variants={fadeInUp}>
+                <Card className="h-full border-2 hover:border-blue-200 transition-colors">
+                  <CardHeader>
+                    <Shield className="h-10 w-10 text-blue-600 mb-2" />
+                    <CardTitle>Complete Privacy</CardTitle>
+                    <CardDescription>
+                      Access AI models without revealing your identity. No accounts, 
+                      no tracking, just anonymous payments.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+              
+              <motion.div variants={fadeInUp}>
+                <Card className="h-full border-2 hover:border-purple-200 transition-colors">
+                  <CardHeader>
+                    <Zap className="h-10 w-10 text-purple-600 mb-2" />
+                    <CardTitle>Millisatoshi Precision</CardTitle>
+                    <CardDescription>
+                      Pay exactly what you consume down to the millisatoshi level. 
+                      No more rounding errors or overpayment waste.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+              
+              <motion.div variants={fadeInUp}>
+                <Card className="h-full border-2 hover:border-green-200 transition-colors">
+                  <CardHeader>
+                    <Wallet className="h-10 w-10 text-green-600 mb-2" />
+                    <CardTitle>Smart Change Management</CardTitle>
+                    <CardDescription>
+                      Automatic change calculation and return through Cashu notes. 
+                      Efficient fee handling with change notes.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </section>
+
+        <section className="container px-4 py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="mx-auto max-w-4xl text-center"
+          >
+            <h2 className="mb-8 text-3xl font-bold sm:text-4xl">
+              How It Works
+            </h2>
+            
+            <div className="space-y-8">
+              <motion.div 
+                initial={{ opacity: 0, x: -50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                viewport={{ once: true }}
+                className="flex items-center space-x-4 text-left"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 font-bold">
+                  1
+                </div>
+                <div>
+                  <h3 className="font-semibold">Prepare Payment</h3>
+                  <p className="text-muted-foreground">Your local proxy wallet prepares an e-cash note for the AI request</p>
+                </div>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, x: 50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                viewport={{ once: true }}
+                className="flex items-center space-x-4 text-left"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-600 font-bold">
+                  2
+                </div>
+                <div>
+                  <h3 className="font-semibold">Secure Transmission</h3>
+                  <p className="text-muted-foreground">Request sent with e-cash note in X-Cashu header to our 402 server</p>
+                </div>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, x: -50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                viewport={{ once: true }}
+                className="flex items-center space-x-4 text-left"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600 font-bold">
+                  3
+                </div>
+                <div>
+                  <h3 className="font-semibold">AI Processing & Change</h3>
+                  <p className="text-muted-foreground">Server processes OpenAI request and returns response with change note if overpaid</p>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        </section>
+
+        <section className="bg-muted/30 py-16">
+          <div className="container px-4">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+              className="mx-auto max-w-2xl text-center"
+            >
+              <h2 className="mb-8 text-3xl font-bold sm:text-4xl">Pricing</h2>
+              
+              <motion.div {...scaleOnHover}>
+                <Card className="border-2 border-dashed border-primary/20 bg-gradient-to-br from-background to-primary/5">
+                  <CardHeader className="text-center pb-2">
+                    <CardTitle className="text-2xl">Pay-as-you-go</CardTitle>
+                    <CardDescription className="text-lg">
+                      Ultra-precise billing for AI services
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-center pt-6">
+                    <div className="mb-6">
+                      <div className="text-4xl font-bold mb-2">
+                        Exact Usage
+                      </div>
+                      <p className="text-muted-foreground">
+                        Pay down to the millisatoshi
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-3 mb-8">
+                      <div className="flex items-center justify-center space-x-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <span>No minimum payments</span>
+                      </div>
+                      <div className="flex items-center justify-center space-x-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <span>Automatic change return</span>
+                      </div>
+                      <div className="flex items-center justify-center space-x-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <span>Complete anonymity</span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-center">
+                      <p className="text-lg font-medium mb-4">
+                        If you love it then give it some love
+                      </p>
+                      <motion.div
+                        animate={{ 
+                          scale: [1, 1.05, 1],
+                          rotate: [0, 1, -1, 0],
+                        }}
+                        transition={{ 
+                          duration: 2,
+                          repeat: Infinity,
+                          repeatType: "reverse"
+                        }}
+                      >
+                        <Button size="lg" variant="outline" className="relative overflow-hidden">
+                          <motion.div
+                            animate={{ 
+                              background: [
+                                "linear-gradient(45deg, #ef4444, #f97316)",
+                                "linear-gradient(45deg, #f97316, #eab308)", 
+                                "linear-gradient(45deg, #eab308, #22c55e)",
+                                "linear-gradient(45deg, #22c55e, #3b82f6)",
+                                "linear-gradient(45deg, #3b82f6, #8b5cf6)",
+                                "linear-gradient(45deg, #8b5cf6, #ef4444)"
+                              ]
+                            }}
+                            transition={{ 
+                              duration: 3, 
+                              repeat: Infinity,
+                              ease: "linear"
+                            }}
+                            className="absolute inset-0 opacity-20"
+                          />
+                          <Heart className="mr-2 h-4 w-4" />
+                          <motion.span
+                            animate={{ 
+                              color: [
+                                "#ef4444", "#f97316", "#eab308", 
+                                "#22c55e", "#3b82f6", "#8b5cf6"
+                              ]
+                            }}
+                            transition={{ 
+                              duration: 3, 
+                              repeat: Infinity,
+                              ease: "linear"
+                            }}
+                            className="font-bold"
+                          >
+                            donate
+                          </motion.span>
+                        </Button>
+                      </motion.div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </motion.div>
+          </div>
+        </section>
+
+        <section className="container px-4 py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="mx-auto max-w-4xl text-center"
+          >
+            <h2 className="mb-8 text-3xl font-bold sm:text-4xl">
+              Ready to Get Started?
+            </h2>
+            <p className="mb-8 text-lg text-muted-foreground">
+              Join the privacy-first AI revolution with anonymous micropayments
+            </p>
+            
+            <motion.div 
+              variants={staggerContainer}
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true }}
+              className="flex flex-col gap-4 sm:flex-row sm:justify-center"
+            >
+              {!isAuthenticated && (
+                <motion.div variants={fadeInUp}>
+                  <Button size="lg" asChild>
+                    <Link href="/register">
+                      Create Account
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </motion.div>
+              )}
+              <motion.div variants={fadeInUp}>
+                <Button variant="outline" size="lg" asChild>
+                  <Link href="https://github.com/9qeklajc/ecash-402-client" target="_blank">
+                    Explore Code
+                    <Github className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </section>
+      </main>
+
+      <footer className="border-t bg-muted/30">
+        <div className="container px-4 py-8">
+          <div className="flex flex-col items-center justify-between space-y-4 md:flex-row md:space-y-0">
+            <div className="flex items-center space-x-2">
+              <Wallet className="h-5 w-5" />
+              <span className="font-semibold">Wallet Gateway</span>
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              Privacy-focused AI payments with e-cash technology
+            </p>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="https://github.com/9qeklajc/ecash-402-client" target="_blank">
+                  <Github className="h-4 w-4" />
                 </Link>
               </Button>
             </div>
-
-            {isLoadingMints || isLoadingBalance ? (
-              <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-                {[...Array(3)].map((_, i) => (
-                  <Card key={i} className='animate-pulse'>
-                    <CardHeader className='pb-3'>
-                      <div className='bg-muted h-4 w-3/4 rounded'></div>
-                      <div className='bg-muted h-3 w-1/2 rounded'></div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className='bg-muted h-6 w-2/3 rounded'></div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : mints.length === 0 ? (
-              <Card className='border-dashed'>
-                <CardContent className='flex flex-col items-center justify-center space-y-4 py-12'>
-                  <Wallet className='text-muted-foreground h-12 w-12' />
-                  <div className='space-y-2 text-center'>
-                    <h3 className='text-lg font-semibold'>
-                      No mints configured
-                    </h3>
-                    <p className='text-muted-foreground'>
-                      Add your first mint to start using the multimint wallet
-                    </p>
-                  </div>
-                  <Button asChild>
-                    <Link href='/mints'>
-                      <Plus className='mr-2 h-4 w-4' />
-                      Add Your First Mint
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-                {activeMints.slice(0, 6).map((mint) => {
-                  const balanceInfo = balanceMap.get(mint.mint_url);
-                  const balance = balanceInfo?.balance || 0;
-                  const unit =
-                    balanceInfo?.unit || mint.currency_unit || 'Msat';
-                  const mintUrl = new URL(mint.mint_url);
-
-                  // Format balance with unit
-                  const formatBalanceWithUnit = (
-                    amount: number,
-                    unit: string
-                  ) => {
-                    if (unit.toLowerCase() === 'msat') {
-                      return `${amount.toLocaleString('en-US')} msat`;
-                    } else if (unit.toLowerCase() === 'sat') {
-                      return `${amount.toLocaleString('en-US')} sats`;
-                    }
-                    return `${amount.toLocaleString('en-US')} ${unit}`;
-                  };
-
-                  return (
-                    <Card
-                      key={mint.id}
-                      className='transition-shadow hover:shadow-md'
-                    >
-                      <CardHeader className='pb-3'>
-                        <div className='flex items-start justify-between'>
-                          <div className='min-w-0 flex-1'>
-                            <CardTitle className='truncate text-sm font-medium'>
-                              {mint.name || mintUrl.hostname}
-                            </CardTitle>
-                            <CardDescription className='truncate text-xs'>
-                              {mintUrl.hostname}
-                            </CardDescription>
-                          </div>
-                          <Badge
-                            variant='secondary'
-                            className='ml-2 bg-green-100 text-green-800'
-                          >
-                            Active
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className='pt-0'>
-                        <div className='flex items-center justify-between'>
-                          <div>
-                            <p className='text-lg font-semibold'>
-                              {formatBalanceWithUnit(balance, unit)}
-                            </p>
-                            <p className='text-muted-foreground text-xs'>
-                              Balance
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-
-                {mints.length > 6 && (
-                  <Card className='border-dashed transition-shadow hover:shadow-md'>
-                    <CardContent className='flex flex-col items-center justify-center space-y-2 py-8'>
-                      <Plus className='text-muted-foreground h-8 w-8' />
-                      <p className='text-muted-foreground text-center text-sm'>
-                        {mints.length - 6} more mint
-                        {mints.length - 6 !== 1 ? 's' : ''}
-                      </p>
-                      <Button variant='ghost' size='sm' asChild>
-                        <Link href='/mints'>View All</Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className='space-y-6'>
-            <DefaultProviderCard />
-            <div className='col-span-full md:col-span-2'>
-              <EcashRedeem />
-            </div>
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </footer>
+    </div>
   );
 }

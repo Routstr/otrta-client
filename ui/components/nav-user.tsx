@@ -43,9 +43,9 @@ export function NavUser({ user: propUser }: NavUserProps) {
   // Use authenticated user if available, otherwise fall back to prop user or default
   const userData = authUser
     ? {
-        name: authUser.name,
-        email: authUser.email,
-        avatar: authUser.avatar_url || '/avatars/default.jpg',
+        name: authUser.display_name || 'User',
+        email: authUser.email || '',
+        avatar: '/avatars/default.jpg',
       }
     : propUser || {
         name: 'Guest User',

@@ -328,3 +328,53 @@ pub struct PendingProof {
     pub key: String,
     pub key_id: String,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct User {
+    pub npub: String,
+    pub display_name: Option<String>,
+    pub email: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub last_login_at: Option<DateTime<Utc>>,
+    pub is_active: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Organization {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub owner_npub: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub is_active: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateUserRequest {
+    pub npub: String,
+    pub display_name: Option<String>,
+    pub email: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateOrganizationRequest {
+    pub name: String,
+    pub owner_npub: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SignupRequest {
+    pub npub: String,
+    pub display_name: Option<String>,
+    pub email: Option<String>,
+    pub organization_name: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SignupResponse {
+    pub success: bool,
+    pub user: User,
+    pub organization: Organization,
+    pub message: Option<String>,
+}

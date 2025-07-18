@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
 import { NostrLogin } from '@/components/auth/NostrLogin';
 import { ConfigurationService } from '@/lib/api/services/configuration';
@@ -16,6 +17,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const { isAuthenticated, isLoading } = useNostrAuth();
+  const pathname = usePathname();
+
+  const publicRoutes = ['/', '/login', '/register'];
+  const isPublicRoute = publicRoutes.includes(pathname);
 
   useEffect(() => {
     // Check if authentication is enabled
@@ -52,6 +57,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // If authentication is disabled, show children directly
   if (!isAuthEnabled) {
+    return <>{children}</>;
+  }
+
+  // Allow public routes to be accessed without authentication
+  if (isPublicRoute) {
     return <>{children}</>;
   }
 

@@ -1435,3 +1435,142 @@ pub async fn delete_api_key_handler(
         }
     }
 }
+
+pub async fn signup_handler(
+    State(app_state): State<Arc<AppState>>,
+    Json(request): Json<SignupRequest>,
+) -> Result<Json<SignupResponse>, (StatusCode, Json<serde_json::Value>)> {
+    use crate::db::{users, organizations};
+
+    if let Err(validation_error) = users::validate_npub(&request.npub) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "validation_error",
+                "message": validation_error.to_string(),
+                "type": "validation_error"
+            })),
+        ));
+    }
+
+    if users::user_exists(&app_state.db, &request.npub).await.unwrap_or(false) {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": "user_already_exists",
+                "message": "User with this npub already exists",
+                "type": "conflict"
+            })),
+        ));
+    }
+
+    let create_user_request = crate::models::CreateUserRequest {
+        npub: request.npub.clone(),
+        display_name: request.display_name.clone(),
+        email: request.email.clone(),
+    };
+
+    let user = match users::create_user(&app_state.db, &create_user_request).await {
+        Ok(user) => user,
+        Err(e) => {
+            tracing::error!("Failed to create user: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": "user_creation_failed",
+                    "message": "Failed to create user",
+                    "type": "internal_server_error"
+                })),
+            ));
+        }
+    };
+
+    let org_name = request.organization_name.unwrap_or_else(|| {
+        format!("{}'s Organization", request.display_name.as_deref().unwrap_or("User"))
+    });
+
+    let create_org_request = crate::models::CreateOrganizationRequest {
+        name: org_name,
+        owner_npub: request.npub.clone(),
+    };
+
+    let organization = match organizations::create_organization(&app_state.db, &create_org_request).await {
+        Ok(org) => org,
+        Err(e) => {
+            tracing::error!("Failed to create organization: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": "organization_creation_failed", 
+                    "message": "Failed to create organization",
+                    "type": "internal_server_error"
+                })),
+            ));
+        }
+    };
+
+    Ok(Json(SignupResponse {
+        success: true,
+        user,
+        organization,
+        message: Some("User and organization created successfully".to_string()),
+    }))
+}
+
+pub async fn get_user_profile_handler(
+    State(app_state): State<Arc<AppState>>,
+    Path(npub): Path<String>,
+) -> Result<Json<User>, (StatusCode, Json<serde_json::Value>)> {
+    use crate::db::users;
+
+    let user = match users::get_user_by_npub(&app_state.db, &npub).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "error": "user_not_found",
+                    "message": "User not found",
+                    "type": "not_found"
+                })),
+            ));
+        }
+        Err(e) => {
+            tracing::error!("Failed to get user: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": "get_user_failed",
+                    "message": "Failed to get user",
+                    "type": "internal_server_error"
+                })),
+            ));
+        }
+    };
+
+    Ok(Json(user))
+}
+
+pub async fn get_user_organizations_handler(
+    State(app_state): State<Arc<AppState>>,
+    Path(npub): Path<String>,
+) -> Result<Json<Vec<Organization>>, (StatusCode, Json<serde_json::Value>)> {
+    use crate::db::organizations;
+
+    let organizations = match organizations::get_organizations_by_owner(&app_state.db, &npub).await {
+        Ok(orgs) => orgs,
+        Err(e) => {
+            tracing::error!("Failed to get user organizations: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": "get_organizations_failed",
+                    "message": "Failed to get user organizations",
+                    "type": "internal_server_error"
+                })),
+            ));
+        }
+    };
+
+    Ok(Json(organizations))
+}

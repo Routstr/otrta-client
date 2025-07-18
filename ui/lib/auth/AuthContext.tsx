@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
-import { User } from '@/lib/api/schemas/users';
+import { User } from '@/lib/api/services/users';
 import { UserService } from '@/lib/api/services/users';
+import { nostrAuthSimple } from '@/lib/api/services/nostr-auth-simple';
 
 // Nostr window interface is defined in nostr-auth-simple.ts
 
@@ -90,27 +91,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Signin function that returns the admin user for now
+  // Signin function that works with Nostr authentication
   const signin = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // For now, just return the admin user (id: 1) regardless of credentials
-      const adminUser = await UserService.getUser('1');
-
-      if (!adminUser) {
-        throw new Error('Admin user not found');
+      // Get the current Nostr user
+      const nostrUser = nostrAuthSimple.getCurrentUser();
+      
+      if (!nostrUser) {
+        throw new Error('No Nostr authentication found');
       }
 
-      // Store user in state and localStorage
-      setUser(adminUser);
-      localStorage.setItem('auth_user', JSON.stringify(adminUser));
-
-      // Try to connect to Nostr if not already connected
-      if (!nostrPublicKey) {
-        await connectNostr();
+      // Try to get the user profile from our backend
+      try {
+        const userProfile = await UserService.getUserProfile(nostrUser.npub);
+        setUser(userProfile);
+        localStorage.setItem('auth_user', JSON.stringify(userProfile));
+      } catch {
+        console.log('User profile not found, might need to sign up first');
+        // User might need to sign up first, but we can still consider them authenticated
+        // for the purpose of accessing the app
       }
+
     } catch (error) {
       setError(error instanceof Error ? error : new Error('Sign in failed'));
       throw error;
