@@ -1,18 +1,56 @@
-import NDK, { NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
-import { generateSecretKey } from 'nostr-tools/pure';
-import { nip19, finalizeEvent, verifyEvent } from 'nostr-tools';
+import { nip19, verifyEvent } from 'nostr-tools';
+
+// Declare window.nostr interface for TypeScript
+declare global {
+  interface Window {
+    nostr?: {
+      getPublicKey(): Promise<string>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      signEvent(event: any): Promise<any>;
+      nip04?: {
+        encrypt(pubkey: string, plaintext: string): Promise<string>;
+        decrypt(pubkey: string, ciphertext: string): Promise<string>;
+      };
+    };
+  }
+}
 
 export interface NostrAuthOptions {
   theme?: 'default' | 'ocean' | 'lemonade' | 'purple';
   darkMode?: boolean;
   onAuth?: (user: NostrUser) => void;
   onLogout?: () => void;
+  bunkers?: string[];
+  methods?: string[];
+  noBanner?: boolean;
 }
 
 export interface NostrUser {
   npub: string;
   pubkey: string;
-  method: 'extension' | 'amber' | 'manual';
+  method: 'extension' | 'connect' | 'readOnly' | 'local';
+}
+
+export interface NostrLoginAuth {
+  type: 'login' | 'signup' | 'logout';
+  pubkey?: string;
+  method?: string;
+  localKey?: string;
+}
+
+export interface NostrLoginAuthOptions {
+  method?: string;
+  localKey?: string;
+}
+
+export interface NostrEvent {
+  kind: number;
+  content: string;
+  tags: string[][];
+  created_at: number;
+  pubkey?: string;
+  id?: string;
+  sig?: string;
 }
 
 export class NostrAuthSimple {
@@ -21,16 +59,10 @@ export class NostrAuthSimple {
   private currentUser: NostrUser | null = null;
   private authCallbacks: ((user: NostrUser | null) => void)[] = [];
   private options: NostrAuthOptions = {};
-  private ndk: NDK;
-  private localSigner: NDKPrivateKeySigner | null = null;
-  private remoteSigner: NDKNip46Signer | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private nostrLogin: any = null;
 
-  private constructor() {
-    this.ndk = new NDK({
-      explicitRelayUrls: ['wss://relay.nsec.app'],
-      enableOutboxModel: false
-    });
-  }
+  private constructor() {}
 
   static getInstance(): NostrAuthSimple {
     if (!NostrAuthSimple.instance) {
@@ -49,22 +81,114 @@ export class NostrAuthSimple {
     this.options = {
       theme: 'default',
       darkMode: false,
+      noBanner: true,
+      methods: ['extension', 'connect', 'readOnly', 'local'],
+      bunkers: ['nsec.app', 'highlighter.com'],
       ...options,
     };
 
-    this.isInitialized = true;
-    await this.checkExistingAuth();
+    try {
+      // Import nostr-login dynamically for Next.js SSR compatibility
+      const { init } = await import('nostr-login');
+      
+      // Initialize nostr-login with options
+      // Using type assertion to bypass type conflicts with external library
+      this.nostrLogin = init({
+        theme: this.options.theme,
+        darkMode: this.options.darkMode,
+        noBanner: this.options.noBanner,
+        methods: this.options.methods?.join(','),
+        bunkers: this.options.bunkers?.join(','),
+        onAuth: this.handleNostrLoginAuth.bind(this),
+      } as never);
+
+      // Listen for authentication events
+      document.addEventListener('nlAuth', this.handleAuthEvent.bind(this) as EventListener);
+
+      this.isInitialized = true;
+      await this.checkExistingAuth();
+    } catch (error) {
+      console.error('Failed to initialize nostr-login:', error);
+      throw new Error('Failed to initialize Nostr authentication');
+    }
+  }
+
+  private handleNostrLoginAuth(npub: string, options: NostrLoginAuthOptions): void {
+    if (npub) {
+      try {
+        const decoded = nip19.decode(npub);
+        if (decoded.type === 'npub') {
+          const user: NostrUser = {
+            npub,
+            pubkey: decoded.data as string,
+            method: this.mapAuthMethod(options.method || 'extension'),
+          };
+          this.setCurrentUser(user);
+        }
+      } catch (err) {
+        console.error('Failed to decode npub:', err);
+      }
+    } else {
+      this.setCurrentUser(null);
+    }
+  }
+
+  private handleAuthEvent(event: Event): void {
+    const customEvent = event as CustomEvent<NostrLoginAuth>;
+    const { type, pubkey, method } = customEvent.detail;
+
+    if (type === 'login' || type === 'signup') {
+      if (pubkey) {
+        const npub = nip19.npubEncode(pubkey);
+        const user: NostrUser = {
+          npub,
+          pubkey,
+          method: this.mapAuthMethod(method || 'extension'),
+        };
+        this.setCurrentUser(user);
+      }
+    } else if (type === 'logout') {
+      this.setCurrentUser(null);
+    }
+  }
+
+  private mapAuthMethod(method: string): 'extension' | 'connect' | 'readOnly' | 'local' {
+    switch (method) {
+      case 'extension':
+        return 'extension';
+      case 'connect':
+        return 'connect';
+      case 'readOnly':
+        return 'readOnly';
+      case 'local':
+        return 'local';
+      default:
+        return 'extension';
+    }
   }
 
   private async checkExistingAuth(): Promise<void> {
     try {
-      const savedUser = localStorage.getItem('nostr-user');
-      if (savedUser) {
-        const user = JSON.parse(savedUser) as NostrUser;
-        this.setCurrentUser(user);
+      // Check if window.nostr is available and get current user
+      if (window.nostr && typeof window.nostr.getPublicKey === 'function') {
+        try {
+          const pubkey = await window.nostr.getPublicKey();
+          if (pubkey) {
+            const npub = nip19.npubEncode(pubkey);
+            const user: NostrUser = {
+              npub,
+              pubkey,
+              method: 'extension', // Default to extension for existing auth
+            };
+            this.setCurrentUser(user);
+          }
+        } catch {
+          // User might not be authenticated yet, which is fine
+          console.log('No existing authentication found');
+        }
       }
-    } catch (error) {
-      console.log('No existing auth found:', error);
+    } catch (err) {
+      console.log('No existing auth found:', err);
     }
   }
 
@@ -94,16 +218,15 @@ export class NostrAuthSimple {
         }
       }
 
-             if (window.nostr.signEvent && hasGetPublicKey) {
-         try {
-           // @ts-expect-error - Bypassing type conflicts with window.nostr
-           await window.nostr.signEvent({
-             kind: 27235,
-             content: 'Nostr extension permission test',
-             tags: [],
-             created_at: Math.floor(Date.now() / 1000)
-           });
-           hasSignEvent = true;
+      if (window.nostr.signEvent && hasGetPublicKey) {
+        try {
+          await window.nostr.signEvent({
+            kind: 27235,
+            content: 'Nostr extension permission test',
+            tags: [],
+            created_at: Math.floor(Date.now() / 1000)
+          });
+          hasSignEvent = true;
         } catch (error) {
           console.log('signEvent permission not granted:', error);
         }
@@ -121,285 +244,168 @@ export class NostrAuthSimple {
 
   async loginWithExtension(): Promise<NostrUser> {
     try {
-      if (!window.nostr || !window.nostr.getPublicKey) {
-        throw new Error('No Nostr extension detected');
-      }
+      await this.launchAuth('login');
+      
+      // Wait for authentication to complete
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Authentication timeout'));
+        }, 30000);
 
-      const pubkey = await window.nostr.getPublicKey();
-      const npub = nip19.npubEncode(pubkey);
+        const handleAuth = (user: NostrUser | null) => {
+          if (user && user.method === 'extension') {
+            clearTimeout(timeout);
+            this.offAuthChange(handleAuth);
+            resolve(user);
+          }
+        };
 
-             const testEvent = {
-         kind: 27235,
-         content: 'Nostr login verification',
-         tags: [],
-         created_at: Math.floor(Date.now() / 1000)
-       };
-
-             try {
-         // @ts-expect-error - Bypassing type conflicts with window.nostr
-         await window.nostr.signEvent(testEvent);
-         console.log('Successfully granted signEvent permission');
-      } catch (signError) {
-        console.error('Failed to get signEvent permission:', signError);
-        throw new Error('Please grant signEvent permission in your extension to continue.');
-      }
-
-      const user: NostrUser = {
-        npub,
-        pubkey,
-        method: 'extension',
-      };
-
-      localStorage.setItem('nostr-user', JSON.stringify(user));
-      this.setCurrentUser(user);
-      return user;
+        this.onAuthChange(handleAuth);
+      });
     } catch (error) {
       console.error('Failed to login with extension:', error);
-      if (error instanceof Error) {
-        throw error;
-      }
       throw new Error('Failed to authenticate with browser extension. Please try again.');
     }
   }
 
-  async loginWithAmber(): Promise<NostrUser> {
+  async loginWithConnect(): Promise<NostrUser> {
     try {
-      await this.ndk.connect();
+      await this.launchAuth('connect');
       
-      this.localSigner = new NDKPrivateKeySigner(generateSecretKey());
-      const localUser = await this.localSigner.user();
-      const localPubkey = localUser.pubkey;
-      
-      const secretKey = generateSecretKey();
-      const secret = Array.from(secretKey).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
-      
-      const permissions = 'sign_event,get_public_key,nip04_encrypt,nip04_decrypt';
-      const appName = 'OTRTA';
-      const appUrl = window.location.origin;
-      const relay = 'wss://relay.nsec.app';
-      
-      const nostrConnectUrl = `nostrconnect://${localPubkey}` +
-        `?relay=${encodeURIComponent(relay)}` +
-        `&secret=${secret}` +
-        `&perms=${encodeURIComponent(permissions)}` +
-        `&name=${encodeURIComponent(appName)}` +
-        `&url=${encodeURIComponent(appUrl)}`;
+      // Wait for authentication to complete
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Authentication timeout'));
+        }, 60000);
 
-      console.log('Generated nostrconnect URL:', nostrConnectUrl);
+        const handleAuth = (user: NostrUser | null) => {
+          if (user && user.method === 'connect') {
+            clearTimeout(timeout);
+            this.offAuthChange(handleAuth);
+            resolve(user);
+          }
+        };
 
-      if (this.isAndroid()) {
-        try {
-          window.location.href = nostrConnectUrl;
-        } catch (error) {
-          console.log('Direct navigation failed, trying window.open:', error);
-          window.open(nostrConnectUrl, '_blank');
-        }
-      } else {
-        window.open(nostrConnectUrl, '_blank');
-      }
-
-      const userPubkey = await this.waitForAmberConnection(secret);
-      const npub = nip19.npubEncode(userPubkey);
-
-      const user: NostrUser = {
-        npub,
-        pubkey: userPubkey,
-        method: 'amber',
-      };
-
-      localStorage.setItem('nostr-user', JSON.stringify(user));
-      this.setCurrentUser(user);
-      return user;
+        this.onAuthChange(handleAuth);
+      });
     } catch (error) {
-      console.error('Failed to login with Amber:', error);
-      throw new Error('Failed to authenticate with Amber. Please ensure Amber is installed and supports NIP-46.');
+      console.error('Failed to login with Nostr Connect:', error);
+      throw new Error('Failed to authenticate with Nostr Connect. Please try again.');
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private async waitForAmberConnection(_secret: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Connection timeout - please ensure Amber is installed and supports NIP-46'));
-      }, 60000);
-
-      const cleanup = () => {
-        clearTimeout(timeout);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', handleFocus);
-      };
-
-      const handleConnectionSuccess = (pubkey: string) => {
-        cleanup();
-        resolve(pubkey);
-      };
-
-      const handleVisibilityChange = () => {
-        if (!document.hidden) {
-          console.log('Page became visible, checking for connection...');
-          setTimeout(() => {
-            // In a real implementation, this would check for actual NIP-46 response
-            // For now, we'll simulate a successful connection after user returns
-            if (Math.random() > 0.3) { // 70% success rate for demo
-              const mockPubkey = Array.from({length: 32}, () => Math.floor(Math.random() * 16).toString(16)).join('');
-              handleConnectionSuccess(mockPubkey);
-            }
-          }, 2000);
-        }
-      };
-
-      const handleFocus = () => {
-        console.log('Window focused, checking for connection...');
-        setTimeout(() => {
-          // Similar mock implementation
-          if (Math.random() > 0.3) {
-            const mockPubkey = Array.from({length: 32}, () => Math.floor(Math.random() * 16).toString(16)).join('');
-            handleConnectionSuccess(mockPubkey);
-          }
-        }, 2000);
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', handleFocus);
-    });
-  }
-
-  async loginWithNsec(nsec: string): Promise<NostrUser> {
+  async loginWithReadOnly(npubOrPublicKey: string): Promise<NostrUser> {
     try {
-      if (!this.validateNsecKey(nsec)) {
-        throw new Error('Invalid nsec format');
-      }
-
-      const decoded = nip19.decode(nsec);
-      if (decoded.type !== 'nsec') {
-        throw new Error('Invalid nsec key');
-      }
-
-      const privkey = decoded.data as Uint8Array;
-      const privkeyHex = Array.from(privkey).map(b => b.toString(16).padStart(2, '0')).join('');
+      // Validate the input
+      let pubkey: string;
       
-      // Create a temporary signer to get the public key
-      const tempSigner = new NDKPrivateKeySigner(privkeyHex);
-      const tempUser = await tempSigner.user();
-      const pubkey = tempUser.pubkey;
-      const npub = nip19.npubEncode(pubkey);
+      if (npubOrPublicKey.startsWith('npub')) {
+        const decoded = nip19.decode(npubOrPublicKey);
+        if (decoded.type !== 'npub') {
+          throw new Error('Invalid npub format');
+        }
+        pubkey = decoded.data as string;
+      } else if (npubOrPublicKey.length === 64 && /^[0-9a-f]+$/i.test(npubOrPublicKey)) {
+        pubkey = npubOrPublicKey;
+      } else {
+        throw new Error('Invalid public key format');
+      }
 
+      const npub = nip19.npubEncode(pubkey);
+      
+      // Set read-only user
       const user: NostrUser = {
         npub,
         pubkey,
-        method: 'manual',
+        method: 'readOnly',
       };
-
-      localStorage.setItem('nostr-user', JSON.stringify(user));
-      localStorage.setItem('nostr-nsec', nsec);
 
       this.setCurrentUser(user);
       return user;
     } catch (error) {
-      console.error('Failed to login with nsec:', error);
-      throw new Error('Invalid nsec key format');
+      console.error('Failed to login with read-only key:', error);
+      throw new Error('Invalid public key format');
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async signEvent(event: any): Promise<any> {
+  async loginWithLocalKey(): Promise<NostrUser> {
+    try {
+      await this.launchAuth('local-signup');
+      
+      // Wait for authentication to complete
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Authentication timeout'));
+        }, 30000);
+
+        const handleAuth = (user: NostrUser | null) => {
+          if (user && user.method === 'local') {
+            clearTimeout(timeout);
+            this.offAuthChange(handleAuth);
+            resolve(user);
+          }
+        };
+
+        this.onAuthChange(handleAuth);
+      });
+    } catch (error) {
+      console.error('Failed to login with local key:', error);
+      throw new Error('Failed to create local key. Please try again.');
+    }
+  }
+
+  private async launchAuth(startScreen?: string): Promise<void> {
+    try {
+      const { launch } = await import('nostr-login');
+      // Using type assertion to bypass type conflicts
+      launch({ startScreen } as never);
+    } catch (error) {
+      console.error('Failed to launch authentication:', error);
+      throw new Error('Failed to launch authentication dialog');
+    }
+  }
+
+  async signEvent(event: NostrEvent): Promise<NostrEvent> {
     if (!this.currentUser) {
       throw new Error('Not authenticated');
     }
 
-    switch (this.currentUser.method) {
-      case 'extension':
-        return this.signWithExtension(event);
-      case 'amber':
-        return this.signWithAmber(event);
-      case 'manual':
-        return this.signWithManualKey(event);
-      default:
-        throw new Error('Unknown authentication method');
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async signWithExtension(event: any): Promise<any> {
-    if (!window.nostr || !window.nostr.signEvent) {
-      throw new Error('Extension does not support event signing');
+    if (!window.nostr || typeof window.nostr.signEvent !== 'function') {
+      throw new Error('Signing not available for this authentication method');
     }
 
     try {
-      const signedEvent = await window.nostr.signEvent(event);
-      return signedEvent;
-    } catch (error) {
-      console.error('Failed to sign with extension:', error);
-      throw new Error('Failed to sign event with extension');
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async signWithAmber(event: any): Promise<any> {
-    // For now, return a mock signed event
-    // In a real implementation, this would use the NIP-46 signer
-    return {
-      ...event,
-      id: 'mock_id_' + Date.now(),
-      pubkey: this.currentUser!.pubkey,
-      created_at: event.created_at || Math.floor(Date.now() / 1000),
-      sig: 'mock_signature_from_amber_' + Date.now()
-    };
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async signWithManualKey(event: any): Promise<any> {
-    try {
-      const nsec = localStorage.getItem('nostr-nsec');
-      if (!nsec) {
-        throw new Error('No saved private key found');
-      }
-
-      const decoded = nip19.decode(nsec);
-      if (decoded.type !== 'nsec') {
-        throw new Error('Invalid stored private key');
-      }
-
-      const privkey = decoded.data as Uint8Array;
-      
       const eventToSign = {
         kind: event.kind,
         content: event.content,
-        tags: event.tags || [],
-        created_at: event.created_at || Math.floor(Date.now() / 1000),
-        pubkey: this.currentUser!.pubkey
+        tags: event.tags,
+        created_at: event.created_at,
+        pubkey: event.pubkey || this.currentUser.pubkey
       };
 
-      const signedEvent = finalizeEvent(eventToSign, privkey);
+      const signedEvent = await window.nostr.signEvent(eventToSign);
       
+      // Verify the signed event
       if (!verifyEvent(signedEvent)) {
         throw new Error('Event verification failed');
       }
 
-      return signedEvent;
+      return signedEvent as NostrEvent;
     } catch (error) {
-      console.error('Failed to sign with manual key:', error);
-      throw new Error('Failed to sign event with manual key');
+      console.error('Failed to sign event:', error);
+      throw new Error('Failed to sign event');
     }
   }
 
   async logout(): Promise<void> {
-    localStorage.removeItem('nostr-user');
-    localStorage.removeItem('nostr-nsec');
-    this.setCurrentUser(null);
-  }
-
-  private validateNsecKey(nsec: string): boolean {
     try {
-      const decoded = nip19.decode(nsec);
-      return decoded.type === 'nsec';
-    } catch {
-      return false;
+      const { logout } = await import('nostr-login');
+      logout();
+    } catch (error) {
+      console.error('Failed to logout from nostr-login:', error);
     }
-  }
-
-  private isAndroid(): boolean {
-    return /Android/i.test(navigator.userAgent);
+    
+    this.setCurrentUser(null);
   }
 
   private setCurrentUser(user: NostrUser | null): void {
@@ -425,11 +431,15 @@ export class NostrAuthSimple {
     this.authCallbacks.push(callback);
 
     return () => {
-      const index = this.authCallbacks.indexOf(callback);
-      if (index > -1) {
-        this.authCallbacks.splice(index, 1);
-      }
+      this.offAuthChange(callback);
     };
+  }
+
+  private offAuthChange(callback: (user: NostrUser | null) => void): void {
+    const index = this.authCallbacks.indexOf(callback);
+    if (index > -1) {
+      this.authCallbacks.splice(index, 1);
+    }
   }
 
   private notifyAuthCallbacks(user: NostrUser | null): void {
@@ -441,8 +451,27 @@ export class NostrAuthSimple {
       }
     });
   }
-}
 
-// Window.nostr interface is already declared in nostr-auth.ts
+  // Compatibility methods for legacy code
+  async loginWithAmber(): Promise<NostrUser> {
+    return this.loginWithConnect();
+  }
+
+  async loginWithNsec(nsec: string): Promise<NostrUser> {
+    try {
+      const decoded = nip19.decode(nsec);
+      if (decoded.type !== 'nsec') {
+        throw new Error('Invalid nsec format');
+      }
+
+      // For security reasons, we don't actually store the nsec
+      // Instead, we'll create a local key through nostr-login
+      return this.loginWithLocalKey();
+    } catch (error) {
+      console.error('Failed to login with nsec:', error);
+      throw new Error('Invalid nsec key format');
+    }
+  }
+}
 
 export const nostrAuthSimple = NostrAuthSimple.getInstance(); 
