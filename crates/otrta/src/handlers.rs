@@ -14,7 +14,9 @@ use crate::{
             RefreshProvidersResponse,
         },
         server_config::{create_config, get_default_config, update_config, ServerConfigRecord},
-        transaction::{get_transactions, TransactionListResponse},
+        transaction::{
+            get_api_key_statistics, get_transactions, ApiKeyStatistics, TransactionListResponse,
+        },
         Pool,
     },
     models::*,
@@ -87,113 +89,34 @@ pub async fn get_proxy_models(
 pub async fn refresh_models_from_proxy(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<RefreshModelsResponse>, (StatusCode, Json<serde_json::Value>)> {
-    let server_config = if let Ok(Some(config)) = get_default_provider(&state.db).await {
-        config
-    } else {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "error": {
-                    "message": "Server configuration missing. Cannot fetch models without a configured endpoint.",
-                    "type": "server_error",
-                    "param": null,
-                    "code": "server_config_missing"
-                }
-            })),
-        ));
-    };
-
-    let client = reqwest::Client::new();
-    let endpoint_url = format!("{}/v1/models", &server_config.url);
-
-    let proxy_models_response = match client
-        .get(&endpoint_url)
-        .timeout(std::time::Duration::from_secs(30))
-        .send()
-        .await
-    {
-        Ok(response) => response,
+    match refresh_models_internal(&state.db).await {
+        Ok(response) => Ok(Json(response)),
         Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
+            eprintln!("Failed to refresh models: {}", e);
+
+            let (status, error_type) = if e.contains("Server configuration missing") {
+                (StatusCode::BAD_REQUEST, "server_config_missing")
+            } else if e.contains("Failed to connect") {
+                (StatusCode::INTERNAL_SERVER_ERROR, "connection_error")
+            } else if e.contains("Proxy returned error") {
+                (StatusCode::INTERNAL_SERVER_ERROR, "proxy_error")
+            } else if e.contains("Failed to parse") {
+                (StatusCode::INTERNAL_SERVER_ERROR, "parse_error")
+            } else {
+                (StatusCode::INTERNAL_SERVER_ERROR, "database_error")
+            };
+
+            Err((
+                status,
                 Json(json!({
                     "error": {
-                        "message": format!("Failed to connect to proxy: {}", e),
-                        "type": "connection_error"
+                        "message": e,
+                        "type": error_type
                     }
                 })),
-            ));
-        }
-    };
-
-    if !proxy_models_response.status().is_success() {
-        return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": {
-                    "message": format!("Proxy returned error: {}", proxy_models_response.status()),
-                    "type": "proxy_error"
-                }
-            })),
-        ));
-    }
-
-    let proxy_models_data: ModelListResponse = match proxy_models_response.json().await {
-        Ok(models) => models,
-        Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": {
-                        "message": format!("Failed to parse proxy response: {}", e),
-                        "type": "parse_error"
-                    }
-                })),
-            ));
-        }
-    };
-
-    println!("{:?}", proxy_models_data);
-    // Delete all existing models first
-    let deleted_count = match delete_all_models(&state.db).await {
-        Ok(count) => count,
-        Err(e) => {
-            eprintln!("Failed to delete existing models: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": {
-                        "message": "Failed to delete existing models",
-                        "type": "database_error"
-                    }
-                })),
-            ));
-        }
-    };
-
-    let mut models_added = 0;
-
-    for proxy_model in &proxy_models_data.data {
-        match upsert_model(&state.db, &proxy_model).await {
-            Ok(_) => {
-                models_added += 1;
-            }
-            Err(e) => {
-                eprintln!("Failed to insert model {}: {}", proxy_model.name, e);
-            }
+            ))
         }
     }
-
-    Ok(Json(RefreshModelsResponse {
-        success: true,
-        models_updated: 0,
-        models_added,
-        models_marked_removed: deleted_count as i32,
-        message: Some(format!(
-            "Successfully deleted {} existing models and added {} new models",
-            deleted_count, models_added
-        )),
-    }))
 }
 
 pub async fn redeem_token(
@@ -348,6 +271,55 @@ pub async fn get_all_transactions(
     }
 }
 
+#[derive(Deserialize)]
+pub struct StatisticsParams {
+    start_date: Option<String>,
+    end_date: Option<String>,
+}
+
+pub async fn get_api_key_statistics_handler(
+    State(state): State<Arc<AppState>>,
+    Path(api_key_id): Path<String>,
+    params: Query<StatisticsParams>,
+) -> Result<Json<ApiKeyStatistics>, (StatusCode, Json<serde_json::Value>)> {
+    let start_date = params.start_date.as_ref().and_then(|d| {
+        chrono::DateTime::parse_from_rfc3339(d)
+            .ok()
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+    });
+
+    let end_date = params.end_date.as_ref().and_then(|d| {
+        chrono::DateTime::parse_from_rfc3339(d)
+            .ok()
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+    });
+
+    match get_api_key_statistics(&state.db, &api_key_id, start_date, end_date).await {
+        Ok(statistics) => Ok(Json(statistics)),
+        Err(sqlx::Error::RowNotFound) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "API key not found or no statistics available",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Failed to get API key statistics: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve statistics",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
 pub async fn get_pendings(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let proofs = state.wallet.pending().await.unwrap();
     Json(json!({"pending": proofs}))
@@ -357,30 +329,19 @@ pub async fn send_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    eprintln!(
-        "DEBUG: Send token request - mint_url: {:?}, amount: {}, unit: {:?}",
-        payload.mint_url, payload.amount, payload.unit
-    );
-
-    let unit = payload
-        .unit
-        .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok())
-        .unwrap_or(crate::db::mint::CurrencyUnit::Msat);
-
-    let send_options = LocalMultimintSendOptions {
-        preferred_mint: Some(payload.mint_url.clone()),
-        unit: Some(unit),
-        ..Default::default()
-    };
-
-    eprintln!("DEBUG: Sending with options: {:?}", send_options);
-
-    let wallet = state
+    match state
         .wallet
-        .get_wallet_for_mint(&payload.mint_url)
+        .send(
+            payload.amount as u64,
+            LocalMultimintSendOptions {
+                preferred_mint: Some(payload.mint_url),
+                ..Default::default()
+            },
+            &state.db,
+            None,
+        )
         .await
-        .unwrap();
-    match wallet.send(payload.amount as u64).await {
+    {
         Ok(response) => {
             eprintln!("DEBUG: Successfully generated token");
             Ok(Json(SendTokenResponse {
@@ -467,13 +428,91 @@ pub async fn get_provider(
     }
 }
 
+async fn refresh_models_internal(db: &crate::db::Pool) -> Result<RefreshModelsResponse, String> {
+    let server_config = if let Ok(Some(config)) = get_default_provider(&db).await {
+        config
+    } else {
+        return Err(
+            "Server configuration missing. Cannot fetch models without a configured endpoint."
+                .to_string(),
+        );
+    };
+
+    let client = reqwest::Client::new();
+    let endpoint_url = format!("{}/v1/models", &server_config.url);
+
+    let proxy_models_response = match client
+        .get(&endpoint_url)
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(e) => {
+            return Err(format!("Failed to connect to proxy: {}", e));
+        }
+    };
+
+    if !proxy_models_response.status().is_success() {
+        return Err(format!(
+            "Proxy returned error: {}",
+            proxy_models_response.status()
+        ));
+    }
+
+    let proxy_models_data: ModelListResponse = match proxy_models_response.json().await {
+        Ok(models) => models,
+        Err(e) => {
+            return Err(format!("Failed to parse proxy response: {}", e));
+        }
+    };
+
+    let deleted_count = match delete_all_models(&db).await {
+        Ok(count) => count,
+        Err(e) => {
+            eprintln!("Failed to delete existing models: {}", e);
+            return Err("Failed to delete existing models".to_string());
+        }
+    };
+
+    let mut models_added = 0;
+
+    for proxy_model in &proxy_models_data.data {
+        match upsert_model(&db, &proxy_model).await {
+            Ok(_) => {
+                models_added += 1;
+            }
+            Err(e) => {
+                eprintln!("Failed to insert model {}: {}", proxy_model.name, e);
+            }
+        }
+    }
+
+    Ok(RefreshModelsResponse {
+        success: true,
+        models_updated: 0,
+        models_added,
+        models_marked_removed: deleted_count as i32,
+        message: Some(format!(
+            "Successfully deleted {} existing models and added {} new models",
+            deleted_count, models_added
+        )),
+    })
+}
+
 pub async fn set_provider_default(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
 ) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
     match set_default_provider(&state.db, id).await {
         Ok(_) => {
-            // Return the updated provider
+            if let Err(e) = refresh_models_internal(&state.db).await {
+                eprintln!(
+                    "Warning: Failed to refresh models after setting default provider: {}",
+                    e
+                );
+            }
+
             match get_provider_by_id(&state.db, id).await {
                 Ok(Some(provider)) => Ok(Json(provider)),
                 Ok(None) => Err((
@@ -971,7 +1010,7 @@ pub async fn send_multimint_token_handler(
 
     match state
         .wallet
-        .send(payload.amount, send_options, &state.db)
+        .send(payload.amount, send_options, &state.db, None)
         .await
     {
         Ok(token) => Ok(Json(MultimintSendTokenResponse {
@@ -1195,6 +1234,192 @@ pub async fn topup_mint_handler(
                 }
             })),
         )),
+    }
+}
+
+pub async fn get_all_api_keys_handler(
+    State(state): State<Arc<AppState>>,
+    params: Query<PaginationParams>,
+) -> Result<Json<crate::db::api_keys::ApiKeyListResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let page = params.page.unwrap_or(1);
+    let page_size = params.page_size.unwrap_or(10);
+
+    match crate::db::api_keys::get_all_api_keys(&state.db, None, page, page_size).await {
+        Ok(response) => Ok(Json(response)),
+        Err(e) => {
+            eprintln!("Error getting API keys: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to get API keys",
+                        "type": "internal_server_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn get_api_key_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<crate::db::api_keys::ApiKey>, (StatusCode, Json<serde_json::Value>)> {
+    match crate::db::api_keys::get_api_key_by_id(&state.db, &id).await {
+        Ok(Some(api_key)) => Ok(Json(api_key)),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "API key not found",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Error getting API key: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to get API key",
+                        "type": "internal_server_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn create_api_key_handler(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<crate::db::api_keys::CreateApiKeyRequest>,
+) -> Result<Json<crate::db::api_keys::ApiKey>, (StatusCode, Json<serde_json::Value>)> {
+    if request.name.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "API key name is required",
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    if request.user_id.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "User ID is required",
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    if request.organization_id.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "Organization ID is required",
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    match crate::db::api_keys::create_api_key(&state.db, request).await {
+        Ok(api_key) => Ok(Json(api_key)),
+        Err(e) => {
+            eprintln!("Error creating API key: {}", e);
+            if e.to_string().contains("unique constraint") {
+                Err((
+                    StatusCode::CONFLICT,
+                    Json(json!({
+                        "error": {
+                            "message": "API key already exists",
+                            "type": "conflict"
+                        }
+                    })),
+                ))
+            } else {
+                Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {
+                            "message": "Failed to create API key",
+                            "type": "internal_server_error"
+                        }
+                    })),
+                ))
+            }
+        }
+    }
+}
+
+pub async fn update_api_key_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(request): Json<crate::db::api_keys::UpdateApiKeyRequest>,
+) -> Result<Json<crate::db::api_keys::ApiKey>, (StatusCode, Json<serde_json::Value>)> {
+    match crate::db::api_keys::update_api_key(&state.db, &id, request).await {
+        Ok(Some(api_key)) => Ok(Json(api_key)),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "API key not found",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Error updating API key: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to update API key",
+                        "type": "internal_server_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn delete_api_key_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match crate::db::api_keys::delete_api_key(&state.db, &id).await {
+        Ok(true) => Ok(Json(json!({
+            "message": "API key deleted successfully"
+        }))),
+        Ok(false) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "API key not found",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Error deleting API key: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to delete API key",
+                        "type": "internal_server_error"
+                    }
+                })),
+            ))
+        }
     }
 }
 

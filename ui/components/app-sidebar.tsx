@@ -7,6 +7,7 @@ import {
   ServerIcon,
   DatabaseIcon,
   CoinsIcon,
+  SettingsIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -56,11 +57,11 @@ const data = {
       url: '/models',
       icon: DatabaseIcon,
     },
-    // {
-    //   title: 'Settings',
-    //   url: '/settings',
-    //   icon: SettingsIcon,
-    // },
+    {
+      title: 'Settings',
+      url: '/settings',
+      icon: SettingsIcon,
+    },
   ],
   documents: [],
 };

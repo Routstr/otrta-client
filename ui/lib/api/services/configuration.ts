@@ -74,6 +74,14 @@ export class ConfigurationService {
   }
 
   /**
+   * Check if authentication is enabled on the server
+   */
+  static isAuthenticationEnabled(): boolean {
+    // Check if ENABLE_AUTHENTICATION environment variable is set to true
+    return process.env.NEXT_PUBLIC_ENABLE_AUTHENTICATION === 'true';
+  }
+
+  /**
    * Get authorization headers for requests including API key if configured
    * This ensures the server knows which external service to forward to if needed
    */
@@ -83,6 +91,14 @@ export class ConfigurationService {
     };
 
     try {
+      // Check for API key first (bearer token authentication)
+      const apiKey = typeof window !== 'undefined' ? localStorage.getItem('api_key') : null;
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+        return headers;
+      }
+
+      // Fallback to legacy auth_user token
       const authUser =
         typeof window !== 'undefined'
           ? localStorage.getItem('auth_user')
@@ -95,6 +111,43 @@ export class ConfigurationService {
     }
 
     return headers;
+  }
+
+  /**
+   * Store an API key in localStorage
+   */
+  static setApiKey(apiKey: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    localStorage.setItem('api_key', apiKey);
+  }
+
+  /**
+   * Get the stored API key from localStorage
+   */
+  static getApiKey(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    return localStorage.getItem('api_key');
+  }
+
+  /**
+   * Remove the API key from localStorage
+   */
+  static clearApiKey(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    localStorage.removeItem('api_key');
+  }
+
+  /**
+   * Check if an API key is configured
+   */
+  static hasApiKey(): boolean {
+    return !!this.getApiKey();
   }
 
   static async testConnection(config: ServerConfig): Promise<boolean> {

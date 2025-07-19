@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO transactions (id, created_at, token, amount, direction)\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING id\n        ",
+  "query": "\n        INSERT INTO transactions (id, created_at, token, amount, direction, api_key_id)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        RETURNING id\n        ",
   "describe": {
     "columns": [
       {
@@ -25,12 +25,13 @@
               ]
             }
           }
-        }
+        },
+        "Uuid"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "a3165a3458eb37c50c5879d77f5d456052736157231db9296505964f83bef3d5"
+  "hash": "f07fc9afc88d3a747786ba78f3f849431ffe6845261deb85c4ba7fba83ace199"
 }

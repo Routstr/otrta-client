@@ -130,6 +130,7 @@ impl MultimintWalletWrapper {
         amount: u64,
         options: LocalMultimintSendOptions,
         db: &Pool,
+        api_key_id: Option<&str>,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let send_options = MultimintSendOptions {
             preferred_mint: options.preferred_mint,
@@ -144,6 +145,7 @@ impl MultimintWalletWrapper {
             &token,
             &amount.to_string(),
             TransactionDirection::Outgoing,
+            api_key_id,
         )
         .await?;
 
@@ -191,7 +193,7 @@ impl MultimintWalletWrapper {
         amount: u64,
         db: &Pool,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        self.send(amount, LocalMultimintSendOptions::default(), db)
+        self.send(amount, LocalMultimintSendOptions::default(), db, None)
             .await
     }
 

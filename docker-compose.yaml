@@ -5,6 +5,7 @@ services:
       context: ui
     environment:
       - NEXT_PUBLIC_API_URL=http://otrta-rust-client:3333
+      - NEXT_PUBLIC_ENABLE_AUTHENTICATION=true
     networks:
       - otrta-network
     ports:
@@ -33,7 +34,7 @@ services:
       - APP_DATABASE__DATABASE_NAME=otrta
       - APP_DATABASE__REQUIRE_SSL=false
       - APP_DATABASE__CONNECTIONS=10
-
+      - APP_DATABASE__ENABLE_AUTHENTICATION=true
       # Wallet data persistence
       - WALLET_DATA_DIR=/app/wallet_data
     ports:

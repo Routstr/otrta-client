@@ -10,7 +10,7 @@ use crate::{
 };
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Request, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -38,10 +38,31 @@ pub async fn forward_any_request_get(
 pub async fn forward_any_request(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(body_data): Json<serde_json::Value>,
+    request: Request,
 ) -> Response<Body> {
-    forward_request_with_payment_with_body(headers, &state, &path, Some(body_data), false).await
+    let (parts, body) = request.into_parts();
+    let api_key_id = parts.extensions.get::<String>().map(|s| s.as_str());
+    let headers = parts.headers;
+
+    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(_) => return (StatusCode::BAD_REQUEST, "Failed to read request body").into_response(),
+    };
+
+    let body_data: serde_json::Value = match serde_json::from_slice(&body_bytes) {
+        Ok(data) => data,
+        Err(_) => serde_json::Value::Null,
+    };
+
+    forward_request_with_payment_with_body(
+        headers,
+        &state,
+        &path,
+        Some(body_data),
+        false,
+        api_key_id,
+    )
+    .await
 }
 
 pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
@@ -50,6 +71,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     path: &str,
     body: Option<T>,
     is_streaming: bool,
+    api_key_id: Option<&str>,
 ) -> Response<Body> {
     let server_config = if let Ok(Some(config)) = get_default_provider(&state.db).await {
         config
@@ -146,6 +168,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             server_config.mints.first().unwrap(),
             Some(3),
             &state.db,
+            api_key_id,
         )
         .await;
 
@@ -170,15 +193,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
     if !token.is_empty() {
         req_builder = req_builder.header("X-Cashu", &token);
-
-        add_transaction(
-            &state.db,
-            &token,
-            &cost.to_string(),
-            TransactionDirection::Outgoing,
-        )
-        .await
-        .unwrap();
     }
 
     if let Some(accept) = original_headers.get(header::ACCEPT) {
@@ -190,34 +204,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         let headers = resp.headers().clone();
 
         if status != StatusCode::OK {
-            if !is_free_model && !token.is_empty() {
-                if let Some(change_sats) = headers.get("X-Cashu") {
-                    if let Ok(in_token) = change_sats.to_str() {
-                        let res = state.wallet.receive(in_token).await.unwrap();
-                        add_transaction(
-                            &state.db,
-                            &in_token,
-                            &res.to_string(),
-                            TransactionDirection::Incoming,
-                        )
-                        .await
-                        .unwrap();
-                    }
-                }
-            }
-            return Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("Server Error"))
-                .unwrap();
-        }
-
-        let mut response = Response::builder().status(status);
-
-        if is_streaming && !headers.contains_key(header::CONTENT_TYPE) {
-            response = response.header(header::CONTENT_TYPE, "text/event-stream");
-        }
-
-        if !is_free_model {
             if let Some(change_sats) = headers.get("X-Cashu") {
                 if let Ok(in_token) = change_sats.to_str() {
                     let res = state.wallet.receive(in_token).await.unwrap();
@@ -226,10 +212,32 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         &in_token,
                         &res.to_string(),
                         TransactionDirection::Incoming,
+                        api_key_id,
                     )
                     .await
                     .unwrap();
                 }
+            }
+        }
+
+        let mut response = Response::builder().status(status);
+
+        if is_streaming && !headers.contains_key(header::CONTENT_TYPE) {
+            response = response.header(header::CONTENT_TYPE, "text/event-stream");
+        }
+
+        if let Some(change_sats) = headers.get("X-Cashu") {
+            if let Ok(in_token) = change_sats.to_str() {
+                let res = state.wallet.receive(in_token).await.unwrap();
+                add_transaction(
+                    &state.db,
+                    &in_token,
+                    &res.to_string(),
+                    TransactionDirection::Incoming,
+                    api_key_id,
+                )
+                .await
+                .unwrap();
             }
         }
 
@@ -272,6 +280,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             &token,
             &res.to_string(),
             TransactionDirection::Incoming,
+            api_key_id,
         )
         .await
         .unwrap();

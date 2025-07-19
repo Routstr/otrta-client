@@ -6,13 +6,18 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1"
 axum = "0.8"
+base64 = "0.22"
 bigdecimal = "0.4"
 cdk = { version = "0.11", default-features = false, features = ["wallet"] }
 chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.15"
 futures-util = "0.3"
+hex = "0.4"
+nostr = "0.33"
+rand = "0.8"
 reqwest = { version = "0.12", features = ["json", "stream"] }
 rust_decimal = { version = "1.33", features = ["serde-float"] }
+secp256k1 = "0.29"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "rust_decimal", "bigdecimal"] }

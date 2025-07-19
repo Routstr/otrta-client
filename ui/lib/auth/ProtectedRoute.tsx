@@ -1,61 +1,79 @@
 'use client';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
-import { UserRole } from '@/lib/api/schemas/users';
+import { useEffect, useState } from 'react';
+import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
+import { NostrLogin } from '@/components/auth/NostrLogin';
+import { ConfigurationService } from '@/lib/api/services/configuration';
+import { authStateManager } from './auth-state';
+import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: UserRole[];
 }
 
-export function ProtectedRoute({
-  children,
-  allowedRoles,
-}: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const [isAuthEnabled, setIsAuthEnabled] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const { isAuthenticated, isLoading } = useNostrAuth();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
-      return;
-    }
+    // Check if authentication is enabled
+    const authEnabled = ConfigurationService.isAuthenticationEnabled();
+    setIsAuthEnabled(authEnabled);
+    setIsCheckingAuth(false);
+  }, []);
 
-    if (
-      !isLoading &&
-      isAuthenticated &&
-      allowedRoles &&
-      allowedRoles.length > 0 &&
-      user &&
-      !allowedRoles.includes(user.role)
-    ) {
-      router.push('/unauthorized');
-    }
-  }, [isLoading, isAuthenticated, user, router, pathname, allowedRoles]);
+  useEffect(() => {
+    // Subscribe to redirecting state changes
+    const unsubscribe = authStateManager.onRedirectingChange(() => {
+      setIsRedirecting(authStateManager.getIsRedirecting());
+    });
 
-  if (isLoading) {
+    // Set initial state
+    setIsRedirecting(authStateManager.getIsRedirecting());
+
+    return unsubscribe;
+  }, []);
+
+  // Remove client-side validation - only show login on 401 server responses
+  // useEffect(() => {
+  //   // Client-side validation removed to prevent false logouts
+  // }, []);
+
+  // Show loading screen while checking authentication settings
+  if (isCheckingAuth) {
     return (
-      <div className='flex min-h-screen items-center justify-center'>
-        Loading...
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
       </div>
     );
   }
 
+  // If authentication is disabled, show children directly
+  if (!isAuthEnabled) {
+    return <>{children}</>;
+  }
+
+  // Show loading screen while checking authentication status or redirecting
+  if (isLoading || isRedirecting) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">
+            {isRedirecting ? 'Redirecting to authentication...' : 'Loading...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If authentication is enabled but user is not authenticated, show login
   if (!isAuthenticated) {
-    return null;
+    return <NostrLogin />;
   }
 
-  if (
-    allowedRoles &&
-    allowedRoles.length > 0 &&
-    user &&
-    !allowedRoles.includes(user.role)
-  ) {
-    return null;
-  }
-
+  // User is authenticated, show the protected content
   return <>{children}</>;
 }

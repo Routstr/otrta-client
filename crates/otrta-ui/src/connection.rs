@@ -16,6 +16,8 @@ pub struct ApplicationSettings {
     pub host: String,
     pub default_msats_per_request: u32,
     pub mint_url: String,
+    pub enable_authentication: bool,
+    pub whitelisted_npubs: Vec<String>,
 }
 
 #[derive(Debug, serde::Deserialize, Clone)]
@@ -160,6 +162,9 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
                     }
                     if let Ok(val) = std::env::var("DEFAULT_MSATS") {
                         env_map.insert("application__default_msats_per_request".to_string(), val);
+                    }
+                    if let Ok(val) = std::env::var("ENABLE_AUTHENTICATION") {
+                        env_map.insert("application__enable_authentication".to_string(), val);
                     }
 
                     env_map

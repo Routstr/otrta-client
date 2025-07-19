@@ -113,10 +113,10 @@ pub struct RefreshModelsResponse {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Architecture {
-    pub modality: String,
-    pub input_modalities: Vec<String>,
-    pub output_modalities: Vec<String>,
-    pub tokenizer: String,
+    pub modality: Option<String>,
+    pub input_modalities: Option<Vec<String>>,
+    pub output_modalities: Option<Vec<String>>,
+    pub tokenizer: Option<String>,
     pub instruct_type: Option<String>,
 }
 
@@ -223,16 +223,16 @@ impl ProxyModelFromApi {
             updated_at: Some(chrono::Utc::now()),
             last_seen_at: Some(chrono::Utc::now()),
 
-            modality: self.architecture.as_ref().map(|a| a.modality.clone()),
+            modality: self.architecture.as_ref().and_then(|a| a.modality.clone()),
             input_modalities: self
                 .architecture
                 .as_ref()
-                .map(|a| a.input_modalities.clone()),
+                .and_then(|a| a.input_modalities.clone()),
             output_modalities: self
                 .architecture
                 .as_ref()
-                .map(|a| a.output_modalities.clone()),
-            tokenizer: self.architecture.as_ref().map(|a| a.tokenizer.clone()),
+                .and_then(|a| a.output_modalities.clone()),
+            tokenizer: self.architecture.as_ref().and_then(|a| a.tokenizer.clone()),
             instruct_type: self
                 .architecture
                 .as_ref()

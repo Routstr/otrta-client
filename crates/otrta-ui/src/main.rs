@@ -1,5 +1,5 @@
 use axum::{
-    Router,
+    Router, middleware,
     routing::{delete, get, post, put},
 };
 mod background;
@@ -8,6 +8,7 @@ use background::BackgroundJobRunner;
 use connection::{DatabaseSettings, Settings, get_configuration};
 use ecash_402_wallet::wallet::CashuWalletClient;
 use otrta::{
+    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware},
     db::server_config::create_with_seed,
     handlers::{self, get_server_config},
     models::AppState,
@@ -55,7 +56,13 @@ async fn main() {
     let job_runner = BackgroundJobRunner::new(Arc::clone(&app_state));
     job_runner.start_all_jobs().await;
 
-    let app = Router::new()
+    let auth_config = AuthConfig {
+        enabled: configuration.application.enable_authentication,
+        max_age_seconds: 300,
+        whitelisted_npubs: configuration.application.whitelisted_npubs.clone(),
+    };
+
+    let mut protected_routes = Router::new()
         .route("/api/openai-models", get(handlers::list_openai_models))
         .route("/api/proxy/models", get(handlers::get_proxy_models))
         .route("/api/providers", get(handlers::get_providers))
@@ -99,6 +106,10 @@ async fn main() {
         .route("/api/server-config", post(handlers::update_server_config))
         .route("/api/credits", get(handlers::get_all_credits))
         .route("/api/transactions", get(handlers::get_all_transactions))
+        .route(
+            "/api/statistics/{api_key_id}",
+            get(handlers::get_api_key_statistics_handler),
+        )
         .route("/api/mints", get(handlers::get_all_mints_handler))
         .route("/api/mints", post(handlers::create_mint_handler))
         .route("/api/mints/active", get(handlers::get_active_mints_handler))
@@ -122,18 +133,50 @@ async fn main() {
             post(handlers::transfer_between_mints_handler),
         )
         .route("/api/multimint/topup", post(handlers::topup_mint_handler))
+        .route("/api/api-keys", get(handlers::get_all_api_keys_handler))
+        .route("/api/api-keys", post(handlers::create_api_key_handler))
+        .route("/api/api-keys/{id}", get(handlers::get_api_key_handler))
+        .route("/api/api-keys/{id}", put(handlers::update_api_key_handler))
+        .route(
+            "/api/api-keys/{id}",
+            delete(handlers::delete_api_key_handler),
+        )
         .route("/api/lightning/create-invoice", post(handlers::create_lightning_invoice_handler))
         .route("/api/lightning/create-payment", post(handlers::create_lightning_payment_handler))
         .route("/api/lightning/payment-status/{quote_id}", get(handlers::check_lightning_payment_status_handler))
         .route("/api/lightning/complete-topup/{quote_id}", post(handlers::complete_lightning_topup_handler))
         .route("/api/debug/wallet", get(handlers::get_wallet_debug_info))
+        .with_state(app_state.clone());
+
+    let mut unprotected_routes = Router::new()
         .route("/{*path}", post(forward_any_request))
         .route("/v1/{*path}", post(forward_any_request))
         .route("/{*path}", get(forward_any_request_get))
         .route("/v1/{*path}", get(forward_any_request_get))
-        .with_state(app_state)
+        .with_state(app_state.clone());
+
+    if auth_config.enabled {
+        let auth_state = AuthState {
+            config: auth_config.clone(),
+            app_state: app_state.clone(),
+        };
+
+        unprotected_routes = unprotected_routes.layer(middleware::from_fn_with_state(
+            auth_state.clone(),
+            bearer_auth_middleware,
+        ));
+
+        protected_routes = protected_routes.layer(middleware::from_fn_with_state(
+            auth_state,
+            nostr_auth_middleware,
+        ));
+    }
+
+    let app = protected_routes.merge(unprotected_routes);
+
+    let app = app
         .layer(
-            CorsLayer::new()
+            CorsLayer::permissive()
                 .allow_origin(Any)
                 .allow_methods(Any)
                 .allow_headers(Any)
