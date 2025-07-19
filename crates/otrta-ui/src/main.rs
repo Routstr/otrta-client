@@ -141,6 +141,27 @@ async fn main() {
             "/api/api-keys/{id}",
             delete(handlers::delete_api_key_handler),
         )
+        .route(
+            "/api/lightning/create-invoice",
+            post(handlers::create_lightning_invoice_handler),
+        )
+        .route(
+            "/api/lightning/create-payment",
+            post(handlers::create_lightning_payment_handler),
+        )
+        .route(
+            "/api/lightning/payment-status/{quote_id}",
+            get(handlers::check_lightning_payment_status_handler),
+        )
+        .route(
+            "/api/lightning/payment-status-with-mint",
+            post(handlers::check_lightning_payment_status_with_mint_handler),
+        )
+        .route(
+            "/api/lightning/complete-topup/{quote_id}",
+            post(handlers::complete_lightning_topup_handler),
+        )
+        .route("/api/debug/wallet", get(handlers::get_wallet_debug_info))
         .with_state(app_state.clone());
 
     let mut unprotected_routes = Router::new()

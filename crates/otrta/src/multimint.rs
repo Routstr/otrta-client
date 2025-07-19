@@ -1,6 +1,7 @@
 use crate::db::mint::CurrencyUnit;
 use crate::db::transaction::{add_transaction, TransactionDirection};
 use crate::db::Pool;
+use cdk::{wallet::SendOptions, Amount};
 use ecash_402_wallet::multimint::{MultimintSendOptions, MultimintWallet};
 use serde::{Deserialize, Serialize};
 
@@ -60,6 +61,10 @@ impl MultimintWalletWrapper {
         let wallet =
             MultimintWallet::from_existing_wallet(_wallet, mint_url, seed, base_db_path).await?;
         Ok(Self { inner: wallet })
+    }
+
+    pub fn inner(&self) -> &MultimintWallet {
+        &self.inner
     }
 
     pub async fn add_mint(
@@ -166,11 +171,12 @@ impl MultimintWalletWrapper {
         Ok(result)
     }
 
-    pub async fn get_wallet_for_mint(
-        &self,
-        mint_url: &str,
-    ) -> Option<ecash_402_wallet::wallet::CashuWalletClient> {
-        self.inner.get_wallet_for_mint(mint_url).cloned()
+    pub async fn get_wallet_for_mint(&self, mint_url: &str) -> Option<CdkWalletWrapper> {
+        if let Some(cdk_wallet) = self.inner.get_wallet_for_mint(mint_url).await {
+            Some(CdkWalletWrapper::new(cdk_wallet))
+        } else {
+            None
+        }
     }
 
     pub async fn redeem_pendings(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -209,5 +215,99 @@ impl MultimintWalletWrapper {
         }
 
         Ok(serde_json::Value::Object(result))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CdkWalletWrapper {
+    inner: cdk::wallet::Wallet,
+}
+
+impl CdkWalletWrapper {
+    pub fn new(wallet: cdk::wallet::Wallet) -> Self {
+        Self { inner: wallet }
+    }
+
+    pub async fn receive(&self, token: &str) -> Result<u64, Box<dyn std::error::Error>> {
+        use cdk::wallet::ReceiveOptions;
+
+        let received = self
+            .inner
+            .receive(token, ReceiveOptions::default())
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+        let amount: u64 = received.into();
+        Ok(amount)
+    }
+
+    pub async fn send(&self, amount: u64) -> Result<String, Box<dyn std::error::Error>> {
+        let amount_obj = Amount::from(amount);
+        let prepared_send = self
+            .inner
+            .prepare_send(amount_obj, SendOptions::default())
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+        let token = self
+            .inner
+            .send(prepared_send, None)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+        Ok(token.to_string())
+    }
+
+    pub async fn balance(&self) -> Result<u64, Box<dyn std::error::Error>> {
+        let balance = self
+            .inner
+            .total_balance()
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+        let amount: u64 = balance.into();
+        Ok(amount)
+    }
+
+    pub async fn mint_quote(
+        &self,
+        amount: u64,
+        description: Option<String>,
+    ) -> Result<cdk::wallet::MintQuote, cdk::Error> {
+        self.inner
+            .mint_quote(Amount::from(amount), description)
+            .await
+    }
+
+    pub async fn melt_quote(
+        &self,
+        invoice: String,
+        options: Option<cdk::nuts::MeltOptions>,
+    ) -> Result<cdk::wallet::MeltQuote, cdk::Error> {
+        self.inner.melt_quote(invoice, options).await
+    }
+
+    pub async fn check_melt_quote(&self, quote_id: &str) -> Result<(), cdk::Error> {
+        match self.inner.melt_quote(quote_id.to_string(), None).await {
+            Ok(m) => println!("{:?}", m),
+            Err(e) => println!("{:?}", e),
+        };
+
+        match self.inner.melt_quote_status(quote_id).await {
+            Ok(resp) => {
+                println!("{:?}", resp);
+                if let Some(paid) = resp.paid {
+                    if paid {
+                        let a = self.inner.melt_quote(quote_id.to_string(), None).await;
+                        println!("{:?}", a);
+                    }
+                }
+                Ok(())
+            }
+            Err(e) => {
+                println!("{:?}", e);
+                Ok(())
+            }
+        }
     }
 }

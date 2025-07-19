@@ -29,7 +29,7 @@ use axum::{
     Json,
 };
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::{str::FromStr, sync::Arc};
 
@@ -329,27 +329,12 @@ pub async fn send_token(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    println!("{:?}", payload.mint_url);
-
-    // Parse the unit from the request, default to msat if not provided
-    let unit = payload
-        .unit
-        .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok())
-        .unwrap_or(crate::db::mint::CurrencyUnit::Msat);
-
-    // Convert amount to msat if needed (multimint wallet expects msat internally)
-    let amount_in_msat = match unit {
-        crate::db::mint::CurrencyUnit::Sat => payload.amount * 1000,
-        crate::db::mint::CurrencyUnit::Msat => payload.amount,
-    };
-
     match state
         .wallet
         .send(
-            amount_in_msat as u64,
+            payload.amount as u64,
             LocalMultimintSendOptions {
                 preferred_mint: Some(payload.mint_url),
-                unit: Some(unit),
                 ..Default::default()
             },
             &state.db,
@@ -357,21 +342,24 @@ pub async fn send_token(
         )
         .await
     {
-        Ok(response) => Ok(Json(SendTokenResponse {
-            token: response,
-            success: true,
-            message: None,
-        })),
-        Err(_e) => {
-            let error_msg = format!("Failed to generate token");
-            eprintln!("{}", error_msg);
+        Ok(response) => {
+            eprintln!("DEBUG: Successfully generated token");
+            Ok(Json(SendTokenResponse {
+                token: response,
+                success: true,
+                message: None,
+            }))
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to generate token: {}", e);
+            eprintln!("DEBUG: {}", error_msg);
 
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
                     "error": {
                         "message": error_msg,
-                        "type": "token_generation_error",
+                        "type": "payment_error",
                     }
                 })),
             ))
@@ -381,13 +369,12 @@ pub async fn send_token(
 
 pub async fn redeem_pendings(State(state): State<Arc<AppState>>) -> StatusCode {
     if state.wallet.redeem_pendings().await.is_ok() {
-        return StatusCode::BAD_REQUEST;
+        return StatusCode::OK;
     }
 
-    StatusCode::OK
+    return StatusCode::BAD_REQUEST;
 }
 
-// Provider handlers
 pub async fn get_providers(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<ProviderListResponse>, (StatusCode, Json<serde_json::Value>)> {
@@ -1436,11 +1423,501 @@ pub async fn delete_api_key_handler(
     }
 }
 
-pub async fn signup_handler(
+#[derive(Deserialize)]
+pub struct CreateLightningPaymentRequest {
+    pub invoice: String,          // The BOLT11 invoice to pay
+    pub amount: Option<u64>,      // Optional amount for amountless invoices
+    pub mint_url: Option<String>, // Optional specific mint to use
+}
+
+#[derive(Deserialize)]
+pub struct LightningPaymentStatus {
+    pub quote_id: String,
+    pub mint_url: String,
+}
+
+#[derive(Serialize)]
+pub struct CreateLightningPaymentResponse {
+    pub success: bool,
+    pub quote_id: String,
+    pub invoice_to_pay: String, // The original invoice we're paying
+    pub amount: u64,
+    pub fee_reserve: u64,
+    pub expiry: u64,
+    pub message: String,
+    pub mint_url: String,
+}
+
+#[derive(Serialize)]
+pub struct PaymentStatusResponse {
+    pub quote_id: String,
+    pub state: String,
+    pub amount: u64,
+    pub fee_reserve: u64,
+    pub fee_paid: Option<u64>,
+    pub payment_preimage: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct PendingInvoicesResponse {
+    pub invoices: Vec<PendingInvoiceInfo>,
+}
+
+#[derive(Serialize)]
+pub struct PendingInvoiceInfo {
+    pub quote_id: String,
+    pub payment_request: String,
+    pub amount: u64,
+    pub mint_url: String,
+    pub state: String,
+    pub expiry: u64,
+}
+
+#[derive(Deserialize)]
+pub struct CreateLightningInvoiceRequest {
+    pub amount: u64,
+    pub unit: Option<String>,
+    pub mint_url: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct CreateLightningInvoiceResponse {
+    pub success: bool,
+    pub quote_id: String,
+    pub payment_request: String, // The BOLT11 invoice for others to pay
+    pub amount: u64,
+    pub expiry: u64,
+    pub message: String,
+    pub mint_url: String, // Include mint_url for enhanced payment status checking
+}
+
+pub async fn create_lightning_payment_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateLightningPaymentRequest>,
+) -> Result<Json<CreateLightningPaymentResponse>, (StatusCode, Json<serde_json::Value>)> {
+    use cdk::Bolt11Invoice;
+    use std::str::FromStr;
+
+    eprintln!(
+        "DEBUG: Received lightning payment request: invoice={}, amount={:?}, mint_url={:?}",
+        payload.invoice.chars().take(20).collect::<String>(),
+        payload.amount,
+        payload.mint_url
+    );
+
+    // Parse the BOLT11 invoice that the user wants to pay
+    let bolt11 = match Bolt11Invoice::from_str(&payload.invoice) {
+        Ok(invoice) => invoice,
+        Err(e) => {
+            eprintln!("DEBUG: Failed to parse BOLT11 invoice: {}", e);
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "message": format!("Invalid BOLT11 invoice: {}", e),
+                        "type": "validation_error"
+                    }
+                })),
+            ));
+        }
+    };
+
+    eprintln!(
+        "DEBUG: Parsed BOLT11 invoice - amount: {:?}",
+        bolt11.amount_milli_satoshis()
+    );
+
+    let wallet = if let Some(mint_url) = &payload.mint_url {
+        match state.wallet.get_wallet_for_mint(&mint_url).await {
+            Some(wallet) => {
+                eprintln!("DEBUG: Found wallet for specified mint");
+                wallet
+            }
+            None => {
+                eprintln!("DEBUG: No wallet found for specified mint: {}", mint_url);
+                return Err((
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": format!("No wallet found for mint: {}. Make sure this mint is added to your wallet.", mint_url),
+                            "type": "wallet_not_found"
+                        }
+                    })),
+                ));
+            }
+        }
+    } else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": format!("No wallet found for mint: {:?}. Make sure this mint is added to your wallet.", payload.mint_url),
+                    "type": "wallet_not_found"
+                }
+            })),
+        ));
+    };
+    eprintln!("DEBUG: Creating melt quote for invoice");
+
+    let melt_options = if bolt11.amount_milli_satoshis().is_none() {
+        let amount = payload.amount.ok_or_else(|| {
+            eprintln!("DEBUG: Amount required for amountless invoice but not provided");
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "message": "Amount required for amountless invoice",
+                        "type": "validation_error"
+                    }
+                })),
+            )
+        })?;
+        eprintln!("DEBUG: Using amountless options with {} sats", amount);
+        Some(cdk::nuts::MeltOptions::new_mpp(amount))
+    } else {
+        eprintln!("DEBUG: Using default melt options (invoice has amount)");
+        None
+    };
+
+    println!("{}", payload.invoice);
+    match wallet
+        .melt_quote(payload.invoice.clone(), melt_options)
+        .await
+    {
+        Ok(quote) => {
+            eprintln!(
+                "DEBUG: Successfully created melt quote: {} for {} sats",
+                quote.id,
+                u64::from(quote.amount)
+            );
+
+            Ok(Json(CreateLightningPaymentResponse {
+                success: true,
+                quote_id: quote.id,
+                invoice_to_pay: payload.invoice,
+                amount: quote.amount.into(),
+                fee_reserve: quote.fee_reserve.into(),
+                expiry: quote.expiry,
+                message: format!(
+                    "Payment quote created for {} sats (fee: {} sats)",
+                    u64::from(quote.amount),
+                    u64::from(quote.fee_reserve)
+                ),
+                mint_url: payload.mint_url.unwrap(),
+            }))
+        }
+        Err(e) => {
+            eprintln!("DEBUG: Failed to create melt quote: {:?}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": format!("Failed to create lightning payment quote: {}", e),
+                        "type": "lightning_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn check_lightning_payment_status_handler(
+    State(state): State<Arc<AppState>>,
+    Path(payload): Path<LightningPaymentStatus>,
+) -> Result<Json<PaymentStatusResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let wallet = match state.wallet.get_wallet_for_mint(&payload.mint_url).await {
+        Some(wallet) => {
+            eprintln!("DEBUG: Found wallet for specified mint");
+            wallet
+        }
+        None => {
+            eprintln!(
+                "DEBUG: No wallet found for specified mint: {}",
+                payload.mint_url
+            );
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "error": {
+                        "message": format!("No wallet found for mint: {}. Make sure this mint is added to your wallet.", payload.mint_url),
+                        "type": "wallet_not_found"
+                    }
+                })),
+            ));
+        }
+    };
+
+    let quote = wallet.check_melt_quote(&payload.quote_id).await.unwrap();
+
+    Ok(Json(PaymentStatusResponse {
+        quote_id: payload.quote_id.clone(),
+        state: "pending".to_string(),
+        amount: 0,
+        fee_reserve: 0,
+        fee_paid: None,
+        payment_preimage: None,
+    }))
+}
+
+pub async fn check_lightning_payment_status_with_mint_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<LightningPaymentStatus>,
+) -> Result<Json<PaymentStatusResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let wallet = match state.wallet.get_wallet_for_mint(&payload.mint_url).await {
+        Some(wallet) => {
+            eprintln!("DEBUG: Found wallet for specified mint");
+            wallet
+        }
+        None => {
+            eprintln!(
+                "DEBUG: No wallet found for specified mint: {}",
+                payload.mint_url
+            );
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "error": {
+                        "message": format!("No wallet found for mint: {}. Make sure this mint is added to your wallet.", payload.mint_url),
+                        "type": "wallet_not_found"
+                    }
+                })),
+            ));
+        }
+    };
+
+    let _quote = wallet.check_melt_quote(&payload.quote_id).await.unwrap();
+
+    Ok(Json(PaymentStatusResponse {
+        quote_id: payload.quote_id.clone(),
+        state: "pending".to_string(),
+        amount: 0,
+        fee_reserve: 0,
+        fee_paid: None,
+        payment_preimage: None,
+    }))
+}
+
+pub async fn complete_lightning_topup_handler(
+    State(state): State<Arc<AppState>>,
+    Path(quote_id): Path<String>,
+) -> Result<Json<TopupMintResponse>, (StatusCode, Json<serde_json::Value>)> {
+    use cdk::nuts::CurrencyUnit;
+    use cdk::wallet::types::WalletKey;
+
+    let unit = CurrencyUnit::Msat;
+
+    // Try to execute the melt across all wallets
+    let balances = match state.wallet.inner().cdk_wallet().get_balances(&unit).await {
+        Ok(balances) => balances,
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": format!("Failed to get balances: {}", e),
+                        "type": "wallet_error"
+                    }
+                })),
+            ));
+        }
+    };
+
+    for (mint_url, _) in balances {
+        let wallet_key = WalletKey::new(mint_url, unit.clone());
+        if let Some(wallet) = state
+            .wallet
+            .inner()
+            .cdk_wallet()
+            .get_wallet(&wallet_key)
+            .await
+        {
+            // Try to execute the melt directly
+            match wallet.melt(&quote_id).await {
+                Ok(melt_result) => {
+                    return Ok(Json(TopupMintResponse {
+                        success: true,
+                        message: format!(
+                            "Lightning payment completed. Amount: {} sats, Fee: {} sats",
+                            u64::from(melt_result.amount),
+                            u64::from(melt_result.fee_paid)
+                        ),
+                        invoice: melt_result.preimage,
+                    }));
+                }
+                Err(_) => {
+                    // Continue to next wallet if this one doesn't have the quote
+                    continue;
+                }
+            }
+        }
+    }
+
+    Err((
+        StatusCode::NOT_FOUND,
+        Json(json!({
+            "error": {
+                "message": "Quote not found or payment failed",
+                "type": "payment_error"
+            }
+        })),
+    ))
+}
+
+pub async fn create_lightning_invoice_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateLightningInvoiceRequest>,
+) -> Result<Json<CreateLightningInvoiceResponse>, (StatusCode, Json<serde_json::Value>)> {
+    eprintln!(
+        "DEBUG: Create lightning invoice request - amount: {}, unit: {:?}, mint_url: {:?}, description: {:?}",
+        payload.amount, payload.unit, payload.mint_url, payload.description
+    );
+
+    let wallet = if let Some(mint_url) = &payload.mint_url {
+        match state.wallet.get_wallet_for_mint(&mint_url).await {
+            Some(wallet) => {
+                eprintln!("DEBUG: Found wallet for specified mint");
+                wallet
+            }
+            None => {
+                eprintln!("DEBUG: No wallet found for specified mint: {}", mint_url);
+                return Err((
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": format!("No wallet found for mint: {}. Make sure this mint is added to your wallet.", mint_url),
+                            "type": "wallet_not_found"
+                        }
+                    })),
+                ));
+            }
+        }
+    } else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": format!("No wallet found for mint: {:?}. Make sure this mint is added to your wallet.", payload.mint_url),
+                    "type": "wallet_not_found"
+                }
+            })),
+        ));
+    };
+
+    let mint_result = wallet
+        .mint_quote(payload.amount, payload.description.clone())
+        .await;
+
+    let quote = match mint_result {
+        Ok(quote) => {
+            eprintln!("DEBUG: Successfully created mint quote with description");
+            quote
+        }
+        Err(e) if e.to_string().contains("InvoiceDescriptionUnsupported") => {
+            eprintln!("DEBUG: Description not supported, trying without description");
+            match wallet.mint_quote(payload.amount, None).await {
+                Ok(quote) => {
+                    eprintln!("DEBUG: Successfully created mint quote without description");
+                    quote
+                }
+                Err(e) => {
+                    eprintln!(
+                        "DEBUG: Failed to create mint quote even without description: {:?}",
+                        e
+                    );
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "error": {
+                                "message": format!("Failed to create lightning invoice: {}", e),
+                                "type": "lightning_error"
+                            }
+                        })),
+                    ));
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("DEBUG: Failed to create mint quote: {:?}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": format!("Failed to create lightning invoice: {}", e),
+                        "type": "lightning_error"
+                    }
+                })),
+            ));
+        }
+    };
+
+    Ok(Json(CreateLightningInvoiceResponse {
+        success: true,
+        quote_id: quote.id,
+        payment_request: quote.request,
+        amount: payload.amount,
+        expiry: quote.expiry,
+        message: format!(
+            "Lightning invoice created for {} {}",
+            payload.amount,
+            if let Some(desc) = &payload.description {
+                format!(" - {}", desc)
+            } else {
+                String::new()
+            }
+        ),
+        mint_url: payload.mint_url.clone().unwrap_or_default(), // Include the mint_url used for the invoice
+    }))
+}
+
+pub async fn get_wallet_debug_info(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    use cdk::nuts::CurrencyUnit;
+
+    let mut debug_info = serde_json::Map::new();
+
+    let mints_list = state.wallet.list_mints().await;
+    debug_info.insert("configured_mints".to_string(), json!(mints_list));
+
+    for unit in [CurrencyUnit::Sat, CurrencyUnit::Msat] {
+        match state.wallet.inner().cdk_wallet().get_balances(&unit).await {
+            Ok(balances) => {
+                let balances_map: std::collections::HashMap<String, u64> = balances
+                    .into_iter()
+                    .map(|(mint_url, amount)| (mint_url.to_string(), u64::from(amount)))
+                    .collect();
+                debug_info.insert(
+                    format!("balances_{:?}", unit).to_lowercase(),
+                    json!(balances_map),
+                );
+            }
+            Err(e) => {
+                debug_info.insert(
+                    format!("balances_{:?}_error", unit).to_lowercase(),
+                    json!(e.to_string()),
+                );
+            }
+        }
+    }
+
+    match state.wallet.get_total_balance().await {
+        Ok(total_balance) => {
+            debug_info.insert("total_balance".to_string(), json!(total_balance));
+        }
+        Err(e) => {
+            debug_info.insert("total_balance_error".to_string(), json!(e.to_string()));
+        }
+    }
+
+    Ok(Json(json!(debug_info)))
+}
+
+async fn signup_handler(
     State(app_state): State<Arc<AppState>>,
     Json(request): Json<SignupRequest>,
 ) -> Result<Json<SignupResponse>, (StatusCode, Json<serde_json::Value>)> {
-    use crate::db::{users, organizations};
+    use crate::db::{organizations, users};
 
     if let Err(validation_error) = users::validate_npub(&request.npub) {
         return Err((
@@ -1453,7 +1930,10 @@ pub async fn signup_handler(
         ));
     }
 
-    if users::user_exists(&app_state.db, &request.npub).await.unwrap_or(false) {
+    if users::user_exists(&app_state.db, &request.npub)
+        .await
+        .unwrap_or(false)
+    {
         return Err((
             StatusCode::CONFLICT,
             Json(json!({
@@ -1486,7 +1966,10 @@ pub async fn signup_handler(
     };
 
     let org_name = request.organization_name.unwrap_or_else(|| {
-        format!("{}'s Organization", request.display_name.as_deref().unwrap_or("User"))
+        format!(
+            "{}'s Organization",
+            request.display_name.as_deref().unwrap_or("User")
+        )
     });
 
     let create_org_request = crate::models::CreateOrganizationRequest {
@@ -1494,20 +1977,21 @@ pub async fn signup_handler(
         owner_npub: request.npub.clone(),
     };
 
-    let organization = match organizations::create_organization(&app_state.db, &create_org_request).await {
-        Ok(org) => org,
-        Err(e) => {
-            tracing::error!("Failed to create organization: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": "organization_creation_failed", 
-                    "message": "Failed to create organization",
-                    "type": "internal_server_error"
-                })),
-            ));
-        }
-    };
+    let organization =
+        match organizations::create_organization(&app_state.db, &create_org_request).await {
+            Ok(org) => org,
+            Err(e) => {
+                tracing::error!("Failed to create organization: {}", e);
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": "organization_creation_failed",
+                        "message": "Failed to create organization",
+                        "type": "internal_server_error"
+                    })),
+                ));
+            }
+        };
 
     Ok(Json(SignupResponse {
         success: true,
@@ -1543,6 +2027,119 @@ pub async fn get_user_profile_handler(
                     "error": "get_user_failed",
                     "message": "Failed to get user",
                     "type": "internal_server_error"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 })),
             ));
         }
@@ -1557,7 +2154,8 @@ pub async fn get_user_organizations_handler(
 ) -> Result<Json<Vec<Organization>>, (StatusCode, Json<serde_json::Value>)> {
     use crate::db::organizations;
 
-    let organizations = match organizations::get_organizations_by_owner(&app_state.db, &npub).await {
+    let organizations = match organizations::get_organizations_by_owner(&app_state.db, &npub).await
+    {
         Ok(orgs) => orgs,
         Err(e) => {
             tracing::error!("Failed to get user organizations: {}", e);
@@ -1567,6 +2165,20 @@ pub async fn get_user_organizations_handler(
                     "error": "get_organizations_failed",
                     "message": "Failed to get user organizations",
                     "type": "internal_server_error"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 })),
             ));
         }

@@ -1,15 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Send, Zap, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { MintList } from './mint-list';
 import { CollectSats } from './collect-sats';
+import { LightningTopupModal } from './lightning-topup-modal';
 import {
   MultimintService,
   type TopupMintRequest,
 } from '@/lib/api/services/multimint';
+import {
+  LightningService,
+  type TopupRequest,
+  type CreateInvoiceResponse,
+  type PaymentStatus,
+} from '@/lib/api/services/lightning';
 import { MintService } from '@/lib/api/services/mints';
 import {
   Card,
@@ -42,6 +49,12 @@ import {
 export function MintManagementPage() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [topupDialogOpen, setTopupDialogOpen] = useState(false);
+  const [lightningInvoiceModalOpen, setLightningInvoiceModalOpen] =
+    useState(false);
+  const [currentInvoice, setCurrentInvoice] =
+    useState<CreateInvoiceResponse | null>(null);
+
+  const queryClient = useQueryClient();
 
   const [topupForm, setTopupForm] = useState<TopupMintRequest>({
     mint_url: '',
@@ -50,13 +63,11 @@ export function MintManagementPage() {
     token: undefined,
   });
 
-  // Query for active mints
   const { data: activeMints } = useQuery({
     queryKey: ['active-mints'],
     queryFn: () => MintService.getActiveMints(),
   });
 
-  // Mutation for topup
   const topupMutation = useMutation({
     mutationFn: (data: TopupMintRequest) => MultimintService.topupMint(data),
     onSuccess: (response) => {
@@ -74,6 +85,20 @@ export function MintManagementPage() {
     },
   });
 
+  const lightningInvoiceMutation = useMutation({
+    mutationFn: (data: TopupRequest) => LightningService.createInvoice(data),
+    onSuccess: (response) => {
+      toast.success('Lightning invoice created!');
+      setCurrentInvoice(response);
+      setTopupDialogOpen(false);
+      setLightningInvoiceModalOpen(true);
+    },
+    onError: (error) => {
+      console.error('Lightning invoice error:', error);
+      toast.error('Failed to create lightning invoice. Please try again.');
+    },
+  });
+
   const resetForms = () => {
     setTopupForm({
       mint_url: '',
@@ -84,7 +109,31 @@ export function MintManagementPage() {
   };
 
   const handleTopup = () => {
-    topupMutation.mutate(topupForm);
+    if (
+      topupForm.method === 'lightning' &&
+      topupForm.amount &&
+      topupForm.mint_url
+    ) {
+      const lightningRequest: TopupRequest = {
+        amount: topupForm.amount,
+        unit: 'sat',
+        mint_url: topupForm.mint_url,
+        // description: 'Multimint Lightning Topup',
+      };
+      lightningInvoiceMutation.mutate(lightningRequest);
+    } else {
+      topupMutation.mutate(topupForm);
+    }
+  };
+
+  const handlePaymentComplete = (paymentStatus: PaymentStatus) => {
+    toast.success(
+      `Lightning topup completed! Received ${paymentStatus.amount} sats`
+    );
+    queryClient.invalidateQueries({ queryKey: ['active-mints'] });
+    queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
+    setCurrentInvoice(null);
+    setLightningInvoiceModalOpen(false);
   };
 
   const mintOptions =
@@ -93,9 +142,11 @@ export function MintManagementPage() {
       label: mint.name || MultimintService.getMintDisplayName(mint.mint_url),
     })) || [];
 
+  const isLightningProcessing = lightningInvoiceMutation.isPending;
+  const isTopupProcessing = topupMutation.isPending;
+
   return (
     <div className='space-y-6 p-6'>
-      {/* Quick Actions */}
       <Card>
         <CardHeader>
           <CardTitle className='flex items-center gap-2'>
@@ -108,11 +159,7 @@ export function MintManagementPage() {
         </CardHeader>
         <CardContent>
           <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
-            {/* Send Button */}
-            <Dialog
-              open={sendDialogOpen}
-              onOpenChange={setSendDialogOpen}
-            >
+            <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
               <DialogTrigger asChild>
                 <Button className='h-20 flex-col gap-2' variant='outline'>
                   <Send className='h-6 w-6' />
@@ -197,7 +244,7 @@ export function MintManagementPage() {
                       <SelectContent>
                         <SelectItem value='ecash'>Ecash Token</SelectItem>
                         <SelectItem value='lightning'>
-                          Lightning (Coming Soon)
+                          Lightning Network
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -205,7 +252,7 @@ export function MintManagementPage() {
 
                   {topupForm.method === 'lightning' && (
                     <div className='space-y-2'>
-                      <Label htmlFor='topup-amount'>Amount (msats)</Label>
+                      <Label htmlFor='topup-amount'>Amount (sats)</Label>
                       <Input
                         id='topup-amount'
                         type='number'
@@ -216,8 +263,12 @@ export function MintManagementPage() {
                             amount: parseInt(e.target.value) || undefined,
                           }))
                         }
-                        placeholder='Enter amount'
+                        placeholder='Enter amount in sats'
+                        min='1'
                       />
+                      <p className='text-xs text-gray-500'>
+                        Lightning invoices will be generated for this amount
+                      </p>
                     </div>
                   )}
 
@@ -249,13 +300,20 @@ export function MintManagementPage() {
                   <Button
                     onClick={handleTopup}
                     disabled={
-                      topupMutation.isPending ||
+                      isLightningProcessing ||
+                      isTopupProcessing ||
                       !topupForm.mint_url ||
                       (topupForm.method === 'lightning' && !topupForm.amount) ||
                       (topupForm.method === 'ecash' && !topupForm.token)
                     }
                   >
-                    {topupMutation.isPending ? 'Processing...' : 'Topup'}
+                    {isLightningProcessing || isTopupProcessing
+                      ? topupForm.method === 'lightning'
+                        ? 'Creating Invoice...'
+                        : 'Processing...'
+                      : topupForm.method === 'lightning'
+                        ? 'Create Lightning Invoice'
+                        : 'Topup'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -264,8 +322,14 @@ export function MintManagementPage() {
         </CardContent>
       </Card>
 
-      {/* Mint List */}
       <MintList />
+
+      <LightningTopupModal
+        open={lightningInvoiceModalOpen}
+        onOpenChange={setLightningInvoiceModalOpen}
+        invoice={currentInvoice}
+        onPaymentComplete={handlePaymentComplete}
+      />
     </div>
   );
 }

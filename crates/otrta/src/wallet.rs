@@ -19,11 +19,9 @@ pub async fn send_with_retry(
     db: &Pool,
     api_key_id: Option<&str>,
 ) -> Result<String, SendAmoundResponse> {
-    for _ in 1..if let Some(retry_count) = retries {
-        retry_count
-    } else {
-        3
-    } {
+    let retry_count = retries.unwrap_or(3);
+
+    for _ in 0..retry_count {
         let option = LocalMultimintSendOptions {
             preferred_mint: Some(mint_url.to_string()),
             ..Default::default()
