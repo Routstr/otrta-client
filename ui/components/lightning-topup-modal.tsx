@@ -96,9 +96,11 @@ export function LightningTopupModal({
 
           const checkStatus = async () => {
         try {
-          const status = await LightningService.checkPaymentStatus(
-            invoice.quote_id
-          );
+          // Use enhanced payment status checking with mint_url from invoice response
+          const status = await LightningService.checkPaymentStatusWithMint({
+            quote_id: invoice.quote_id,
+            mint_url: invoice.mint_url
+          });
           setPaymentStatus(status);
 
           const state = status.state.toLowerCase();

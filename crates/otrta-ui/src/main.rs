@@ -154,6 +154,10 @@ async fn main() {
             get(handlers::check_lightning_payment_status_handler),
         )
         .route(
+            "/api/lightning/payment-status-with-mint",
+            post(handlers::check_lightning_payment_status_with_mint_handler),
+        )
+        .route(
             "/api/lightning/complete-topup/{quote_id}",
             post(handlers::complete_lightning_topup_handler),
         )

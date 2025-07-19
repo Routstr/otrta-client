@@ -1430,6 +1430,12 @@ pub struct CreateLightningPaymentRequest {
     pub mint_url: Option<String>, // Optional specific mint to use
 }
 
+#[derive(Deserialize)]
+pub struct LightningPaymentStatus {
+    pub quote_id: String,
+    pub mint_url: String,
+}
+
 #[derive(Serialize)]
 pub struct CreateLightningPaymentResponse {
     pub success: bool,
@@ -1439,6 +1445,7 @@ pub struct CreateLightningPaymentResponse {
     pub fee_reserve: u64,
     pub expiry: u64,
     pub message: String,
+    pub mint_url: String,
 }
 
 #[derive(Serialize)]
@@ -1482,14 +1489,13 @@ pub struct CreateLightningInvoiceResponse {
     pub amount: u64,
     pub expiry: u64,
     pub message: String,
+    pub mint_url: String, // Include mint_url for enhanced payment status checking
 }
 
 pub async fn create_lightning_payment_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateLightningPaymentRequest>,
 ) -> Result<Json<CreateLightningPaymentResponse>, (StatusCode, Json<serde_json::Value>)> {
-    use cdk::nuts::CurrencyUnit;
-    use cdk::wallet::types::WalletKey;
     use cdk::Bolt11Invoice;
     use std::str::FromStr;
 
@@ -1568,12 +1574,13 @@ pub async fn create_lightning_payment_handler(
             )
         })?;
         eprintln!("DEBUG: Using amountless options with {} sats", amount);
-        Some(cdk::nuts::MeltOptions::new_amountless(amount * 1000))
+        Some(cdk::nuts::MeltOptions::new_mpp(amount))
     } else {
         eprintln!("DEBUG: Using default melt options (invoice has amount)");
         None
     };
 
+    println!("{}", payload.invoice);
     match wallet
         .melt_quote(payload.invoice.clone(), melt_options)
         .await
@@ -1597,6 +1604,7 @@ pub async fn create_lightning_payment_handler(
                     u64::from(quote.amount),
                     u64::from(quote.fee_reserve)
                 ),
+                mint_url: payload.mint_url.unwrap(),
             }))
         }
         Err(e) => {
@@ -1615,13 +1623,73 @@ pub async fn create_lightning_payment_handler(
 }
 
 pub async fn check_lightning_payment_status_handler(
-    State(_state): State<Arc<AppState>>,
-    Path(quote_id): Path<String>,
+    State(state): State<Arc<AppState>>,
+    Path(payload): Path<LightningPaymentStatus>,
 ) -> Result<Json<PaymentStatusResponse>, (StatusCode, Json<serde_json::Value>)> {
-    // For now, return a basic status since quote checking across all wallets is complex
-    // In a real implementation, you'd store quote metadata in a database
+    let wallet = match state.wallet.get_wallet_for_mint(&payload.mint_url).await {
+        Some(wallet) => {
+            eprintln!("DEBUG: Found wallet for specified mint");
+            wallet
+        }
+        None => {
+            eprintln!(
+                "DEBUG: No wallet found for specified mint: {}",
+                payload.mint_url
+            );
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "error": {
+                        "message": format!("No wallet found for mint: {}. Make sure this mint is added to your wallet.", payload.mint_url),
+                        "type": "wallet_not_found"
+                    }
+                })),
+            ));
+        }
+    };
+
+    let quote = wallet.check_melt_quote(&payload.quote_id).await.unwrap();
+
     Ok(Json(PaymentStatusResponse {
-        quote_id: quote_id.clone(),
+        quote_id: payload.quote_id.clone(),
+        state: "pending".to_string(),
+        amount: 0,
+        fee_reserve: 0,
+        fee_paid: None,
+        payment_preimage: None,
+    }))
+}
+
+pub async fn check_lightning_payment_status_with_mint_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<LightningPaymentStatus>,
+) -> Result<Json<PaymentStatusResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let wallet = match state.wallet.get_wallet_for_mint(&payload.mint_url).await {
+        Some(wallet) => {
+            eprintln!("DEBUG: Found wallet for specified mint");
+            wallet
+        }
+        None => {
+            eprintln!(
+                "DEBUG: No wallet found for specified mint: {}",
+                payload.mint_url
+            );
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "error": {
+                        "message": format!("No wallet found for mint: {}. Make sure this mint is added to your wallet.", payload.mint_url),
+                        "type": "wallet_not_found"
+                    }
+                })),
+            ));
+        }
+    };
+
+    let _quote = wallet.check_melt_quote(&payload.quote_id).await.unwrap();
+
+    Ok(Json(PaymentStatusResponse {
+        quote_id: payload.quote_id.clone(),
         state: "pending".to_string(),
         amount: 0,
         fee_reserve: 0,
@@ -1798,6 +1866,7 @@ pub async fn create_lightning_invoice_handler(
                 String::new()
             }
         ),
+        mint_url: payload.mint_url.clone().unwrap_or_default(), // Include the mint_url used for the invoice
     }))
 }
 

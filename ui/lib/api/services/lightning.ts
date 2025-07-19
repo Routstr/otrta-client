@@ -24,7 +24,7 @@ export const TopupRequestSchema = z.object({
   amount: z.number().positive(),
   unit: z.string().default('sat'),
   mint_url: z.string().url(),
-  description: z.string().optional(),
+  // description: z.string().optional(),
 });
 
 export const CreateInvoiceResponseSchema = z.object({
@@ -34,11 +34,17 @@ export const CreateInvoiceResponseSchema = z.object({
   amount: z.number(),
   expiry: z.number(),
   message: z.string(),
+  mint_url: z.string(),
 });
 
 export const TopupResponseSchema = z.object({
   invoice: LightningInvoiceSchema,
   message: z.string(),
+});
+
+export const PaymentStatusRequestSchema = z.object({
+  quote_id: z.string(),
+  mint_url: z.string(),
 });
 
 export const PaymentStatusSchema = z.object({
@@ -63,11 +69,14 @@ export type LightningInvoice = z.infer<typeof LightningInvoiceSchema>;
 export type TopupRequest = z.infer<typeof TopupRequestSchema>;
 export type CreateInvoiceResponse = z.infer<typeof CreateInvoiceResponseSchema>;
 export type TopupResponse = z.infer<typeof TopupResponseSchema>;
+export type PaymentStatusRequest = z.infer<typeof PaymentStatusRequestSchema>;
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
 export type TopupResult = z.infer<typeof TopupResultSchema>;
 
 export class LightningService {
-  static async createInvoice(request: TopupRequest): Promise<CreateInvoiceResponse> {
+  static async createInvoice(
+    request: TopupRequest
+  ): Promise<CreateInvoiceResponse> {
     try {
       const validatedRequest = TopupRequestSchema.parse(request);
       const response = await apiClient.post<CreateInvoiceResponse>(
@@ -94,6 +103,27 @@ export class LightningService {
       return PaymentStatusSchema.parse(response);
     } catch (error) {
       console.error('Error checking payment status:', error);
+      throw new Error('Failed to check payment status. Please try again.');
+    }
+  }
+
+  static async checkPaymentStatusWithMint(
+    request: PaymentStatusRequest
+  ): Promise<PaymentStatus> {
+    try {
+      const validatedRequest = PaymentStatusRequestSchema.parse(request);
+      const response = await apiClient.post<PaymentStatus>(
+        '/api/lightning/payment-status-with-mint',
+        validatedRequest
+      );
+      return PaymentStatusSchema.parse(response);
+    } catch (error) {
+      console.error('Error checking payment status with mint:', error);
+      if (error instanceof z.ZodError) {
+        throw new Error(
+          `Validation error: ${error.issues.map((i) => i.message).join(', ')}`
+        );
+      }
       throw new Error('Failed to check payment status. Please try again.');
     }
   }
