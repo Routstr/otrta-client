@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::models::{Organization, CreateOrganizationRequest};
+use crate::models::{CreateOrganizationRequest, Organization};
 
 pub async fn create_organization(
     pool: &PgPool,
@@ -11,7 +11,7 @@ pub async fn create_organization(
 ) -> Result<Organization, AppError> {
     let now = chrono::Utc::now();
     let id = Uuid::new_v4();
-    
+
     let organization = sqlx::query!(
         r#"
         INSERT INTO organizations (id, name, owner_npub, created_at, updated_at, is_active)
@@ -42,7 +42,10 @@ pub async fn create_organization(
     Ok(organization)
 }
 
-pub async fn get_organization_by_id(pool: &PgPool, id: &Uuid) -> Result<Option<Organization>, AppError> {
+pub async fn get_organization_by_id(
+    pool: &PgPool,
+    id: &Uuid,
+) -> Result<Option<Organization>, AppError> {
     let row = sqlx::query!(
         r#"
         SELECT id, name, owner_npub, created_at, updated_at, is_active
@@ -70,7 +73,10 @@ pub async fn get_organization_by_id(pool: &PgPool, id: &Uuid) -> Result<Option<O
     Ok(organization)
 }
 
-pub async fn get_organizations_by_owner(pool: &PgPool, owner_npub: &str) -> Result<Vec<Organization>, AppError> {
+pub async fn get_organizations_by_owner(
+    pool: &PgPool,
+    owner_npub: &str,
+) -> Result<Vec<Organization>, AppError> {
     let rows = sqlx::query!(
         r#"
         SELECT id, name, owner_npub, created_at, updated_at, is_active
@@ -87,19 +93,25 @@ pub async fn get_organizations_by_owner(pool: &PgPool, owner_npub: &str) -> Resu
         AppError::DatabaseError(e.to_string())
     })?;
 
-    let organizations = rows.into_iter().map(|r| Organization {
-        id: r.id,
-        name: r.name,
-        owner_npub: r.owner_npub,
-        created_at: r.created_at.unwrap_or_else(Utc::now),
-        updated_at: r.updated_at.unwrap_or_else(Utc::now),
-        is_active: r.is_active.unwrap_or(true),
-    }).collect();
+    let organizations = rows
+        .into_iter()
+        .map(|r| Organization {
+            id: r.id,
+            name: r.name,
+            owner_npub: r.owner_npub,
+            created_at: r.created_at.unwrap_or_else(Utc::now),
+            updated_at: r.updated_at.unwrap_or_else(Utc::now),
+            is_active: r.is_active.unwrap_or(true),
+        })
+        .collect();
 
     Ok(organizations)
 }
 
-pub async fn get_default_organization_for_user(pool: &PgPool, user_npub: &str) -> Result<Option<Organization>, AppError> {
+pub async fn get_default_organization_for_user(
+    pool: &PgPool,
+    user_npub: &str,
+) -> Result<Option<Organization>, AppError> {
     let row = sqlx::query!(
         r#"
         SELECT id, name, owner_npub, created_at, updated_at, is_active
@@ -148,7 +160,11 @@ pub async fn organization_exists(pool: &PgPool, id: &Uuid) -> Result<bool, AppEr
     Ok(count.unwrap_or(0) > 0)
 }
 
-pub async fn user_owns_organization(pool: &PgPool, user_npub: &str, org_id: &Uuid) -> Result<bool, AppError> {
+pub async fn user_owns_organization(
+    pool: &PgPool,
+    user_npub: &str,
+    org_id: &Uuid,
+) -> Result<bool, AppError> {
     let count = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*) as count
@@ -166,4 +182,4 @@ pub async fn user_owns_organization(pool: &PgPool, user_npub: &str, org_id: &Uui
     })?;
 
     Ok(count.unwrap_or(0) > 0)
-} 
+}

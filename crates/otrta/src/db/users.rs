@@ -2,14 +2,11 @@ use chrono::Utc;
 use sqlx::PgPool;
 
 use crate::error::AppError;
-use crate::models::{User, CreateUserRequest};
+use crate::models::{CreateUserRequest, User};
 
-pub async fn create_user(
-    pool: &PgPool,
-    request: &CreateUserRequest,
-) -> Result<User, AppError> {
+pub async fn create_user(pool: &PgPool, request: &CreateUserRequest) -> Result<User, AppError> {
     let now = chrono::Utc::now();
-    
+
     let row = sqlx::query!(
         r#"
         INSERT INTO users (npub, display_name, email, created_at, updated_at, is_active)
@@ -72,7 +69,7 @@ pub async fn get_user_by_npub(pool: &PgPool, npub: &str) -> Result<Option<User>,
 
 pub async fn update_last_login(pool: &PgPool, npub: &str) -> Result<(), AppError> {
     let now = chrono::Utc::now();
-    
+
     sqlx::query!(
         r#"
         UPDATE users 
@@ -113,12 +110,16 @@ pub async fn user_exists(pool: &PgPool, npub: &str) -> Result<bool, AppError> {
 
 pub fn validate_npub(npub: &str) -> Result<(), AppError> {
     if !npub.starts_with("npub1") {
-        return Err(AppError::ValidationError("Invalid npub format: must start with 'npub1'".to_string()));
+        return Err(AppError::ValidationError(
+            "Invalid npub format: must start with 'npub1'".to_string(),
+        ));
     }
-    
+
     if npub.len() != 63 {
-        return Err(AppError::ValidationError("Invalid npub format: must be 63 characters long".to_string()));
+        return Err(AppError::ValidationError(
+            "Invalid npub format: must be 63 characters long".to_string(),
+        ));
     }
-    
+
     Ok(())
-} 
+}
