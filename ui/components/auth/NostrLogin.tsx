@@ -34,20 +34,7 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
 
   useEffect(() => {
     // Initialize nostr auth
-    nostrAuth.initialize({
-      onAuth: (user) => {
-        setCurrentUser(user);
-        setSuccess(`Logged in as ${user.npub.substring(0, 16)}...`);
-        onLogin?.(user);
-      },
-      onLogout: () => {
-        setCurrentUser(null);
-        setSuccess(null);
-        setError(null);
-        setRedirectCounter(3);
-        setPermissionStatus(null);
-      }
-    });
+    nostrAuth.initialize();
 
     // Check for existing auth
     const user = nostrAuth.getCurrentUser();
@@ -62,6 +49,16 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
     // Listen for auth changes
     const unsubscribe = nostrAuth.onAuthChange((user) => {
       setCurrentUser(user);
+      if (user) {
+        setSuccess(`Logged in as ${user.npub.substring(0, 16)}...`);
+        onLogin?.(user);
+      } else {
+        setCurrentUser(null);
+        setSuccess(null);
+        setError(null);
+        setRedirectCounter(3);
+        setPermissionStatus(null);
+      }
     });
 
     return unsubscribe;
@@ -121,9 +118,9 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
     setSuccess(null);
 
     try {
-      await nostrAuth.loginWithAmber();
+      setError('Remote signing is not supported in this simplified version');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Amber login failed';
+      const errorMessage = err instanceof Error ? err.message : 'Remote login failed';
       setError(errorMessage);
       onError?.(errorMessage);
     } finally {

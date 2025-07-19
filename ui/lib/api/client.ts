@@ -53,10 +53,7 @@ class ApiClient {
       }
 
       // Initialize nostr auth for fresh login
-      await nostrAuth.initialize({
-        theme: 'default',
-        darkMode: document.documentElement.classList.contains('dark'),
-      });
+      await nostrAuth.initialize();
 
       // Redirect to login page
       window.location.href = '/login';

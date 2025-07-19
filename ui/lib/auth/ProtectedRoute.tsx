@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
-import { NostrLogin } from '@/components/auth/NostrLogin';
 import { ConfigurationService } from '@/lib/api/services/configuration';
 import { authStateManager } from './auth-state';
 import { Loader2 } from 'lucide-react';
@@ -18,6 +17,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const { isAuthenticated, isLoading } = useNostrAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   const publicRoutes = ['/', '/login', '/register'];
   const isPublicRoute = publicRoutes.includes(pathname);
@@ -81,7 +81,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // If authentication is enabled but user is not authenticated, show login
   if (!isAuthenticated) {
-    return <NostrLogin />;
+    router.push('/login');
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   // User is authenticated, show the protected content

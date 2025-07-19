@@ -1,29 +1,34 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import Link from 'next/link';
-import { Wallet, Loader2, User } from 'lucide-react';
+import { Wallet, Loader2, Plus, Key, AlertCircle } from 'lucide-react';
 import { nostrAuthSimple } from '@/lib/api/services/nostr-auth-simple';
 
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [nsec, setNsec] = useState('');
+  const [hasExtension, setHasExtension] = useState(false);
 
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         await nostrAuthSimple.initialize();
         
-        // Check if user is already authenticated
         const currentUser = nostrAuthSimple.getCurrentUser();
         if (currentUser) {
           toast.success('Already authenticated! Redirecting to dashboard...');
           router.push('/dashboard');
         }
+
+        setHasExtension(!!window.nostr);
       } catch (error) {
         console.error('Failed to initialize Nostr auth:', error);
         toast.error('Failed to initialize authentication');
@@ -32,11 +37,9 @@ export default function LoginPage() {
 
     initializeAuth();
 
-    // Listen for auth changes
     const unsubscribe = nostrAuthSimple.onAuthChange((user) => {
       if (user) {
         toast.success(`Successfully authenticated with ${user.method}`);
-        // Redirect to dashboard after successful authentication
         setTimeout(() => {
           router.push('/dashboard');
         }, 1000);
@@ -46,7 +49,7 @@ export default function LoginPage() {
     return unsubscribe;
   }, [router]);
 
-  const handleNostrExtension = async () => {
+  const handleExtensionLogin = async () => {
     setIsLoading(true);
     try {
       await nostrAuthSimple.loginWithExtension();
@@ -58,28 +61,31 @@ export default function LoginPage() {
     }
   };
 
-  const handleNostrConnect = async () => {
+  const handleNsecLogin = async () => {
+    if (!nsec.trim()) {
+      toast.error('Please enter your nsec key');
+      return;
+    }
+
+    if (!nsec.startsWith('nsec1')) {
+      toast.error('Invalid nsec format. Must start with nsec1');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await nostrAuthSimple.loginWithConnect();
+      await nostrAuthSimple.loginWithNsec(nsec);
+      setNsec('');
     } catch (error) {
-      console.error('Nostr Connect error:', error);
-      toast.error('Failed to authenticate with Nostr Connect.');
+      console.error('Nsec auth error:', error);
+      toast.error('Invalid nsec key. Please check and try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLocalKey = async () => {
-    setIsLoading(true);
-    try {
-      await nostrAuthSimple.loginWithLocalKey();
-    } catch (error) {
-      console.error('Local key error:', error);
-      toast.error('Failed to authenticate with local key.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleCreateAccount = () => {
+    toast.info('Account creation is currently disabled. Please use an existing Nostr key or extension.');
   };
 
   return (
@@ -95,9 +101,20 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
+          
           <Button
-            onClick={handleNostrExtension}
-            disabled={isLoading}
+            onClick={handleCreateAccount}
+            disabled={true}
+            className='w-full opacity-50 cursor-not-allowed'
+            variant='outline'
+          >
+            <Plus className='mr-2 h-4 w-4' />
+            Create New Nostr Account (Coming Soon)
+          </Button>
+
+          <Button
+            onClick={handleExtensionLogin}
+            disabled={isLoading || !hasExtension}
             className='w-full'
             variant='outline'
           >
@@ -118,48 +135,45 @@ export default function LoginPage() {
             Browser Extension
           </Button>
 
-          <Button
-            onClick={handleNostrConnect}
-            disabled={isLoading}
-            className='w-full'
-            variant='outline'
-          >
-            {isLoading ? (
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-            ) : (
-              <svg className='mr-2 h-4 w-4' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>
-                <path
-                  d='M13 3L4 14h7l-1 8 9-11h-7l1-8z'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                />
-              </svg>
-            )}
-            Nostr Connect
-          </Button>
+          {!hasExtension && (
+            <Alert>
+              <AlertCircle className='h-4 w-4' />
+              <AlertDescription>
+                No Nostr extension detected. Please install a Nostr extension like Alby or nos2x.
+              </AlertDescription>
+            </Alert>
+          )}
 
-          <Button
-            onClick={handleLocalKey}
-            disabled={isLoading}
-            className='w-full'
-            variant='outline'
-          >
-            {isLoading ? (
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-            ) : (
-              <User className='mr-2 h-4 w-4' />
-            )}
-            Use Local Key
-          </Button>
-
-          <div className='mt-6 text-center'>
-            <p className='text-sm text-muted-foreground'>
-              Don&apos;t have an account?{' '}
-              <Link href='/register' className='font-medium text-primary hover:underline'>
-                Create one now
-              </Link>
+          <div className='space-y-2'>
+            <Label htmlFor='nsec'>Or enter your Nostr secret key:</Label>
+            <div className='flex gap-2'>
+              <Input
+                id='nsec'
+                type='password'
+                placeholder='nsec1...'
+                value={nsec}
+                onChange={(e) => setNsec(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleNsecLogin();
+                  }
+                }}
+                disabled={isLoading}
+              />
+              <Button
+                onClick={handleNsecLogin}
+                disabled={isLoading || !nsec.trim()}
+                size='sm'
+              >
+                {isLoading ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : (
+                  <Key className='h-4 w-4' />
+                )}
+              </Button>
+            </div>
+            <p className='text-xs text-muted-foreground'>
+              Your secret key starts with nsec1 and will not be stored on our servers
             </p>
           </div>
         </CardContent>

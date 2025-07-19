@@ -27,10 +27,7 @@ export function useNostrAuth(): UseNostrAuthReturn {
         setError(null);
         
         // Initialize nostr-auth
-        await nostrAuth.initialize({
-          theme: 'default',
-          darkMode: document.documentElement.classList.contains('dark'),
-        });
+        await nostrAuth.initialize();
         
         // Set initial user state
         setUser(nostrAuth.getCurrentUser());
@@ -62,10 +59,7 @@ export function useNostrAuth(): UseNostrAuthReturn {
       setIsLoading(true);
       setError(null);
       
-      await nostrAuth.initialize({
-        theme: 'default',
-        darkMode: document.documentElement.classList.contains('dark'),
-      });
+      await nostrAuth.initialize();
       setUser(nostrAuth.getCurrentUser());
     } catch (err) {
       console.error('Failed to initialize auth:', err);
