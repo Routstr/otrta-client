@@ -90,7 +90,7 @@ export class NostrAuthSimple {
     try {
       // Import nostr-login dynamically for Next.js SSR compatibility
       const { init } = await import('nostr-login');
-      
+
       // Initialize nostr-login with options
       // Using type assertion to bypass type conflicts with external library
       this.nostrLogin = init({
@@ -103,7 +103,10 @@ export class NostrAuthSimple {
       } as never);
 
       // Listen for authentication events
-      document.addEventListener('nlAuth', this.handleAuthEvent.bind(this) as EventListener);
+      document.addEventListener(
+        'nlAuth',
+        this.handleAuthEvent.bind(this) as EventListener
+      );
 
       this.isInitialized = true;
       await this.checkExistingAuth();
@@ -113,7 +116,10 @@ export class NostrAuthSimple {
     }
   }
 
-  private handleNostrLoginAuth(npub: string, options: NostrLoginAuthOptions): void {
+  private handleNostrLoginAuth(
+    npub: string,
+    options: NostrLoginAuthOptions
+  ): void {
     if (npub) {
       try {
         const decoded = nip19.decode(npub);
@@ -152,7 +158,9 @@ export class NostrAuthSimple {
     }
   }
 
-  private mapAuthMethod(method: string): 'extension' | 'connect' | 'readOnly' | 'local' {
+  private mapAuthMethod(
+    method: string
+  ): 'extension' | 'connect' | 'readOnly' | 'local' {
     switch (method) {
       case 'extension':
         return 'extension';
@@ -202,7 +210,7 @@ export class NostrAuthSimple {
         return {
           hasGetPublicKey: false,
           hasSignEvent: false,
-          error: 'No Nostr extension detected'
+          error: 'No Nostr extension detected',
         };
       }
 
@@ -224,7 +232,7 @@ export class NostrAuthSimple {
             kind: 27235,
             content: 'Nostr extension permission test',
             tags: [],
-            created_at: Math.floor(Date.now() / 1000)
+            created_at: Math.floor(Date.now() / 1000),
           });
           hasSignEvent = true;
         } catch (error) {
@@ -237,7 +245,7 @@ export class NostrAuthSimple {
       return {
         hasGetPublicKey: false,
         hasSignEvent: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -245,7 +253,7 @@ export class NostrAuthSimple {
   async loginWithExtension(): Promise<NostrUser> {
     try {
       await this.launchAuth('login');
-      
+
       // Wait for authentication to complete
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -264,14 +272,16 @@ export class NostrAuthSimple {
       });
     } catch (error) {
       console.error('Failed to login with extension:', error);
-      throw new Error('Failed to authenticate with browser extension. Please try again.');
+      throw new Error(
+        'Failed to authenticate with browser extension. Please try again.'
+      );
     }
   }
 
   async loginWithConnect(): Promise<NostrUser> {
     try {
       await this.launchAuth('connect');
-      
+
       // Wait for authentication to complete
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -290,7 +300,9 @@ export class NostrAuthSimple {
       });
     } catch (error) {
       console.error('Failed to login with Nostr Connect:', error);
-      throw new Error('Failed to authenticate with Nostr Connect. Please try again.');
+      throw new Error(
+        'Failed to authenticate with Nostr Connect. Please try again.'
+      );
     }
   }
 
@@ -298,21 +310,24 @@ export class NostrAuthSimple {
     try {
       // Validate the input
       let pubkey: string;
-      
+
       if (npubOrPublicKey.startsWith('npub')) {
         const decoded = nip19.decode(npubOrPublicKey);
         if (decoded.type !== 'npub') {
           throw new Error('Invalid npub format');
         }
         pubkey = decoded.data as string;
-      } else if (npubOrPublicKey.length === 64 && /^[0-9a-f]+$/i.test(npubOrPublicKey)) {
+      } else if (
+        npubOrPublicKey.length === 64 &&
+        /^[0-9a-f]+$/i.test(npubOrPublicKey)
+      ) {
         pubkey = npubOrPublicKey;
       } else {
         throw new Error('Invalid public key format');
       }
 
       const npub = nip19.npubEncode(pubkey);
-      
+
       // Set read-only user
       const user: NostrUser = {
         npub,
@@ -331,7 +346,7 @@ export class NostrAuthSimple {
   async loginWithLocalKey(): Promise<NostrUser> {
     try {
       await this.launchAuth('local-signup');
-      
+
       // Wait for authentication to complete
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -380,11 +395,11 @@ export class NostrAuthSimple {
         content: event.content,
         tags: event.tags,
         created_at: event.created_at,
-        pubkey: event.pubkey || this.currentUser.pubkey
+        pubkey: event.pubkey || this.currentUser.pubkey,
       };
 
       const signedEvent = await window.nostr.signEvent(eventToSign);
-      
+
       // Verify the signed event
       if (!verifyEvent(signedEvent)) {
         throw new Error('Event verification failed');
@@ -404,14 +419,14 @@ export class NostrAuthSimple {
     } catch (error) {
       console.error('Failed to logout from nostr-login:', error);
     }
-    
+
     this.setCurrentUser(null);
   }
 
   private setCurrentUser(user: NostrUser | null): void {
     this.currentUser = user;
     this.notifyAuthCallbacks(user);
-    
+
     if (user && this.options.onAuth) {
       this.options.onAuth(user);
     } else if (!user && this.options.onLogout) {
@@ -474,4 +489,4 @@ export class NostrAuthSimple {
   }
 }
 
-export const nostrAuthSimple = NostrAuthSimple.getInstance(); 
+export const nostrAuthSimple = NostrAuthSimple.getInstance();
