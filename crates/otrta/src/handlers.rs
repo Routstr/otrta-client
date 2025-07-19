@@ -1522,37 +1522,8 @@ pub async fn create_lightning_payment_handler(
         bolt11.amount_milli_satoshis()
     );
 
-    let unit = CurrencyUnit::Msat;
-
-    // Get wallet for the specified mint or use first available with sufficient balance
     let wallet = if let Some(mint_url) = &payload.mint_url {
-        eprintln!("DEBUG: Using specified mint URL: {}", mint_url);
-        let mint_url_parsed = match cdk::mint_url::MintUrl::from_str(mint_url) {
-            Ok(url) => url,
-            Err(e) => {
-                eprintln!("DEBUG: Failed to parse mint URL: {}", e);
-                return Err((
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Invalid mint URL: {}", e),
-                            "type": "validation_error"
-                        }
-                    })),
-                ));
-            }
-        };
-
-        let wallet_key = WalletKey::new(mint_url_parsed, unit.clone());
-        eprintln!("DEBUG: Created wallet key for mint: {:?}", wallet_key);
-
-        match state
-            .wallet
-            .inner()
-            .cdk_wallet()
-            .get_wallet(&wallet_key)
-            .await
-        {
+        match state.wallet.get_wallet_for_mint(&mint_url).await {
             Some(wallet) => {
                 eprintln!("DEBUG: Found wallet for specified mint");
                 wallet
@@ -1571,121 +1542,18 @@ pub async fn create_lightning_payment_handler(
             }
         }
     } else {
-        eprintln!("DEBUG: No mint URL specified, finding wallet with sufficient balance");
-
-        // Get first available wallet with sufficient balance
-        let balances = match state.wallet.inner().cdk_wallet().get_balances(&unit).await {
-            Ok(balances) => {
-                eprintln!("DEBUG: Found {} mints with balances", balances.len());
-                for (mint_url, balance) in &balances {
-                    eprintln!(
-                        "DEBUG: Mint {} has balance: {}",
-                        mint_url,
-                        u64::from(*balance)
-                    );
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": format!("No wallet found for mint: {:?}. Make sure this mint is added to your wallet.", payload.mint_url),
+                    "type": "wallet_not_found"
                 }
-                balances
-            }
-            Err(e) => {
-                eprintln!("DEBUG: Failed to get balances: {}", e);
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Failed to get wallet balances: {}", e),
-                            "type": "wallet_error"
-                        }
-                    })),
-                ));
-            }
-        };
-
-        if balances.is_empty() {
-            eprintln!("DEBUG: No mints found with any balance");
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": {
-                        "message": "No mints available. Please add a mint to your wallet first.",
-                        "type": "no_mints_available"
-                    }
-                })),
-            ));
-        }
-
-        let payment_amount = bolt11
-            .amount_milli_satoshis()
-            .or_else(|| payload.amount.map(|a| a * 1000))
-            .unwrap_or(0);
-        let required_amount = cdk::Amount::from(payment_amount / 1000); // Convert to sats
-
-        eprintln!(
-            "DEBUG: Required amount: {} sats (from {} msats)",
-            u64::from(required_amount),
-            payment_amount
-        );
-
-        let (mint_url, mint_balance) = balances
-            .iter()
-            .find(|(_, balance)| {
-                let sufficient = **balance >= required_amount;
-                eprintln!("DEBUG: Checking mint balance: {} >= {} = {}", u64::from(**balance), u64::from(required_amount), sufficient);
-                sufficient
-            })
-            .ok_or_else(|| {
-                eprintln!("DEBUG: No mint has sufficient balance for payment");
-                (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": {
-                            "message": format!("No mint has sufficient balance for this payment. Required: {} sats, Available balances: {:?}", 
-                                             u64::from(required_amount),
-                                             balances.iter().map(|(url, bal)| format!("{}: {} sats", url, u64::from(*bal))).collect::<Vec<_>>()),
-                            "type": "insufficient_funds"
-                        }
-                    })),
-                )
-            })?;
-
-        eprintln!(
-            "DEBUG: Selected mint {} with balance {} sats",
-            mint_url,
-            u64::from(*mint_balance)
-        );
-
-        let wallet_key = WalletKey::new(mint_url.clone(), unit.clone());
-        match state
-            .wallet
-            .inner()
-            .cdk_wallet()
-            .get_wallet(&wallet_key)
-            .await
-        {
-            Some(wallet) => {
-                eprintln!("DEBUG: Successfully retrieved wallet for selected mint");
-                wallet
-            }
-            None => {
-                eprintln!(
-                    "DEBUG: Failed to get wallet for selected mint: {}",
-                    mint_url
-                );
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Wallet not found for selected mint: {}", mint_url),
-                            "type": "wallet_error"
-                        }
-                    })),
-                ));
-            }
-        }
+            })),
+        ));
     };
-
     eprintln!("DEBUG: Creating melt quote for invoice");
 
-    // Create melt quote for paying the invoice
     let melt_options = if bolt11.amount_milli_satoshis().is_none() {
         let amount = payload.amount.ok_or_else(|| {
             eprintln!("DEBUG: Amount required for amountless invoice but not provided");
@@ -1832,52 +1700,13 @@ pub async fn create_lightning_invoice_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateLightningInvoiceRequest>,
 ) -> Result<Json<CreateLightningInvoiceResponse>, (StatusCode, Json<serde_json::Value>)> {
-    use cdk::nuts::CurrencyUnit;
-    use cdk::wallet::types::WalletKey;
-    use std::str::FromStr;
-
     eprintln!(
         "DEBUG: Create lightning invoice request - amount: {}, unit: {:?}, mint_url: {:?}, description: {:?}",
         payload.amount, payload.unit, payload.mint_url, payload.description
     );
 
-    let unit = match payload.unit.as_deref() {
-        Some("sat") => CurrencyUnit::Sat,
-        Some("msat") => CurrencyUnit::Msat,
-        _ => CurrencyUnit::Msat, // Default to sat
-    };
-
-    eprintln!("DEBUG: Using currency unit: {:?}", unit);
-
-    // Get wallet for the specified mint or use first available
     let wallet = if let Some(mint_url) = &payload.mint_url {
-        eprintln!("DEBUG: Using specified mint URL: {}", mint_url);
-        let mint_url_parsed = match cdk::mint_url::MintUrl::from_str(mint_url) {
-            Ok(url) => url,
-            Err(e) => {
-                eprintln!("DEBUG: Failed to parse mint URL: {}", e);
-                return Err((
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Invalid mint URL: {}", e),
-                            "type": "validation_error"
-                        }
-                    })),
-                ));
-            }
-        };
-
-        let wallet_key = WalletKey::new(mint_url_parsed, unit.clone());
-        eprintln!("DEBUG: Created wallet key for mint: {:?}", wallet_key);
-
-        match state
-            .wallet
-            .inner()
-            .cdk_wallet()
-            .get_wallet(&wallet_key)
-            .await
-        {
+        match state.wallet.get_wallet_for_mint(&mint_url).await {
             Some(wallet) => {
                 eprintln!("DEBUG: Found wallet for specified mint");
                 wallet
@@ -1896,85 +1725,19 @@ pub async fn create_lightning_invoice_handler(
             }
         }
     } else {
-        eprintln!("DEBUG: No mint URL specified, using first available wallet");
-
-        // Get first available wallet
-        let balances = match state.wallet.inner().cdk_wallet().get_balances(&unit).await {
-            Ok(balances) => {
-                eprintln!("DEBUG: Found {} mints with balances", balances.len());
-                balances
-            }
-            Err(e) => {
-                eprintln!("DEBUG: Failed to get balances: {}", e);
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Failed to get wallet balances: {}", e),
-                            "type": "wallet_error"
-                        }
-                    })),
-                ));
-            }
-        };
-
-        if balances.is_empty() {
-            eprintln!("DEBUG: No mints found");
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": {
-                        "message": "No mints available. Please add a mint to your wallet first.",
-                        "type": "no_mints_available"
-                    }
-                })),
-            ));
-        }
-
-        // Use the first available mint
-        let (mint_url, _) = balances.iter().next().unwrap();
-        eprintln!("DEBUG: Using first available mint: {}", mint_url);
-
-        let wallet_key = WalletKey::new(mint_url.clone(), unit.clone());
-        match state
-            .wallet
-            .inner()
-            .cdk_wallet()
-            .get_wallet(&wallet_key)
-            .await
-        {
-            Some(wallet) => {
-                eprintln!("DEBUG: Successfully retrieved wallet for mint");
-                wallet
-            }
-            None => {
-                eprintln!("DEBUG: Failed to get wallet for mint: {}", mint_url);
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Wallet not found for mint: {}", mint_url),
-                            "type": "wallet_error"
-                        }
-                    })),
-                ));
-            }
-        }
-    };
-
-    eprintln!(
-        "DEBUG: Creating mint quote for {} {:?}",
-        payload.amount, unit
-    );
-
-    let amount_in_base_unit = match unit {
-        CurrencyUnit::Sat => cdk::Amount::from(payload.amount),
-        CurrencyUnit::Msat => cdk::Amount::from(payload.amount),
-        _ => cdk::Amount::from(payload.amount),
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": format!("No wallet found for mint: {:?}. Make sure this mint is added to your wallet.", payload.mint_url),
+                    "type": "wallet_not_found"
+                }
+            })),
+        ));
     };
 
     let mint_result = wallet
-        .mint_quote(amount_in_base_unit, payload.description.clone())
+        .mint_quote(payload.amount, payload.description.clone())
         .await;
 
     let quote = match mint_result {
@@ -1984,7 +1747,7 @@ pub async fn create_lightning_invoice_handler(
         }
         Err(e) if e.to_string().contains("InvoiceDescriptionUnsupported") => {
             eprintln!("DEBUG: Description not supported, trying without description");
-            match wallet.mint_quote(amount_in_base_unit, None).await {
+            match wallet.mint_quote(payload.amount, None).await {
                 Ok(quote) => {
                     eprintln!("DEBUG: Successfully created mint quote without description");
                     quote
@@ -2020,11 +1783,6 @@ pub async fn create_lightning_invoice_handler(
         }
     };
 
-    eprintln!(
-        "DEBUG: Successfully created mint quote: {} for {} {:?}",
-        quote.id, payload.amount, unit
-    );
-
     Ok(Json(CreateLightningInvoiceResponse {
         success: true,
         quote_id: quote.id,
@@ -2032,9 +1790,8 @@ pub async fn create_lightning_invoice_handler(
         amount: payload.amount,
         expiry: quote.expiry,
         message: format!(
-            "Lightning invoice created for {} {:?}{}",
+            "Lightning invoice created for {} {}",
             payload.amount,
-            unit,
             if let Some(desc) = &payload.description {
                 format!(" - {}", desc)
             } else {

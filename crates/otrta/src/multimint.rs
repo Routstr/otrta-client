@@ -1,6 +1,8 @@
 use crate::db::mint::CurrencyUnit;
 use crate::db::transaction::{add_transaction, TransactionDirection};
 use crate::db::Pool;
+use cdk::mint::MintQuote;
+use cdk::{wallet::SendOptions, Amount};
 use ecash_402_wallet::multimint::{MultimintSendOptions, MultimintWallet};
 use serde::{Deserialize, Serialize};
 
@@ -241,8 +243,6 @@ impl CdkWalletWrapper {
     }
 
     pub async fn send(&self, amount: u64) -> Result<String, Box<dyn std::error::Error>> {
-        use cdk::{wallet::SendOptions, Amount};
-
         let amount_obj = Amount::from(amount);
         let prepared_send = self
             .inner
@@ -268,5 +268,23 @@ impl CdkWalletWrapper {
 
         let amount: u64 = balance.into();
         Ok(amount)
+    }
+
+    pub async fn mint_quote(
+        &self,
+        amount: u64,
+        description: Option<String>,
+    ) -> Result<cdk::wallet::MintQuote, cdk::Error> {
+        self.inner
+            .mint_quote(Amount::from(amount), description)
+            .await
+    }
+
+    pub async fn melt_quote(
+        &self,
+        invoice: String,
+        options: Option<cdk::nuts::MeltOptions>,
+    ) -> Result<cdk::wallet::MeltQuote, cdk::Error> {
+        self.inner.melt_quote(invoice, options).await
     }
 }
