@@ -18,18 +18,26 @@ pub async fn send_with_retry(
     retries: Option<i32>,
     db: &Pool,
 ) -> Result<String, SendAmoundResponse> {
-    for _ in 1..if let Some(retry_count) = retries {
-        retry_count
-    } else {
-        3
-    } {
+    let retry_count = retries.unwrap_or(3);
+
+    for attempt in 0..retry_count {
         let option = LocalMultimintSendOptions {
             preferred_mint: Some(mint_url.to_string()),
             ..Default::default()
         };
 
-        if let Ok(token_result) = wallet.send(amount as u64, option, db).await {
-            return Ok(token_result);
+        match wallet.send(amount as u64, option, db).await {
+            Ok(token_result) => {
+                return Ok(token_result);
+            }
+            Err(e) => {
+                if attempt == retry_count - 1 {
+                    return Err(SendAmoundResponse::Error(format!(
+                        "wallet: failed to generate token after {} attempts: {:?}",
+                        retry_count, e
+                    )));
+                }
+            }
         }
     }
 

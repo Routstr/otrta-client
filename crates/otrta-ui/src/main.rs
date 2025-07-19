@@ -122,6 +122,11 @@ async fn main() {
             post(handlers::transfer_between_mints_handler),
         )
         .route("/api/multimint/topup", post(handlers::topup_mint_handler))
+        .route("/api/lightning/create-invoice", post(handlers::create_lightning_invoice_handler))
+        .route("/api/lightning/create-payment", post(handlers::create_lightning_payment_handler))
+        .route("/api/lightning/payment-status/{quote_id}", get(handlers::check_lightning_payment_status_handler))
+        .route("/api/lightning/complete-topup/{quote_id}", post(handlers::complete_lightning_topup_handler))
+        .route("/api/debug/wallet", get(handlers::get_wallet_debug_info))
         .route("/{*path}", post(forward_any_request))
         .route("/v1/{*path}", post(forward_any_request))
         .route("/{*path}", get(forward_any_request_get))

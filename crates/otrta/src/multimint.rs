@@ -62,6 +62,10 @@ impl MultimintWalletWrapper {
         Ok(Self { inner: wallet })
     }
 
+    pub fn inner(&self) -> &MultimintWallet {
+        &self.inner
+    }
+
     pub async fn add_mint(
         &self,
         mint_url: &str,
@@ -164,11 +168,12 @@ impl MultimintWalletWrapper {
         Ok(result)
     }
 
-    pub async fn get_wallet_for_mint(
-        &self,
-        mint_url: &str,
-    ) -> Option<ecash_402_wallet::wallet::CashuWalletClient> {
-        self.inner.get_wallet_for_mint(mint_url).cloned()
+    pub async fn get_wallet_for_mint(&self, mint_url: &str) -> Option<CdkWalletWrapper> {
+        if let Some(cdk_wallet) = self.inner.get_wallet_for_mint(mint_url).await {
+            Some(CdkWalletWrapper::new(cdk_wallet))
+        } else {
+            None
+        }
     }
 
     pub async fn redeem_pendings(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -181,7 +186,11 @@ impl MultimintWalletWrapper {
         Ok(balance.total_balance.to_string())
     }
 
-    pub async fn send_simple(&self, amount: u64, db: &Pool) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn send_simple(
+        &self,
+        amount: u64,
+        db: &Pool,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         self.send(amount, LocalMultimintSendOptions::default(), db)
             .await
     }
@@ -203,5 +212,59 @@ impl MultimintWalletWrapper {
         }
 
         Ok(serde_json::Value::Object(result))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CdkWalletWrapper {
+    inner: cdk::wallet::Wallet,
+}
+
+impl CdkWalletWrapper {
+    pub fn new(wallet: cdk::wallet::Wallet) -> Self {
+        Self { inner: wallet }
+    }
+
+    pub async fn receive(&self, token: &str) -> Result<u64, Box<dyn std::error::Error>> {
+        use cdk::wallet::ReceiveOptions;
+
+        let received = self
+            .inner
+            .receive(token, ReceiveOptions::default())
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+        let amount: u64 = received.into();
+        Ok(amount)
+    }
+
+    pub async fn send(&self, amount: u64) -> Result<String, Box<dyn std::error::Error>> {
+        use cdk::{wallet::SendOptions, Amount};
+
+        let amount_obj = Amount::from(amount);
+        let prepared_send = self
+            .inner
+            .prepare_send(amount_obj, SendOptions::default())
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+        let token = self
+            .inner
+            .send(prepared_send, None)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+        Ok(token.to_string())
+    }
+
+    pub async fn balance(&self) -> Result<u64, Box<dyn std::error::Error>> {
+        let balance = self
+            .inner
+            .total_balance()
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+        let amount: u64 = balance.into();
+        Ok(amount)
     }
 }
