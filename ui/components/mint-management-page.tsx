@@ -15,7 +15,6 @@ import {
   LightningService,
   type TopupRequest,
   type CreateInvoiceResponse,
-  type PaymentStatus,
 } from '@/lib/api/services/lightning';
 import { MintService } from '@/lib/api/services/mints';
 import {

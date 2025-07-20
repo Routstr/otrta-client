@@ -182,9 +182,6 @@ export class ConfigurationService {
       // Save to localStorage first
       this.saveServerConfig(config);
 
-      // Always use the local server URL for saving configuration
-      const localBaseUrl = this.getLocalBaseUrl();
-
       // Convert from camelCase to snake_case for the backend
       const backendConfig = {
         endpoint: config.endpoint,
