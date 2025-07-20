@@ -285,6 +285,12 @@ export function MintManagementPage() {
                           }))
                         }
                         placeholder='Paste ecash token here'
+                        className='resize-none overflow-y-auto max-h-32 min-h-20'
+                        style={{ 
+                          wordBreak: 'break-all',
+                          overflowWrap: 'anywhere',
+                          whiteSpace: 'pre-wrap'
+                        }}
                         rows={4}
                       />
                     </div>

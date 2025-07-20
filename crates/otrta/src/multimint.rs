@@ -5,8 +5,6 @@ use cdk::{wallet::SendOptions, Amount};
 use ecash_402_wallet::multimint::{MultimintSendOptions, MultimintWallet};
 use serde::{Deserialize, Serialize};
 
-
-
 fn convert_currency_unit_from_cdk(unit: cdk::nuts::CurrencyUnit) -> CurrencyUnit {
     match unit {
         cdk::nuts::CurrencyUnit::Sat => CurrencyUnit::Sat,
@@ -95,7 +93,9 @@ impl MultimintWalletWrapper {
         let balance = self.inner.get_total_balance().await?;
 
         let balances_by_mint: Vec<LocalMintBalance> = balance
-            .balances_by_mint.into_values().map(|mint_balance| LocalMintBalance {
+            .balances_by_mint
+            .into_values()
+            .map(|mint_balance| LocalMintBalance {
                 mint_url: mint_balance.mint_url,
                 balance: mint_balance.balance,
                 unit: convert_currency_unit_from_cdk(mint_balance.unit),
@@ -126,7 +126,7 @@ impl MultimintWalletWrapper {
     ) -> Result<String, Box<dyn std::error::Error>> {
         let send_options = MultimintSendOptions {
             preferred_mint: options.preferred_mint,
-            ..Default::default() // split_across_mints: options.split_across_mints,
+            ..Default::default()
         };
 
         let token = self.inner.send(amount, send_options).await?;
@@ -162,7 +162,10 @@ impl MultimintWalletWrapper {
     }
 
     pub async fn get_wallet_for_mint(&self, mint_url: &str) -> Option<CdkWalletWrapper> {
-        self.inner.get_wallet_for_mint(mint_url).await.map(CdkWalletWrapper::new)
+        self.inner
+            .get_wallet_for_mint(mint_url)
+            .await
+            .map(CdkWalletWrapper::new)
     }
 
     pub async fn redeem_pendings(&self) -> Result<(), Box<dyn std::error::Error>> {

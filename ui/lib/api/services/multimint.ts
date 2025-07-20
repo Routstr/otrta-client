@@ -19,7 +19,6 @@ export const MultimintBalanceResponseSchema = z.object({
 export const MultimintSendRequestSchema = z.object({
   amount: z.number().positive('Amount must be positive'),
   preferred_mint: z.string().optional(),
-  unit: z.string().optional(),
   split_across_mints: z.boolean().optional(),
 });
 

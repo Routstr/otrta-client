@@ -264,7 +264,6 @@ impl ProxyModelFromApi {
 pub struct MultimintSendTokenRequest {
     pub amount: u64,
     pub preferred_mint: Option<String>,
-    pub unit: Option<String>,
     pub split_across_mints: Option<bool>,
 }
 

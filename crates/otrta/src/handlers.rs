@@ -1115,13 +1115,10 @@ pub async fn send_multimint_token_handler(
         }
     };
 
-    let unit = payload
-        .unit
-        .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok());
     let send_options = crate::multimint::LocalMultimintSendOptions {
         preferred_mint: payload.preferred_mint,
-        unit,
         split_across_mints: payload.split_across_mints.unwrap_or(false),
+        ..Default::default()
     };
 
     match wallet
@@ -2161,8 +2158,6 @@ pub async fn get_wallet_debug_info(
 
     Ok(Json(json!(debug_info)))
 }
-
-
 
 pub async fn get_user_profile_handler(
     State(app_state): State<Arc<AppState>>,

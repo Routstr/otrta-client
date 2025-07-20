@@ -51,7 +51,6 @@ const formSchema = z.object({
       message: 'Amount must be greater than 0',
     }),
   mint_url: z.string().min(1, { message: 'Please select a mint' }),
-  unit: z.enum(['sat', 'msat'], { message: 'Please select a unit' }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -68,7 +67,6 @@ export function CollectSats() {
     defaultValues: {
       amount: '',
       mint_url: '',
-      unit: 'msat',
     },
   });
 
@@ -103,11 +101,10 @@ export function CollectSats() {
       const result = await MultimintService.sendMultimintToken({
         amount: Number(values.amount),
         preferred_mint: values.mint_url,
-        unit: values.unit,
       });
 
-              if (result.success && result.tokens) {
-          setGeneratedToken(result.tokens);
+      if (result.success && result.tokens) {
+        setGeneratedToken(result.tokens);
         queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
         toast.success(result.message || 'Token generated successfully!');
       } else {
@@ -215,39 +212,7 @@ export function CollectSats() {
                     )}
                   />
                 </div>
-                <div className='col-span-1'>
-                  <FormField
-                    control={form.control}
-                    name='unit'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Unit</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value='msat'>msat</SelectItem>
-                            <SelectItem value='sat'>sat</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
-
-              <FormDescription>
-                {form.watch('unit') === 'sat'
-                  ? 'Amount in satoshis (1 sat = 1000 msat)'
-                  : 'Amount in millisatoshis (1000 msat = 1 sat)'}
-              </FormDescription>
 
               <Button
                 type='submit'
