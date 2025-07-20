@@ -59,7 +59,6 @@ pub async fn redeem_token(
     };
 
     let token = payload.token.trim();
-    println!("Attempting to redeem token: {}", token);
 
     let parsed_token = match cdk::nuts::Token::from_str(token) {
         Ok(t) => t,
