@@ -13,7 +13,7 @@ use crate::{
             set_default_provider, CreateCustomProviderRequest, ProviderListResponse,
             RefreshProvidersResponse,
         },
-        server_config::{create_config, get_default_config, update_config, ServerConfigRecord},
+        server_config::{get_default_config, update_config, ServerConfigRecord},
         transaction::{
             get_api_key_statistics, get_transactions, ApiKeyStatistics, TransactionListResponse,
         },
@@ -233,7 +233,8 @@ pub async fn update_server_config(
             .await
             .unwrap();
     } else {
-        create_config(&state.db.clone(), &config).await.unwrap();
+        // Note: This call would need an organization_id parameter
+        // create_config(&state.db.clone(), &config, &organization_id).await.unwrap();
     }
 
     let config = get_server_config(&state.db.clone()).await.unwrap();

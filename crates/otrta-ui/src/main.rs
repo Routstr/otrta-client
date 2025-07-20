@@ -1,20 +1,19 @@
 use axum::{
-    middleware,
+    Router, middleware,
     routing::{delete, get, post, put},
-    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{get_configuration, DatabaseSettings};
+use connection::{DatabaseSettings, get_configuration};
 use otrta::{
-    auth::{bearer_auth_middleware, nostr_auth_middleware_with_context, AuthConfig, AuthState},
+    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware_with_context},
     handlers,
     models::AppState,
     multimint_manager::MultimintManager,
     proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -218,76 +217,4 @@ pub async fn get_connection_pool(configuration: &DatabaseSettings) -> Result<PgP
         .max_connections(configuration.connections)
         .connect_with(configuration.with_db())
         .await
-}
-async fn initialize_wallet(
-    connection_pool: &PgPool,
-    configuration: &Settings,
-    db_name: &str,
-) -> Result<MultimintWalletWrapper, Box<dyn std::error::Error>> {
-    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./wallet_data".to_string());
-    std::fs::create_dir_all(&wallet_dir)?;
-
-    let unique_db_name = format!("{}/{}", wallet_dir, db_name);
-    let multimint_db_name = format!("{}/multimint", wallet_dir);
-    std::fs::create_dir_all(&multimint_db_name)?;
-
-    let config = get_server_config(connection_pool).await;
-    match config {
-        Some(config) => {
-            let seed = config.seed.clone().unwrap();
-            let single_wallet = CashuWalletClient::from_seed(
-                &configuration.application.mint_url,
-                &seed,
-                &unique_db_name,
-            )
-            .await
-            .unwrap();
-
-            let multimint_wallet = MultimintWalletWrapper::from_existing_wallet(
-                &single_wallet,
-                &configuration.application.mint_url,
-                &seed,
-                &multimint_db_name,
-            )
-            .await?;
-
-            use otrta::db::mint::get_active_mints;
-            if let Ok(active_mints) = get_active_mints(connection_pool).await {
-                for mint in active_mints {
-                    if mint.mint_url != configuration.application.mint_url {
-                        if let Err(e) = multimint_wallet
-                            .add_mint(&mint.mint_url, otrta::db::mint::CurrencyUnit::Sat)
-                            .await
-                        {
-                            eprintln!("Failed to add mint {}: {:?}", mint.mint_url, e);
-                        }
-                    }
-                }
-            }
-
-            Ok(multimint_wallet)
-        }
-        None => {
-            let mut seed = String::new();
-            let wallet = CashuWalletClient::new(
-                &configuration.application.mint_url,
-                &mut seed,
-                &unique_db_name,
-            )
-            .await
-            .unwrap();
-
-            create_with_seed(connection_pool, &seed).await?;
-
-            let multimint_wallet = MultimintWalletWrapper::from_existing_wallet(
-                &wallet,
-                &configuration.application.mint_url,
-                &seed,
-                &multimint_db_name,
-            )
-            .await?;
-
-            Ok(multimint_wallet)
-        }
-    }
 }
