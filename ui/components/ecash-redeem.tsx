@@ -55,7 +55,7 @@ export function EcashRedeem() {
       if (result.success) {
         toast.success(
           `Token redeemed successfully! ${
-            result.amount ? `${result.amount} stats added to your balance.` : ''
+            result.amount ? `${result.amount} added to your balance.` : ''
           }`
         );
         form.reset();

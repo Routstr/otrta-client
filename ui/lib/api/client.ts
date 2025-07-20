@@ -75,10 +75,6 @@ class ApiClient {
       'Content-Type': 'application/json',
     };
 
-    // Add any additional auth headers from configuration
-    const configHeaders = ConfigurationService.getAuthHeaders();
-    Object.assign(headers, configHeaders);
-
     // Add NIP-98 authentication if enabled and nostr is available
     if (
       ConfigurationService.isAuthenticationEnabled() &&
@@ -103,6 +99,10 @@ class ApiClient {
       } catch (error) {
         console.warn('Failed to create NIP-98 authentication:', error);
       }
+    } else {
+      // Only add Bearer token auth headers when Nostr auth is disabled
+      const configHeaders = ConfigurationService.getAuthHeaders();
+      Object.assign(headers, configHeaders);
     }
 
     return headers;

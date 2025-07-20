@@ -67,7 +67,7 @@ export const RedeemTokenRequestSchema = z.object({
 // Schema for redeem token response
 export const RedeemTokenResponseSchema = z.object({
   success: z.boolean(),
-  amount: z.number().optional(),
+  amount: z.string().nullable(),
   message: z.string().nullable(),
 });
 
@@ -201,6 +201,7 @@ export class MultimintService {
       }
       return {
         success: false,
+        amount: null,
         message: 'Failed to redeem token. Please try again.',
       };
     }
