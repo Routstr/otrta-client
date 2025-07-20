@@ -133,7 +133,7 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
 
   const displayName =
     mint.name || MultimintService.getMintDisplayName(mint.mint_url);
-  const formattedBalance = balance
+  const formattedBalance = balance !== undefined
     ? MultimintService.formatBalance(balance, mint.currency_unit)
     : null;
 
