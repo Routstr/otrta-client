@@ -26,7 +26,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { WalletService } from '@/lib/api/services/wallet';
+import { MultimintService } from '@/lib/api/services/multimint';
 
 const formSchema = z.object({
   token: z.string().min(1, {
@@ -50,7 +50,7 @@ export function EcashRedeem() {
   async function onSubmit(values: FormValues) {
     setIsSubmitting(true);
     try {
-      const result = await WalletService.redeemToken(values.token);
+      const result = await MultimintService.redeemToken(values.token);
 
       if (result.success) {
         toast.success(

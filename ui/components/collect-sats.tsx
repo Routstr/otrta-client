@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { WalletService } from '@/lib/api/services/wallet';
+import { MultimintService } from '@/lib/api/services/multimint';
 import { MintService } from '@/lib/api/services/mints';
 
 const formSchema = z.object({
@@ -100,14 +100,14 @@ export function CollectSats() {
   async function onSubmit(values: FormValues) {
     setIsSubmitting(true);
     try {
-      const result = await WalletService.sendToken(
-        Number(values.amount),
-        values.mint_url,
-        values.unit
-      );
+      const result = await MultimintService.sendMultimintToken({
+        amount: Number(values.amount),
+        preferred_mint: values.mint_url,
+        unit: values.unit,
+      });
 
-      if (result.success && result.token) {
-        setGeneratedToken(result.token);
+              if (result.success && result.tokens) {
+          setGeneratedToken(result.tokens);
         queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
         toast.success(result.message || 'Token generated successfully!');
       } else {

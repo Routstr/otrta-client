@@ -60,6 +60,18 @@ export const TopupMintResponseSchema = z.object({
   invoice: z.string().nullable(),
 });
 
+// Schema for redeem token request
+export const RedeemTokenRequestSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+});
+
+// Schema for redeem token response
+export const RedeemTokenResponseSchema = z.object({
+  success: z.boolean(),
+  amount: z.number().optional(),
+  message: z.string().nullable(),
+});
+
 export type MintBalance = z.infer<typeof MintBalanceSchema>;
 export type MultimintBalanceResponse = z.infer<
   typeof MultimintBalanceResponseSchema
@@ -74,6 +86,8 @@ export type TransferBetweenMintsResponse = z.infer<
 >;
 export type TopupMintRequest = z.infer<typeof TopupMintRequestSchema>;
 export type TopupMintResponse = z.infer<typeof TopupMintResponseSchema>;
+export type RedeemTokenRequest = z.infer<typeof RedeemTokenRequestSchema>;
+export type RedeemTokenResponse = z.infer<typeof RedeemTokenResponseSchema>;
 
 export class MultimintService {
   // Get balance across all mints
@@ -167,6 +181,29 @@ export class MultimintService {
       throw new Error(
         'Failed to topup mint. Please check your inputs and try again.'
       );
+    }
+  }
+
+  // Redeem an ecash token
+  static async redeemToken(token: string): Promise<RedeemTokenResponse> {
+    try {
+      const validatedRequest = RedeemTokenRequestSchema.parse({ token });
+      const response = await apiClient.post<RedeemTokenResponse>(
+        '/api/multimint/redeem',
+        validatedRequest
+      );
+      return RedeemTokenResponseSchema.parse(response);
+    } catch (error) {
+      console.error('Error redeeming token:', error);
+      if (error instanceof z.ZodError) {
+        throw new Error(
+          `Validation error: ${error.issues.map((i) => i.message).join(', ')}`
+        );
+      }
+      return {
+        success: false,
+        message: 'Failed to redeem token. Please try again.',
+      };
     }
   }
 
