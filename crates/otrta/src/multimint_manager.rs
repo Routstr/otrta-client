@@ -60,7 +60,6 @@ impl MultimintManager {
                 AppError::InternalServerError
             })?;
 
-        println!("{:?}", config);
         let seed = match config {
             Some(config) => {
                 info!("Using existing seed for organization: {}", org_id);
@@ -188,8 +187,6 @@ impl MultimintManager {
         }
         Ok(())
     }
-
-
 
     fn generate_deterministic_seed_sync(&self, organization: &Organization) -> String {
         use bip39::Mnemonic;
