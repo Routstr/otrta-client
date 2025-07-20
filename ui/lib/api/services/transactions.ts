@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { apiClient } from '../client';
 import {
   Transaction,
@@ -6,7 +5,6 @@ import {
   TransactionListResponse,
   TransactionPendingListResponseSchema,
 } from '../schemas/transactions';
-import { ConfigurationService } from './configuration';
 
 export class TransactionService {
   static async getTransactionsBase(
@@ -65,20 +63,13 @@ export class TransactionService {
   }
 
   static async redeemToken() {
-    const localBaseUrl = ConfigurationService.getLocalBaseUrl();
-    const response = await axios.post(
-      `${localBaseUrl}/api/wallet/redeem-pendings`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    try {
+      const response = await apiClient.post('/api/wallet/redeem-pendings', {});
 
-    if (!response) {
-      throw new Error('Failed to redeem token');
+      return response;
+    } catch (error) {
+      console.error('Error redeeming pending transactions:', error);
+      throw new Error('Failed to redeem pending transactions');
     }
-
-    return response;
   }
 }

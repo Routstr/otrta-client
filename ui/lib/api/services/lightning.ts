@@ -51,9 +51,6 @@ export const PaymentStatusSchema = z.object({
   quote_id: z.string(),
   state: z.string(), // Backend returns string, not enum
   amount: z.number(),
-  fee_reserve: z.number(),
-  fee_paid: z.number().nullable().optional(),
-  payment_preimage: z.string().nullable().optional(),
 });
 
 export const TopupResultSchema = z.object({

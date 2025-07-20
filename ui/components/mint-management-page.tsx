@@ -126,10 +126,8 @@ export function MintManagementPage() {
     }
   };
 
-  const handlePaymentComplete = (paymentStatus: PaymentStatus) => {
-    toast.success(
-      `Lightning topup completed! Received ${paymentStatus.amount} sats`
-    );
+  const handlePaymentComplete = () => {
+    toast.success(`Lightning topup completed!`);
     queryClient.invalidateQueries({ queryKey: ['active-mints'] });
     queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
     setCurrentInvoice(null);

@@ -1,6 +1,8 @@
 use crate::db::mint::CurrencyUnit;
 use crate::db::transaction::{add_transaction, TransactionDirection};
 use crate::db::Pool;
+use cdk::amount::SplitTarget;
+use cdk::nuts::nut23::QuoteState;
 use cdk::{wallet::SendOptions, Amount};
 use ecash_402_wallet::multimint::{MultimintSendOptions, MultimintWallet};
 use serde::{Deserialize, Serialize};
@@ -276,26 +278,20 @@ impl CdkWalletWrapper {
         self.inner.melt_quote(invoice, options).await
     }
 
-    pub async fn check_melt_quote(&self, quote_id: &str) -> Result<(), cdk::Error> {
-        match self.inner.melt_quote(quote_id.to_string(), None).await {
-            Ok(m) => println!("{:?}", m),
-            Err(e) => println!("{:?}", e),
-        };
-
-        match self.inner.melt_quote_status(quote_id).await {
+    pub async fn check_mint_quote(&self, quote_id: &str) -> Result<QuoteState, cdk::Error> {
+        // FIXME: Improve
+        match self
+            .inner
+            .mint(&quote_id, SplitTarget::default(), None)
+            .await
+        {
             Ok(resp) => {
                 println!("{:?}", resp);
-                if let Some(paid) = resp.paid {
-                    if paid {
-                        let a = self.inner.melt_quote(quote_id.to_string(), None).await;
-                        println!("{:?}", a);
-                    }
-                }
-                Ok(())
+                Ok(QuoteState::Paid)
             }
             Err(e) => {
                 println!("{:?}", e);
-                Ok(())
+                Ok(QuoteState::Pending)
             }
         }
     }

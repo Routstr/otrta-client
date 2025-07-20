@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
-// import { apiClient } from '../client';
+import { apiClient } from '../client';
 
 // Schema for server configuration
 export const ServerConfigSchema = z.object({
@@ -191,12 +191,8 @@ export class ConfigurationService {
         api_key: config.apiKey,
       };
 
-      // Then save to the backend server using the local URL
-      await axios.post(`${localBaseUrl}/api/server-config`, backendConfig, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // Then save to the backend server using the authenticated client
+      await apiClient.post('/api/server-config', backendConfig);
 
       return true;
     } catch (error) {

@@ -27,7 +27,7 @@ interface LightningTopupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   invoice: CreateInvoiceResponse | null;
-  onPaymentComplete?: (paymentStatus: PaymentStatus) => void;
+  onPaymentComplete?: () => void;
 }
 
 export function LightningTopupModal({
@@ -105,10 +105,10 @@ export function LightningTopupModal({
 
         const state = status.state.toLowerCase();
         if (state === 'paid') {
-          toast.success(`Payment received! ${status.amount} sats`);
+          toast.success(`Payment received!`);
           stopPolling();
           if (onPaymentComplete) {
-            onPaymentComplete(status);
+            onPaymentComplete();
           }
           return;
         } else if (state === 'failed') {
@@ -209,7 +209,7 @@ export function LightningTopupModal({
           </DialogTitle>
           <DialogDescription>
             {isPaid
-              ? `Successfully received ${paymentStatus?.amount} sats!`
+              ? `Successfully received ${invoice?.amount} sats!`
               : `Share this invoice or QR code for others to pay you ${invoice.amount} sats`}
           </DialogDescription>
         </DialogHeader>
@@ -335,11 +335,6 @@ export function LightningTopupModal({
                 The invoice has been paid and your wallet balance will be
                 updated shortly.
               </p>
-              {paymentStatus?.fee_paid && (
-                <p className='mt-2 text-sm text-green-600'>
-                  Fee paid: {paymentStatus.fee_paid} sats
-                </p>
-              )}
             </div>
           )}
         </div>

@@ -38,9 +38,6 @@ pub struct PaymentStatusResponse {
     pub quote_id: String,
     pub state: String,
     pub amount: u64,
-    pub fee_reserve: u64,
-    pub fee_paid: Option<u64>,
-    pub payment_preimage: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -266,15 +263,12 @@ pub async fn check_lightning_payment_status_handler(
         }
     };
 
-    wallet.check_melt_quote(&payload.quote_id).await.unwrap();
+    wallet.check_mint_quote(&payload.quote_id).await.unwrap();
 
     Ok(Json(PaymentStatusResponse {
         quote_id: payload.quote_id.clone(),
         state: "pending".to_string(),
         amount: 0,
-        fee_reserve: 0,
-        fee_paid: None,
-        payment_preimage: None,
     }))
 }
 
@@ -321,15 +315,12 @@ pub async fn check_lightning_payment_status_with_mint_handler(
         }
     };
 
-    wallet.check_melt_quote(&payload.quote_id).await.unwrap();
+    let status = wallet.check_mint_quote(&payload.quote_id).await.unwrap();
 
     Ok(Json(PaymentStatusResponse {
         quote_id: payload.quote_id.clone(),
-        state: "pending".to_string(),
+        state: status.to_string(),
         amount: 0,
-        fee_reserve: 0,
-        fee_paid: None,
-        payment_preimage: None,
     }))
 }
 
