@@ -155,12 +155,25 @@ export default function Page() {
                     unit: string
                   ) => {
                     if (unit.toLowerCase() === 'msat') {
-                      return `${amount.toLocaleString('en-US')} msat`;
+                      const sats = Math.floor(amount / 1000);
+                      return {
+                        primary: `${amount.toLocaleString('en-US')} msat`,
+                        secondary: `(${sats.toLocaleString('en-US')} sats)`,
+                      };
                     } else if (unit.toLowerCase() === 'sat') {
-                      return `${amount.toLocaleString('en-US')} sats`;
+                      const msats = amount * 1000;
+                      return {
+                        primary: `${amount.toLocaleString('en-US')} sats`,
+                        secondary: `(${msats.toLocaleString('en-US')} msat)`,
+                      };
                     }
-                    return `${amount.toLocaleString('en-US')} ${unit}`;
+                    return {
+                      primary: `${amount.toLocaleString('en-US')} ${unit}`,
+                      secondary: '',
+                    };
                   };
+
+                  const formattedBalance = formatBalanceWithUnit(balance, unit);
 
                   return (
                     <Card
@@ -189,8 +202,13 @@ export default function Page() {
                         <div className='flex items-center justify-between'>
                           <div>
                             <p className='text-lg font-semibold'>
-                              {formatBalanceWithUnit(balance, unit)}
+                              {formattedBalance.primary}
                             </p>
+                            {formattedBalance.secondary && (
+                              <p className='text-muted-foreground text-sm'>
+                                {formattedBalance.secondary}
+                              </p>
+                            )}
                             <p className='text-muted-foreground text-xs'>
                               Balance
                             </p>

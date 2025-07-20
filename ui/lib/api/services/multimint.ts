@@ -207,18 +207,40 @@ export class MultimintService {
   }
 
   // Utility function to format balance for display
-  static formatBalance(balance: number, unit: string = 'Msat'): string {
+  static formatBalance(
+    balance: number,
+    unit: string = 'Msat'
+  ): {
+    primary: string;
+    secondary: string;
+  } {
     switch (unit.toLowerCase()) {
       case 'msat':
-        return balance >= 1000
-          ? `${(balance / 1000).toFixed(1)}k msat`
-          : `${balance} msat`;
+        const sats = Math.floor(balance / 1000);
+        const primaryMsat =
+          balance >= 1000
+            ? `${(balance / 1000).toFixed(1)}k msat`
+            : `${balance.toLocaleString('en-US')} msat`;
+        return {
+          primary: primaryMsat,
+          secondary: `(${sats.toLocaleString('en-US')} sats)`,
+        };
       case 'sat':
-        return `${balance} sat`;
+        const msats = balance * 1000;
+        return {
+          primary: `${balance.toLocaleString('en-US')} sats`,
+          secondary: `(${msats.toLocaleString('en-US')} msat)`,
+        };
       case 'btc':
-        return `${(balance / 100000000).toFixed(8)} BTC`;
+        return {
+          primary: `${(balance / 100000000).toFixed(8)} BTC`,
+          secondary: `(${balance.toLocaleString('en-US')} sats)`,
+        };
       default:
-        return `${balance} ${unit}`;
+        return {
+          primary: `${balance.toLocaleString('en-US')} ${unit}`,
+          secondary: '',
+        };
     }
   }
 

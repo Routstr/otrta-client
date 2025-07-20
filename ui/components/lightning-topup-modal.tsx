@@ -293,11 +293,11 @@ export function LightningTopupModal({
                     <Textarea
                       value={invoice.payment_request}
                       readOnly
-                      className='font-mono text-xs resize-none overflow-y-auto max-h-32 min-h-20'
-                      style={{ 
+                      className='max-h-32 min-h-20 resize-none overflow-y-auto font-mono text-xs'
+                      style={{
                         wordBreak: 'break-all',
                         overflowWrap: 'anywhere',
-                        whiteSpace: 'pre-wrap'
+                        whiteSpace: 'pre-wrap',
                       }}
                       rows={4}
                     />
