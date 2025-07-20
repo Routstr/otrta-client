@@ -49,8 +49,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // Show loading screen while checking authentication settings
   if (isCheckingAuth) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className='flex min-h-screen items-center justify-center'>
+        <Loader2 className='h-8 w-8 animate-spin' />
       </div>
     );
   }
@@ -68,10 +68,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // Show loading screen while checking authentication status or redirecting
   if (isLoading || isRedirecting) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">
+      <div className='flex min-h-screen items-center justify-center'>
+        <div className='text-center'>
+          <Loader2 className='mx-auto mb-4 h-8 w-8 animate-spin' />
+          <p className='text-muted-foreground'>
             {isRedirecting ? 'Redirecting to authentication...' : 'Loading...'}
           </p>
         </div>
@@ -83,10 +83,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (!isAuthenticated) {
     router.push('/login');
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Redirecting to login...</p>
+      <div className='flex min-h-screen items-center justify-center'>
+        <div className='text-center'>
+          <Loader2 className='mx-auto mb-4 h-8 w-8 animate-spin' />
+          <p className='text-muted-foreground'>Redirecting to login...</p>
         </div>
       </div>
     );

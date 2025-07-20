@@ -1,7 +1,13 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -30,15 +36,16 @@ export default function RegisterPage() {
           <Alert>
             <AlertCircle className='h-4 w-4' />
             <AlertDescription>
-              Account creation is temporarily disabled. Please use an existing Nostr account to sign in.
+              Account creation is temporarily disabled. Please use an existing
+              Nostr account to sign in.
             </AlertDescription>
           </Alert>
 
           <div className='space-y-2'>
-            <p className='text-sm text-muted-foreground text-center'>
+            <p className='text-muted-foreground text-center text-sm'>
               If you already have a Nostr account, you can sign in using:
             </p>
-            <ul className='text-sm text-muted-foreground space-y-1 list-disc list-inside'>
+            <ul className='text-muted-foreground list-inside list-disc space-y-1 text-sm'>
               <li>Browser extension (Alby, nos2x, etc.)</li>
               <li>Your nsec secret key</li>
             </ul>
@@ -50,9 +57,12 @@ export default function RegisterPage() {
           </Button>
 
           <div className='text-center'>
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-muted-foreground text-sm'>
               Already have an account?{' '}
-              <Link href='/login' className='text-primary font-medium hover:underline'>
+              <Link
+                href='/login'
+                className='text-primary font-medium hover:underline'
+              >
                 Sign in here
               </Link>
             </p>

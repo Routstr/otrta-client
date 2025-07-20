@@ -60,7 +60,11 @@ export class WalletService {
     }
   }
 
-  static async sendToken(amount: number, mint_url: string, unit?: 'sat' | 'msat'): Promise<SendTokenResponse> {
+  static async sendToken(
+    amount: number,
+    mint_url: string,
+    unit?: 'sat' | 'msat'
+  ): Promise<SendTokenResponse> {
     try {
       const request = SendTokenRequestSchema.parse({ amount, mint_url, unit });
       const response = await apiClient.post<SendTokenResponse>(

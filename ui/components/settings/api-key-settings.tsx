@@ -28,7 +28,13 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { ApiKeyService } from '@/lib/api/services/api-keys';
 import { ApiKey, CreateApiKey, UpdateApiKey } from '@/lib/api/schemas/api-keys';
@@ -105,7 +111,9 @@ export function ApiKeySettings() {
       toast.success('API key created successfully');
     } catch (error) {
       console.error('Error creating API key:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create API key');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create API key'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -117,20 +125,22 @@ export function ApiKeySettings() {
     setIsLoading(true);
     try {
       await ApiKeyService.deleteApiKey(id);
-      setApiKeys(apiKeys.filter(key => key.id !== id));
+      setApiKeys(apiKeys.filter((key) => key.id !== id));
       toast.success('API key deleted successfully');
     } catch (error) {
       console.error('Error deleting API key:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete API key');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete API key'
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const toggleKeyVisibility = (id: string) => {
-    setShowKey(prev => ({
+    setShowKey((prev) => ({
       ...prev,
-      [id]: !prev[id]
+      [id]: !prev[id],
     }));
   };
 
@@ -148,11 +158,13 @@ export function ApiKeySettings() {
     try {
       const updateRequest: UpdateApiKey = { is_active: isActive };
       const updatedKey = await ApiKeyService.updateApiKey(id, updateRequest);
-      setApiKeys(apiKeys.map(key => key.id === id ? updatedKey : key));
+      setApiKeys(apiKeys.map((key) => (key.id === id ? updatedKey : key)));
       toast.success(isActive ? 'API key activated' : 'API key deactivated');
     } catch (error) {
       console.error('Error updating API key:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update API key');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update API key'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -185,20 +197,24 @@ export function ApiKeySettings() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className='flex items-center justify-between'>
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
+            <CardTitle className='flex items-center gap-2'>
+              <Key className='h-5 w-5' />
               API Key Management
             </CardTitle>
             <CardDescription>
-              Create and manage API keys for authentication when enable_authentication is set
+              Create and manage API keys for authentication when
+              enable_authentication is set
             </CardDescription>
           </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <Dialog
+            open={isCreateDialogOpen}
+            onOpenChange={setIsCreateDialogOpen}
+          >
             <DialogTrigger asChild>
               <Button>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className='mr-2 h-4 w-4' />
                 Create API Key
               </Button>
             </DialogTrigger>
@@ -206,60 +222,63 @@ export function ApiKeySettings() {
               <DialogHeader>
                 <DialogTitle>Create New API Key</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className='space-y-4'>
                 <div>
-                  <Label htmlFor="key-name">Name</Label>
+                  <Label htmlFor='key-name'>Name</Label>
                   <Input
-                    id="key-name"
+                    id='key-name'
                     value={newKeyName}
                     onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="Enter API key name"
+                    placeholder='Enter API key name'
                   />
                 </div>
                 <div>
-                  <Label htmlFor="user-id">User ID</Label>
+                  <Label htmlFor='user-id'>User ID</Label>
                   <Input
-                    id="user-id"
+                    id='user-id'
                     value={newKeyUserId}
                     onChange={(e) => setNewKeyUserId(e.target.value)}
-                    placeholder="Enter user ID"
+                    placeholder='Enter user ID'
                   />
                 </div>
                 <div>
-                  <Label htmlFor="org-id">Organization ID</Label>
+                  <Label htmlFor='org-id'>Organization ID</Label>
                   <Input
-                    id="org-id"
+                    id='org-id'
                     value={newKeyOrgId}
                     onChange={(e) => setNewKeyOrgId(e.target.value)}
-                    placeholder="Enter organization ID"
+                    placeholder='Enter organization ID'
                   />
                 </div>
                 <div>
-                  <Label htmlFor="expires-at">Expires At (optional)</Label>
+                  <Label htmlFor='expires-at'>Expires At (optional)</Label>
                   <Input
-                    id="expires-at"
-                    type="datetime-local"
+                    id='expires-at'
+                    type='datetime-local'
                     value={newKeyExpires}
                     onChange={(e) => setNewKeyExpires(e.target.value)}
                   />
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className='flex items-center space-x-2'>
                   <Switch
-                    id="active"
+                    id='active'
                     checked={newKeyActive}
                     onCheckedChange={setNewKeyActive}
                   />
-                  <Label htmlFor="active">Active</Label>
+                  <Label htmlFor='active'>Active</Label>
                 </div>
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <div className='flex justify-end space-x-2'>
+                  <Button
+                    variant='outline'
+                    onClick={() => setIsCreateDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
                   <Button onClick={createApiKey} disabled={isLoading}>
                     {isLoading ? (
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      <RefreshCw className='mr-2 h-4 w-4 animate-spin' />
                     ) : (
-                      <Plus className="h-4 w-4 mr-2" />
+                      <Plus className='mr-2 h-4 w-4' />
                     )}
                     Create
                   </Button>
@@ -271,16 +290,17 @@ export function ApiKeySettings() {
       </CardHeader>
       <CardContent>
         {currentAuthKey && (
-          <div className="mb-6">
+          <div className='mb-6'>
             <Alert>
-              <ShieldCheck className="h-4 w-4" />
+              <ShieldCheck className='h-4 w-4' />
               <AlertDescription>
-                Authentication is configured. API key ending in &quot;...{currentAuthKey.slice(-8)}&quot; will be used for requests.
+                Authentication is configured. API key ending in &quot;...
+                {currentAuthKey.slice(-8)}&quot; will be used for requests.
                 <Button
-                  variant="link"
-                  size="sm"
+                  variant='link'
+                  size='sm'
                   onClick={clearAuthenticationKey}
-                  className="ml-2 p-0 h-auto"
+                  className='ml-2 h-auto p-0'
                 >
                   Clear authentication
                 </Button>
@@ -288,156 +308,181 @@ export function ApiKeySettings() {
             </Alert>
           </div>
         )}
-        
+
         {isLoading && apiKeys.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
-            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+          <div className='flex items-center justify-center py-8'>
+            <RefreshCw className='mr-2 h-6 w-6 animate-spin' />
             Loading API keys...
           </div>
         ) : apiKeys.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <div className='text-muted-foreground py-8 text-center'>
+            <Key className='mx-auto mb-4 h-12 w-12 opacity-50' />
             <p>No API keys found</p>
-            <p className="text-sm">Create your first API key to get started</p>
+            <p className='text-sm'>Create your first API key to get started</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className='space-y-4'>
             {apiKeys.map((apiKey) => (
-              <Card key={apiKey.id} className="border-l-4 border-l-blue-500 overflow-hidden">
-                <CardContent className="pt-6">
-                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                    <div className="space-y-2 flex-1 min-w-0">
-                      <div className="space-y-2">
-                        <h4 className="font-semibold truncate">{apiKey.name}</h4>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={apiKey.is_active ? "default" : "secondary"}>
-                            {apiKey.is_active ? "Active" : "Inactive"}
+              <Card
+                key={apiKey.id}
+                className='overflow-hidden border-l-4 border-l-blue-500'
+              >
+                <CardContent className='pt-6'>
+                  <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
+                    <div className='min-w-0 flex-1 space-y-2'>
+                      <div className='space-y-2'>
+                        <h4 className='truncate font-semibold'>
+                          {apiKey.name}
+                        </h4>
+                        <div className='flex flex-wrap items-center gap-2'>
+                          <Badge
+                            variant={apiKey.is_active ? 'default' : 'secondary'}
+                          >
+                            {apiKey.is_active ? 'Active' : 'Inactive'}
                           </Badge>
                           {currentAuthKey === apiKey.key && (
-                            <Badge variant="outline" className="border-green-500 text-green-700">
-                              <ShieldCheck className="h-3 w-3 mr-1" />
+                            <Badge
+                              variant='outline'
+                              className='border-green-500 text-green-700'
+                            >
+                              <ShieldCheck className='mr-1 h-3 w-3' />
                               Auth Key
                             </Badge>
                           )}
                           {isExpired(apiKey.expires_at) && (
-                            <Badge variant="destructive">
-                              <AlertTriangle className="h-3 w-3 mr-1" />
+                            <Badge variant='destructive'>
+                              <AlertTriangle className='mr-1 h-3 w-3' />
                               Expired
                             </Badge>
                           )}
                         </div>
                       </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-sm text-muted-foreground">
-                        <div className="truncate">
-                          <span className="font-medium">User ID:</span> {apiKey.user_id}
+
+                      <div className='text-muted-foreground grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 sm:gap-4'>
+                        <div className='truncate'>
+                          <span className='font-medium'>User ID:</span>{' '}
+                          {apiKey.user_id}
                         </div>
-                        <div className="truncate">
-                          <span className="font-medium">Organization:</span> {apiKey.organization_id}
+                        <div className='truncate'>
+                          <span className='font-medium'>Organization:</span>{' '}
+                          {apiKey.organization_id}
                         </div>
                         <div>
-                          <span className="font-medium">Created:</span> {formatDate(apiKey.created_at)}
+                          <span className='font-medium'>Created:</span>{' '}
+                          {formatDate(apiKey.created_at)}
                         </div>
                         <div>
-                          <span className="font-medium">Last Used:</span> {formatDate(apiKey.last_used_at)}
+                          <span className='font-medium'>Last Used:</span>{' '}
+                          {formatDate(apiKey.last_used_at)}
                         </div>
                         {apiKey.expires_at && (
                           <div>
-                            <span className="font-medium">Expires:</span> {formatDate(apiKey.expires_at)}
+                            <span className='font-medium'>Expires:</span>{' '}
+                            {formatDate(apiKey.expires_at)}
                           </div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 mt-4">
-                        <div className="flex-1 font-mono text-xs sm:text-sm bg-muted p-2 rounded border overflow-hidden">
-                          <span className="break-all">
-                            {showKey[apiKey.id] ? apiKey.key : '••••••••••••••••••••••••••••••••'}
+                      <div className='mt-4 flex items-center gap-2'>
+                        <div className='bg-muted flex-1 overflow-hidden rounded border p-2 font-mono text-xs sm:text-sm'>
+                          <span className='break-all'>
+                            {showKey[apiKey.id]
+                              ? apiKey.key
+                              : '••••••••••••••••••••••••••••••••'}
                           </span>
                         </div>
-                        <div className="flex gap-1 sm:gap-2 shrink-0">
+                        <div className='flex shrink-0 gap-1 sm:gap-2'>
                           <Button
-                            variant="outline"
-                            size="sm"
+                            variant='outline'
+                            size='sm'
                             onClick={() => toggleKeyVisibility(apiKey.id)}
-                            className="px-2"
+                            className='px-2'
                           >
                             {showKey[apiKey.id] ? (
-                              <EyeOff className="h-4 w-4" />
+                              <EyeOff className='h-4 w-4' />
                             ) : (
-                              <Eye className="h-4 w-4" />
+                              <Eye className='h-4 w-4' />
                             )}
                           </Button>
                           <Button
-                            variant="outline"
-                            size="sm"
+                            variant='outline'
+                            size='sm'
                             onClick={() => copyToClipboard(apiKey.key)}
-                            className="px-2"
+                            className='px-2'
                           >
-                            <Copy className="h-4 w-4" />
+                            <Copy className='h-4 w-4' />
                           </Button>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-2 lg:ml-4">
-                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className='flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-2 lg:ml-4'>
+                      <div className='flex w-full items-center gap-2 sm:w-auto'>
                         <Button
-                          variant="outline"
-                          size="sm"
+                          variant='outline'
+                          size='sm'
                           onClick={() => openStatisticsModal(apiKey)}
                           disabled={isLoading}
-                          title="View Statistics"
-                          className="flex-1 sm:flex-none"
+                          title='View Statistics'
+                          className='flex-1 sm:flex-none'
                         >
-                          <BarChart3 className="h-4 w-4 sm:mr-0 mr-2" />
-                          <span className="sm:hidden">Statistics</span>
+                          <BarChart3 className='mr-2 h-4 w-4 sm:mr-0' />
+                          <span className='sm:hidden'>Statistics</span>
                         </Button>
                         {currentAuthKey === apiKey.key ? (
                           <Button
-                            variant="outline"
-                            size="sm"
+                            variant='outline'
+                            size='sm'
                             onClick={clearAuthenticationKey}
                             disabled={isLoading}
-                            className="flex-1 sm:flex-none"
+                            className='flex-1 sm:flex-none'
                           >
-                            <Shield className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Clear Auth</span>
-                            <span className="sm:hidden">Clear</span>
+                            <Shield className='mr-1 h-4 w-4' />
+                            <span className='hidden sm:inline'>Clear Auth</span>
+                            <span className='sm:hidden'>Clear</span>
                           </Button>
                         ) : (
                           <Button
-                            variant="outline"
-                            size="sm"
+                            variant='outline'
+                            size='sm'
                             onClick={() => setAuthenticationKey(apiKey.key)}
-                            disabled={isLoading || !apiKey.is_active || isExpired(apiKey.expires_at)}
-                            className="flex-1 sm:flex-none"
+                            disabled={
+                              isLoading ||
+                              !apiKey.is_active ||
+                              isExpired(apiKey.expires_at)
+                            }
+                            className='flex-1 sm:flex-none'
                           >
-                            <Shield className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Use for Auth</span>
-                            <span className="sm:hidden">Auth</span>
+                            <Shield className='mr-1 h-4 w-4' />
+                            <span className='hidden sm:inline'>
+                              Use for Auth
+                            </span>
+                            <span className='sm:hidden'>Auth</span>
                           </Button>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
-                        <div className="flex items-center gap-2">
+                      <div className='flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start'>
+                        <div className='flex items-center gap-2'>
                           <Switch
                             checked={apiKey.is_active}
-                            onCheckedChange={(checked) => updateApiKeyStatus(apiKey.id, checked)}
+                            onCheckedChange={(checked) =>
+                              updateApiKeyStatus(apiKey.id, checked)
+                            }
                             disabled={isLoading}
                           />
-                          <span className="text-sm text-muted-foreground sm:hidden">
+                          <span className='text-muted-foreground text-sm sm:hidden'>
                             {apiKey.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </div>
                         <Button
-                          variant="outline"
-                          size="sm"
+                          variant='outline'
+                          size='sm'
                           onClick={() => deleteApiKey(apiKey.id)}
                           disabled={isLoading}
-                          className="text-destructive hover:text-destructive"
+                          className='text-destructive hover:text-destructive'
                         >
-                          <Trash2 className="h-4 w-4 sm:mr-0 mr-2" />
-                          <span className="sm:hidden">Delete</span>
+                          <Trash2 className='mr-2 h-4 w-4 sm:mr-0' />
+                          <span className='sm:hidden'>Delete</span>
                         </Button>
                       </div>
                     </div>
@@ -448,13 +493,14 @@ export function ApiKeySettings() {
           </div>
         )}
 
-        <Separator className="my-6" />
-        
+        <Separator className='my-6' />
+
         <Alert>
-          <AlertTriangle className="h-4 w-4" />
+          <AlertTriangle className='h-4 w-4' />
           <AlertDescription>
-            API keys provide access to your account. Keep them secure and never share them publicly.
-            These keys will be used for authentication when enable_authentication is enabled in the server configuration.
+            API keys provide access to your account. Keep them secure and never
+            share them publicly. These keys will be used for authentication when
+            enable_authentication is enabled in the server configuration.
           </AlertDescription>
         </Alert>
       </CardContent>
@@ -469,4 +515,4 @@ export function ApiKeySettings() {
       )}
     </Card>
   );
-} 
+}

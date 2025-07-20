@@ -2,13 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Trash2,
-  Power,
-  PowerOff,
-  Edit3,
-  AlertCircle,
-} from 'lucide-react';
+import { Trash2, Power, PowerOff, Edit3, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   MintService,

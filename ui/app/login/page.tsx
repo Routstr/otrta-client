@@ -3,7 +3,13 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -21,7 +27,7 @@ export default function LoginPage() {
     const initializeAuth = async () => {
       try {
         await nostrAuthSimple.initialize();
-        
+
         const currentUser = nostrAuthSimple.getCurrentUser();
         if (currentUser) {
           toast.success('Already authenticated! Redirecting to dashboard...');
@@ -55,7 +61,9 @@ export default function LoginPage() {
       await nostrAuthSimple.loginWithExtension();
     } catch (error) {
       console.error('Extension auth error:', error);
-      toast.error('Failed to authenticate with extension. Please make sure it\'s installed and enabled.');
+      toast.error(
+        "Failed to authenticate with extension. Please make sure it's installed and enabled."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -85,15 +93,17 @@ export default function LoginPage() {
   };
 
   const handleCreateAccount = () => {
-    toast.info('Account creation is currently disabled. Please use an existing Nostr key or extension.');
+    toast.info(
+      'Account creation is currently disabled. Please use an existing Nostr key or extension.'
+    );
   };
 
   return (
     <div className='flex min-h-screen items-center justify-center p-4'>
       <Card className='w-full max-w-md'>
         <CardHeader className='text-center'>
-          <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10'>
-            <Wallet className='h-6 w-6 text-primary' />
+          <div className='bg-primary/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg'>
+            <Wallet className='text-primary h-6 w-6' />
           </div>
           <CardTitle className='text-2xl'>Welcome Back</CardTitle>
           <CardDescription>
@@ -101,11 +111,10 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
-          
           <Button
             onClick={handleCreateAccount}
             disabled={true}
-            className='w-full opacity-50 cursor-not-allowed'
+            className='w-full cursor-not-allowed opacity-50'
             variant='outline'
           >
             <Plus className='mr-2 h-4 w-4' />
@@ -121,7 +130,11 @@ export default function LoginPage() {
             {isLoading ? (
               <Loader2 className='mr-2 h-4 w-4 animate-spin' />
             ) : (
-              <svg className='mr-2 h-4 w-4' viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'>
+              <svg
+                className='mr-2 h-4 w-4'
+                viewBox='0 0 256 256'
+                xmlns='http://www.w3.org/2000/svg'
+              >
                 <path
                   d='M158.4 28.4c-31.8-31.8-83.1-31.8-114.9 0s-31.8 83.1 0 114.9l57.4 57.4 57.4-57.4c31.8-31.8 31.8-83.1 0-114.9z'
                   fill='currentColor'
@@ -139,7 +152,8 @@ export default function LoginPage() {
             <Alert>
               <AlertCircle className='h-4 w-4' />
               <AlertDescription>
-                No Nostr extension detected. Please install a Nostr extension like Alby or nos2x.
+                No Nostr extension detected. Please install a Nostr extension
+                like Alby or nos2x.
               </AlertDescription>
             </Alert>
           )}
@@ -172,8 +186,9 @@ export default function LoginPage() {
                 )}
               </Button>
             </div>
-            <p className='text-xs text-muted-foreground'>
-              Your secret key starts with nsec1 and will not be stored on our servers
+            <p className='text-muted-foreground text-xs'>
+              Your secret key starts with nsec1 and will not be stored on our
+              servers
             </p>
           </div>
         </CardContent>

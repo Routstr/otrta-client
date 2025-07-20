@@ -14,7 +14,7 @@ class AuthStateManager {
 
   onRedirectingChange(callback: () => void): () => void {
     this.redirectCallbacks.push(callback);
-    
+
     // Return unsubscribe function
     return () => {
       const index = this.redirectCallbacks.indexOf(callback);
@@ -25,7 +25,7 @@ class AuthStateManager {
   }
 
   private notifyCallbacks() {
-    this.redirectCallbacks.forEach(callback => {
+    this.redirectCallbacks.forEach((callback) => {
       try {
         callback();
       } catch (error) {
@@ -35,4 +35,4 @@ class AuthStateManager {
   }
 }
 
-export const authStateManager = new AuthStateManager(); 
+export const authStateManager = new AuthStateManager();

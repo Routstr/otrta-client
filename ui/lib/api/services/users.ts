@@ -50,7 +50,10 @@ export interface Organization {
 
 export const UserService = {
   async signup(request: SignupRequest): Promise<SignupResponse> {
-    const response = await apiClient.post<SignupResponse>('/api/auth/signup', request as unknown as Record<string, unknown>);
+    const response = await apiClient.post<SignupResponse>(
+      '/api/auth/signup',
+      request as unknown as Record<string, unknown>
+    );
     return response;
   },
 
@@ -60,7 +63,9 @@ export const UserService = {
   },
 
   async getUserOrganizations(npub: string): Promise<Organization[]> {
-    const response = await apiClient.get<Organization[]>(`/api/users/${npub}/organizations`);
+    const response = await apiClient.get<Organization[]>(
+      `/api/users/${npub}/organizations`
+    );
     return response;
   },
 
@@ -68,15 +73,15 @@ export const UserService = {
     if (!npub) {
       return { isValid: false, error: 'Npub is required' };
     }
-    
+
     if (!npub.startsWith('npub1')) {
       return { isValid: false, error: 'Npub must start with "npub1"' };
     }
-    
+
     if (npub.length !== 63) {
       return { isValid: false, error: 'Npub must be 63 characters long' };
     }
-    
+
     return { isValid: true };
   },
 
@@ -100,7 +105,10 @@ export const UserService = {
   },
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async updateUser(userId: string, userData: Record<string, unknown>): Promise<User> {
+  async updateUser(
+    userId: string,
+    userData: Record<string, unknown>
+  ): Promise<User> {
     console.warn('updateUser is deprecated');
     throw new Error('User updates not implemented in Nostr-based system');
   },

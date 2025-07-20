@@ -94,36 +94,36 @@ export function LightningTopupModal({
 
     setIsPolling(true);
 
-          const checkStatus = async () => {
-        try {
-          // Use enhanced payment status checking with mint_url from invoice response
-          const status = await LightningService.checkPaymentStatusWithMint({
-            quote_id: invoice.quote_id,
-            mint_url: invoice.mint_url
-          });
-          setPaymentStatus(status);
+    const checkStatus = async () => {
+      try {
+        // Use enhanced payment status checking with mint_url from invoice response
+        const status = await LightningService.checkPaymentStatusWithMint({
+          quote_id: invoice.quote_id,
+          mint_url: invoice.mint_url,
+        });
+        setPaymentStatus(status);
 
-          const state = status.state.toLowerCase();
-          if (state === 'paid') {
-            toast.success(`Payment received! ${status.amount} sats`);
-            stopPolling();
-            if (onPaymentComplete) {
-              onPaymentComplete(status);
-            }
-            return;
-          } else if (state === 'failed') {
-            toast.error('Payment failed');
-            stopPolling();
-            return;
-          } else if (state === 'expired') {
-            toast.warning('Invoice expired');
-            stopPolling();
-            return;
+        const state = status.state.toLowerCase();
+        if (state === 'paid') {
+          toast.success(`Payment received! ${status.amount} sats`);
+          stopPolling();
+          if (onPaymentComplete) {
+            onPaymentComplete(status);
           }
-        } catch (error) {
-          console.error('Error checking payment status:', error);
+          return;
+        } else if (state === 'failed') {
+          toast.error('Payment failed');
+          stopPolling();
+          return;
+        } else if (state === 'expired') {
+          toast.warning('Invoice expired');
+          stopPolling();
+          return;
         }
-      };
+      } catch (error) {
+        console.error('Error checking payment status:', error);
+      }
+    };
 
     // Initial check
     await checkStatus();
@@ -226,11 +226,12 @@ export function LightningTopupModal({
                 {paymentStatus.state.charAt(0).toUpperCase() +
                   paymentStatus.state.slice(1)}
               </span>
-                             {isPolling && paymentStatus.state?.toLowerCase() === 'pending' && (
-                 <span className='ml-2 text-sm text-gray-500'>
-                   (Checking for payment...)
-                 </span>
-               )}
+              {isPolling &&
+                paymentStatus.state?.toLowerCase() === 'pending' && (
+                  <span className='ml-2 text-sm text-gray-500'>
+                    (Checking for payment...)
+                  </span>
+                )}
             </div>
           )}
 
@@ -342,7 +343,7 @@ export function LightningTopupModal({
           <Button variant='outline' onClick={handleClose}>
             {isPaid ? 'Done' : 'Close'}
           </Button>
-                     {!isPaid && paymentStatus?.state?.toLowerCase() === 'pending' && (
+          {!isPaid && paymentStatus?.state?.toLowerCase() === 'pending' && (
             <Button onClick={togglePolling} variant='secondary'>
               {isPolling ? (
                 <>

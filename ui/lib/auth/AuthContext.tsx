@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Get the current Nostr user
       const nostrUser = nostrAuthSimple.getCurrentUser();
-      
+
       if (!nostrUser) {
         throw new Error('No Nostr authentication found');
       }
@@ -114,7 +114,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // User might need to sign up first, but we can still consider them authenticated
         // for the purpose of accessing the app
       }
-
     } catch (error) {
       setError(error instanceof Error ? error : new Error('Sign in failed'));
       throw error;

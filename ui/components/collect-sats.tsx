@@ -111,7 +111,9 @@ export function CollectSats() {
         queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
         toast.success(result.message || 'Token generated successfully!');
       } else {
-        toast.error(result.message || 'Failed to generate token. Please try again.');
+        toast.error(
+          result.message || 'Failed to generate token. Please try again.'
+        );
       }
     } catch (error) {
       console.error('Error generating token:', error);
@@ -150,7 +152,7 @@ export function CollectSats() {
     })) || [];
 
   return (
-    <Card className='w-full max-w-2xl mx-auto'>
+    <Card className='mx-auto w-full max-w-2xl'>
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>
           <SendIcon className='h-5 w-5' />
@@ -220,7 +222,10 @@ export function CollectSats() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Unit</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue />
@@ -239,7 +244,7 @@ export function CollectSats() {
               </div>
 
               <FormDescription>
-                {form.watch('unit') === 'sat' 
+                {form.watch('unit') === 'sat'
                   ? 'Amount in satoshis (1 sat = 1000 msat)'
                   : 'Amount in millisatoshis (1000 msat = 1 sat)'}
               </FormDescription>
@@ -265,15 +270,15 @@ export function CollectSats() {
           </Form>
         ) : (
           <div className='space-y-4'>
-            <div className='p-4 bg-green-50 border border-green-200 rounded-lg'>
+            <div className='rounded-lg border border-green-200 bg-green-50 p-4'>
               <p className='text-sm font-medium text-green-800'>
                 Token generated successfully!
               </p>
-              <p className='text-xs text-green-600 mt-1'>
+              <p className='mt-1 text-xs text-green-600'>
                 You can now share this token or QR code with the recipient.
               </p>
             </div>
-            
+
             <Tabs defaultValue='text' className='w-full'>
               <TabsList className='grid w-full grid-cols-2'>
                 <TabsTrigger value='text'>Text Token</TabsTrigger>
@@ -282,7 +287,9 @@ export function CollectSats() {
 
               <TabsContent value='text' className='space-y-4'>
                 <div className='space-y-2'>
-                  <label className='text-sm font-medium'>Generated Token:</label>
+                  <label className='text-sm font-medium'>
+                    Generated Token:
+                  </label>
                   <Textarea
                     value={generatedToken || ''}
                     readOnly
@@ -312,24 +319,26 @@ export function CollectSats() {
               <TabsContent value='qr' className='space-y-4'>
                 <div className='flex flex-col items-center space-y-4'>
                   {qrCodeDataUrl ? (
-                    <div className='p-4 bg-white rounded-lg border shadow-sm'>
+                    <div className='rounded-lg border bg-white p-4 shadow-sm'>
                       <Image
                         src={qrCodeDataUrl}
                         alt='Token QR Code'
                         width={300}
                         height={300}
-                        className='max-w-full h-auto'
+                        className='h-auto max-w-full'
                       />
                     </div>
                   ) : (
-                    <div className='flex items-center justify-center w-64 h-64 border-2 border-dashed border-gray-300 rounded-lg'>
+                    <div className='flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-gray-300'>
                       <div className='text-center'>
-                        <QrCode className='h-8 w-8 text-gray-400 mx-auto mb-2' />
-                        <p className='text-sm text-gray-500'>Generating QR code...</p>
+                        <QrCode className='mx-auto mb-2 h-8 w-8 text-gray-400' />
+                        <p className='text-sm text-gray-500'>
+                          Generating QR code...
+                        </p>
                       </div>
                     </div>
                   )}
-                  <p className='text-sm text-muted-foreground text-center'>
+                  <p className='text-muted-foreground text-center text-sm'>
                     Scan this QR code to receive the ecash token
                   </p>
                 </div>

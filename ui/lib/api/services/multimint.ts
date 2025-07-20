@@ -61,11 +61,17 @@ export const TopupMintResponseSchema = z.object({
 });
 
 export type MintBalance = z.infer<typeof MintBalanceSchema>;
-export type MultimintBalanceResponse = z.infer<typeof MultimintBalanceResponseSchema>;
+export type MultimintBalanceResponse = z.infer<
+  typeof MultimintBalanceResponseSchema
+>;
 export type MultimintSendRequest = z.infer<typeof MultimintSendRequestSchema>;
 export type MultimintSendResponse = z.infer<typeof MultimintSendResponseSchema>;
-export type TransferBetweenMintsRequest = z.infer<typeof TransferBetweenMintsRequestSchema>;
-export type TransferBetweenMintsResponse = z.infer<typeof TransferBetweenMintsResponseSchema>;
+export type TransferBetweenMintsRequest = z.infer<
+  typeof TransferBetweenMintsRequestSchema
+>;
+export type TransferBetweenMintsResponse = z.infer<
+  typeof TransferBetweenMintsResponseSchema
+>;
 export type TopupMintRequest = z.infer<typeof TopupMintRequestSchema>;
 export type TopupMintResponse = z.infer<typeof TopupMintResponseSchema>;
 
@@ -73,7 +79,9 @@ export class MultimintService {
   // Get balance across all mints
   static async getMultimintBalance(): Promise<MultimintBalanceResponse> {
     try {
-      const response = await apiClient.get<MultimintBalanceResponse>('/api/multimint/balance');
+      const response = await apiClient.get<MultimintBalanceResponse>(
+        '/api/multimint/balance'
+      );
       return MultimintBalanceResponseSchema.parse(response);
     } catch (error) {
       console.error('Error fetching multimint balance:', error);
@@ -82,7 +90,9 @@ export class MultimintService {
   }
 
   // Send tokens with multimint options
-  static async sendMultimintToken(request: MultimintSendRequest): Promise<MultimintSendResponse> {
+  static async sendMultimintToken(
+    request: MultimintSendRequest
+  ): Promise<MultimintSendResponse> {
     try {
       const validatedRequest = MultimintSendRequestSchema.parse(request);
       const response = await apiClient.post<MultimintSendResponse>(
@@ -93,9 +103,13 @@ export class MultimintService {
     } catch (error) {
       console.error('Error sending multimint token:', error);
       if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${error.issues.map(i => i.message).join(', ')}`);
+        throw new Error(
+          `Validation error: ${error.issues.map((i) => i.message).join(', ')}`
+        );
       }
-      throw new Error('Failed to send token. Please check your balance and try again.');
+      throw new Error(
+        'Failed to send token. Please check your balance and try again.'
+      );
     }
   }
 
@@ -113,17 +127,23 @@ export class MultimintService {
     } catch (error) {
       console.error('Error transferring between mints:', error);
       if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${error.issues.map(i => i.message).join(', ')}`);
+        throw new Error(
+          `Validation error: ${error.issues.map((i) => i.message).join(', ')}`
+        );
       }
-      throw new Error('Failed to transfer between mints. Please check your balance and try again.');
+      throw new Error(
+        'Failed to transfer between mints. Please check your balance and try again.'
+      );
     }
   }
 
   // Topup a mint with lightning or ecash
-  static async topupMint(request: TopupMintRequest): Promise<TopupMintResponse> {
+  static async topupMint(
+    request: TopupMintRequest
+  ): Promise<TopupMintResponse> {
     try {
       const validatedRequest = TopupMintRequestSchema.parse(request);
-      
+
       // Validate required fields based on method
       if (validatedRequest.method === 'lightning' && !validatedRequest.amount) {
         throw new Error('Amount is required for lightning topup');
@@ -140,9 +160,13 @@ export class MultimintService {
     } catch (error) {
       console.error('Error topping up mint:', error);
       if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${error.issues.map(i => i.message).join(', ')}`);
+        throw new Error(
+          `Validation error: ${error.issues.map((i) => i.message).join(', ')}`
+        );
       }
-      throw new Error('Failed to topup mint. Please check your inputs and try again.');
+      throw new Error(
+        'Failed to topup mint. Please check your inputs and try again.'
+      );
     }
   }
 
@@ -150,7 +174,7 @@ export class MultimintService {
   static formatBalance(balance: number, unit: string = 'Msat'): string {
     switch (unit.toLowerCase()) {
       case 'msat':
-        return balance >= 1000 
+        return balance >= 1000
           ? `${(balance / 1000).toFixed(1)}k msat`
           : `${balance} msat`;
       case 'sat':
@@ -167,7 +191,7 @@ export class MultimintService {
     try {
       const url = new URL(mintUrl);
       const hostname = url.hostname;
-      
+
       // Known mint mappings
       const knownMints: Record<string, string> = {
         'mint.minibits.cash': 'Minibits',
@@ -202,4 +226,4 @@ export class MultimintService {
   static getMintStatusText(isActive: boolean): string {
     return isActive ? 'Active' : 'Inactive';
   }
-} 
+}

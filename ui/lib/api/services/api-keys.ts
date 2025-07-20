@@ -17,7 +17,10 @@ export class ApiKeyService {
         params.organization_id = organizationId;
       }
 
-      const response = await apiClient.get<ApiKeyListResponse>('/api/api-keys', params);
+      const response = await apiClient.get<ApiKeyListResponse>(
+        '/api/api-keys',
+        params
+      );
       return response.api_keys;
     } catch (error) {
       console.error('Error fetching API keys:', error);

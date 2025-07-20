@@ -6,10 +6,15 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 
 const ModelSelector = dynamic(
-  () => import('@/components/ModelSelector').then((mod) => ({ default: mod.ModelSelector })),
+  () =>
+    import('@/components/ModelSelector').then((mod) => ({
+      default: mod.ModelSelector,
+    })),
   {
-    loading: () => <div className='text-center p-8'>Loading model selector...</div>,
-    ssr: false
+    loading: () => (
+      <div className='p-8 text-center'>Loading model selector...</div>
+    ),
+    ssr: false,
   }
 );
 

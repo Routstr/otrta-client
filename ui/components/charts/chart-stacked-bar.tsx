@@ -43,24 +43,27 @@ export function ChartStackedBar({
         {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
       <CardContent>
-        <ChartContainer config={config} className="h-full">
+        <ChartContainer config={config} className='h-full'>
           <BarChart accessibilityLayer data={data}>
             <XAxis
               dataKey={xAxisKey}
               tickLine={false}
               tickMargin={10}
               axisLine={false}
-              tickFormatter={formatXAxis || ((value) => {
-                return new Date(value).toLocaleDateString('en-US', {
-                  weekday: 'short',
-                });
-              })}
+              tickFormatter={
+                formatXAxis ||
+                ((value) => {
+                  return new Date(value).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                  });
+                })
+              }
             />
             {dataKeys.map((key, index) => (
               <Bar
                 key={key}
                 dataKey={key}
-                stackId="a"
+                stackId='a'
                 fill={`var(--color-${key})`}
                 radius={index === 0 ? [0, 0, 4, 4] : [4, 4, 0, 0]}
               />
@@ -75,4 +78,4 @@ export function ChartStackedBar({
       </CardContent>
     </Card>
   );
-} 
+}

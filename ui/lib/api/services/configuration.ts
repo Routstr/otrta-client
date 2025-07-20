@@ -92,7 +92,8 @@ export class ConfigurationService {
 
     try {
       // Check for API key first (bearer token authentication)
-      const apiKey = typeof window !== 'undefined' ? localStorage.getItem('api_key') : null;
+      const apiKey =
+        typeof window !== 'undefined' ? localStorage.getItem('api_key') : null;
       if (apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
         return headers;

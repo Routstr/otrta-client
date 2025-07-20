@@ -3,14 +3,29 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Smartphone, Globe, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
-import { nostrAuthSimple as nostrAuth, NostrUser } from '@/lib/api/services/nostr-auth-simple';
+import {
+  Smartphone,
+  Globe,
+  AlertCircle,
+  CheckCircle,
+  ArrowRight,
+} from 'lucide-react';
+import {
+  nostrAuthSimple as nostrAuth,
+  NostrUser,
+} from '@/lib/api/services/nostr-auth-simple';
 
 interface NostrLoginProps {
   onLogin?: (user: NostrUser) => void;
@@ -18,7 +33,11 @@ interface NostrLoginProps {
   autoRedirect?: boolean;
 }
 
-export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLoginProps) {
+export function NostrLogin({
+  onLogin,
+  onError,
+  autoRedirect = true,
+}: NostrLoginProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +99,7 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
         if (redirectCounter === 1) {
           router.push('/');
         } else {
-          setRedirectCounter(prev => prev - 1);
+          setRedirectCounter((prev) => prev - 1);
         }
       }, 1000);
 
@@ -102,7 +121,8 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
       // Refresh permission status after successful login
       await checkPermissions();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Extension login failed';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Extension login failed';
       setError(errorMessage);
       onError?.(errorMessage);
       // Also refresh permission status after failed attempt to show current state
@@ -120,7 +140,8 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
     try {
       setError('Remote signing is not supported in this simplified version');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Remote login failed';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Remote login failed';
       setError(errorMessage);
       onError?.(errorMessage);
     } finally {
@@ -128,31 +149,27 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
     }
   };
 
-
-
   // If already logged in, show user info
   if (currentUser) {
     return (
-      <Card className="w-full max-w-md mx-auto">
+      <Card className='mx-auto w-full max-w-md'>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
+          <CardTitle className='flex items-center gap-2'>
+            <CheckCircle className='h-5 w-5 text-green-500' />
             Connected
           </CardTitle>
-          <CardDescription>
-            You are logged in to Nostr
-          </CardDescription>
+          <CardDescription>You are logged in to Nostr</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
+        <CardContent className='space-y-4'>
+          <div className='space-y-2'>
             <Label>Public Key (npub)</Label>
-            <div className="flex items-center gap-2">
-              <Input 
-                value={currentUser.npub} 
-                readOnly 
-                className="text-sm font-mono"
+            <div className='flex items-center gap-2'>
+              <Input
+                value={currentUser.npub}
+                readOnly
+                className='font-mono text-sm'
               />
-              <Badge variant="secondary" className="capitalize">
+              <Badge variant='secondary' className='capitalize'>
                 {currentUser.method}
               </Badge>
             </div>
@@ -160,25 +177,23 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
 
           {success && (
             <Alert>
-              <CheckCircle className="h-4 w-4" />
+              <CheckCircle className='h-4 w-4' />
               <AlertDescription>{success}</AlertDescription>
             </Alert>
           )}
 
           {autoRedirect && redirectCounter > 0 && (
             <Alert>
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className='h-4 w-4' />
               <AlertDescription>
-                Redirecting to dashboard in {redirectCounter} second{redirectCounter !== 1 ? 's' : ''}...
+                Redirecting to dashboard in {redirectCounter} second
+                {redirectCounter !== 1 ? 's' : ''}...
               </AlertDescription>
             </Alert>
           )}
 
-          <Button 
-            onClick={handleManualRedirect}
-            className="w-full"
-          >
-            <ArrowRight className="h-4 w-4 mr-2" />
+          <Button onClick={handleManualRedirect} className='w-full'>
+            <ArrowRight className='mr-2 h-4 w-4' />
             Go to Dashboard
           </Button>
         </CardContent>
@@ -187,7 +202,7 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className='mx-auto w-full max-w-md'>
       <CardHeader>
         <CardTitle>Connect to Nostr</CardTitle>
         <CardDescription>
@@ -195,96 +210,114 @@ export function NostrLogin({ onLogin, onError, autoRedirect = true }: NostrLogin
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="extension" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="extension" disabled={!hasExtension}>
-              <Globe className="h-4 w-4" />
+        <Tabs defaultValue='extension' className='w-full'>
+          <TabsList className='grid w-full grid-cols-2'>
+            <TabsTrigger value='extension' disabled={!hasExtension}>
+              <Globe className='h-4 w-4' />
               Extension
             </TabsTrigger>
-            <TabsTrigger value="amber">
-              <Smartphone className="h-4 w-4" />
+            <TabsTrigger value='amber'>
+              <Smartphone className='h-4 w-4' />
               Remote Signer
             </TabsTrigger>
           </TabsList>
 
-          <div className="mt-4 space-y-4">
+          <div className='mt-4 space-y-4'>
             {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
+              <Alert variant='destructive'>
+                <AlertCircle className='h-4 w-4' />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
-            <TabsContent value="extension" className="space-y-3">
-              <div className="text-sm text-muted-foreground">
+            <TabsContent value='extension' className='space-y-3'>
+              <div className='text-muted-foreground text-sm'>
                 Connect using a browser extension like Alby, nos2x, or similar.
               </div>
               {!hasExtension && (
                 <Alert>
-                  <AlertCircle className="h-4 w-4" />
+                  <AlertCircle className='h-4 w-4' />
                   <AlertDescription>
-                    No Nostr extension detected. Please install a Nostr extension first.
+                    No Nostr extension detected. Please install a Nostr
+                    extension first.
                   </AlertDescription>
                 </Alert>
               )}
               {hasExtension && permissionStatus && (
                 <Alert>
-                  <CheckCircle className="h-4 w-4" />
+                  <CheckCircle className='h-4 w-4' />
                   <AlertDescription>
                     <strong>Current permissions:</strong>
-                    <br />• getPublicKey: {permissionStatus.hasGetPublicKey ? '✅ Granted' : '❌ Not granted'}
-                    <br />• signEvent (kind 27235): {permissionStatus.hasSignEvent ? '✅ Granted' : '❌ Not granted'}
-                    {(!permissionStatus.hasGetPublicKey || !permissionStatus.hasSignEvent) && (
-                      <><br /><br /><strong>Missing permissions will be requested during login.</strong></>
+                    <br />• getPublicKey:{' '}
+                    {permissionStatus.hasGetPublicKey
+                      ? '✅ Granted'
+                      : '❌ Not granted'}
+                    <br />• signEvent (kind 27235):{' '}
+                    {permissionStatus.hasSignEvent
+                      ? '✅ Granted'
+                      : '❌ Not granted'}
+                    {(!permissionStatus.hasGetPublicKey ||
+                      !permissionStatus.hasSignEvent) && (
+                      <>
+                        <br />
+                        <br />
+                        <strong>
+                          Missing permissions will be requested during login.
+                        </strong>
+                      </>
                     )}
                   </AlertDescription>
                 </Alert>
               )}
               {hasExtension && !permissionStatus && (
                 <Alert>
-                  <AlertCircle className="h-4 w-4" />
+                  <AlertCircle className='h-4 w-4' />
                   <AlertDescription>
                     <strong>Required permissions:</strong>
                     <br />• getPublicKey (always)
                     <br />• signEvent (kind: 27235)
-                    <br />Please allow both permissions when prompted.
+                    <br />
+                    Please allow both permissions when prompted.
                   </AlertDescription>
                 </Alert>
               )}
-              <Button 
+              <Button
                 onClick={handleExtensionLogin}
                 disabled={isLoading || !hasExtension}
-                className="w-full"
+                className='w-full'
               >
-                {isLoading ? 'Requesting permissions...' : 'Connect with Extension'}
+                {isLoading
+                  ? 'Requesting permissions...'
+                  : 'Connect with Extension'}
               </Button>
             </TabsContent>
 
-            <TabsContent value="amber" className="space-y-3">
-              <div className="text-sm text-muted-foreground">
-                Connect using NIP-46 remote signing with Amber or compatible signers.
+            <TabsContent value='amber' className='space-y-3'>
+              <div className='text-muted-foreground text-sm'>
+                Connect using NIP-46 remote signing with Amber or compatible
+                signers.
               </div>
-                              <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    This uses NIP-46 &quot;Direct connection initiated by the client&quot; protocol. 
-                    Make sure your signer supports NIP-46 remote signing.
-                  </AlertDescription>
-                </Alert>
-              <Button 
+              <Alert>
+                <AlertCircle className='h-4 w-4' />
+                <AlertDescription>
+                  This uses NIP-46 &quot;Direct connection initiated by the
+                  client&quot; protocol. Make sure your signer supports NIP-46
+                  remote signing.
+                </AlertDescription>
+              </Alert>
+              <Button
                 onClick={handleAmberLogin}
                 disabled={isLoading}
-                className="w-full"
+                className='w-full'
               >
-                {isLoading ? 'Generating Connection...' : 'Connect with NIP-46 Signer'}
+                {isLoading
+                  ? 'Generating Connection...'
+                  : 'Connect with NIP-46 Signer'}
               </Button>
             </TabsContent>
-
-
-
           </div>
         </Tabs>
       </CardContent>
     </Card>
   );
-} 
+}
