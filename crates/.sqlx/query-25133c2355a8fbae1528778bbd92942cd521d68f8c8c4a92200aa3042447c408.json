@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at, seed\n        FROM server_config\n        ORDER BY created_at DESC\n        LIMIT 1\n        ",
+  "query": "\n        INSERT INTO server_config (id, endpoint, api_key, created_at, organization_id)\n        VALUES ($1, $2, $3, NOW(), $4)\n        RETURNING id, endpoint, api_key, created_at, updated_at, seed, organization_id\n        ",
   "describe": {
     "columns": [
       {
@@ -32,10 +32,20 @@
         "ordinal": 5,
         "name": "seed",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "organization_id",
+        "type_info": "Uuid"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -43,8 +53,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "b17e0206ae5f458f6a978c4f2e6ecefcb067cbcc4f7b116eba26f3e61a9e4d4b"
+  "hash": "25133c2355a8fbae1528778bbd92942cd521d68f8c8c4a92200aa3042447c408"
 }

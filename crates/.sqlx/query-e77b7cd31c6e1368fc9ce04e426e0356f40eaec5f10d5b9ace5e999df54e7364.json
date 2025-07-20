@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE server_config\n        SET endpoint = $1, api_key = $2, updated_at = NOW()\n        WHERE id = $3\n        RETURNING id, endpoint, api_key, created_at, updated_at, seed\n        ",
+  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at, seed, organization_id\n        FROM server_config\n        WHERE organization_id = $1\n        ORDER BY created_at DESC\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -32,13 +32,16 @@
         "ordinal": 5,
         "name": "seed",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "organization_id",
+        "type_info": "Uuid"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Text",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -47,8 +50,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "0fe848495d0426452edfe19347998b48c514fd5c4ec95f598f38e1056f76a614"
+  "hash": "e77b7cd31c6e1368fc9ce04e426e0356f40eaec5f10d5b9ace5e999df54e7364"
 }

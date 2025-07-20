@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at, seed\n        FROM server_config\n        ",
+  "query": "\n        SELECT id, endpoint, api_key, created_at, updated_at, seed, organization_id\n        FROM server_config\n        ",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,11 @@
         "ordinal": 5,
         "name": "seed",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "organization_id",
+        "type_info": "Uuid"
       }
     ],
     "parameters": {
@@ -43,8 +48,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "c4cfbdc63bd0b9b550ceb981e0be1a789e64f971a9e04c31b4df5cbaf159175b"
+  "hash": "6eaa7ccfbb7550f25067ff78973e81184b9677babf0ed82ad13a264053580cd5"
 }
