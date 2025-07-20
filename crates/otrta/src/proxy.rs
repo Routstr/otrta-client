@@ -1,5 +1,6 @@
 use crate::{
     db::{
+        api_keys::get_api_key_by_id,
         models::get_model,
         provider::get_default_provider,
         transaction::{add_transaction, TransactionDirection},
@@ -20,12 +21,31 @@ use reqwest::Client;
 use serde_json::json;
 use std::io;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
 struct OpenAIRequest {
     model: String,
     #[serde(flatten)]
     _other: serde_json::Value,
+}
+
+async fn get_organization_wallet_from_api_key(
+    state: &Arc<AppState>,
+    api_key_id: &str,
+) -> Result<Arc<crate::multimint::MultimintWalletWrapper>, Box<dyn std::error::Error + Send + Sync>>
+{
+    let api_key = get_api_key_by_id(&state.db, api_key_id)
+        .await?
+        .ok_or("API key not found")?;
+
+    let org_id = Uuid::parse_str(&api_key.organization_id)?;
+    let wallet = state
+        .multimint_manager
+        .get_or_create_multimint(&org_id)
+        .await?;
+
+    Ok(wallet)
 }
 
 pub async fn forward_any_request_get(
@@ -162,8 +182,27 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     let token = if is_free_model {
         String::new()
     } else {
+        let wallet = if let Some(api_key_id) = api_key_id {
+            match get_organization_wallet_from_api_key(state, api_key_id).await {
+                Ok(wallet) => wallet,
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({"error": "Failed to get organization wallet"})),
+                    )
+                        .into_response()
+                }
+            }
+        } else {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({"error": "API key required"})),
+            )
+                .into_response();
+        };
+
         let token_result = send_with_retry(
-            &state.wallet,
+            &wallet,
             cost,
             server_config.mints.first().unwrap(),
             Some(3),
@@ -206,7 +245,18 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         if status != StatusCode::OK {
             if let Some(change_sats) = headers.get("X-Cashu") {
                 if let Ok(in_token) = change_sats.to_str() {
-                    let res = state.wallet.receive(in_token).await.unwrap();
+                    let wallet = if let Some(api_key_id) = api_key_id {
+                        match get_organization_wallet_from_api_key(state, api_key_id).await {
+                            Ok(wallet) => wallet,
+                            Err(_) => {
+                                return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet")
+                                    .into_response()
+                            }
+                        }
+                    } else {
+                        return (StatusCode::UNAUTHORIZED, "API key required").into_response();
+                    };
+                    let res = wallet.receive(in_token).await.unwrap();
                     add_transaction(
                         &state.db,
                         &in_token,
@@ -228,7 +278,18 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
         if let Some(change_sats) = headers.get("X-Cashu") {
             if let Ok(in_token) = change_sats.to_str() {
-                let res = state.wallet.receive(in_token).await.unwrap();
+                let wallet = if let Some(api_key_id) = api_key_id {
+                    match get_organization_wallet_from_api_key(state, api_key_id).await {
+                        Ok(wallet) => wallet,
+                        Err(_) => {
+                            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet")
+                                .into_response()
+                        }
+                    }
+                } else {
+                    return (StatusCode::UNAUTHORIZED, "API key required").into_response();
+                };
+                let res = wallet.receive(in_token).await.unwrap();
                 add_transaction(
                     &state.db,
                     &in_token,
@@ -261,9 +322,16 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
         return response.body(body).unwrap_or_else(|e| {
             let state_clone = state.clone();
+            let api_key_id_clone = api_key_id.map(|s| s.to_string());
             tokio::spawn(async move {
-                if let Err(err) = state_clone.wallet.redeem_pendings().await {
-                    eprintln!("Error redeeming pendings: {:?}", err);
+                if let Some(api_key_id) = api_key_id_clone {
+                    if let Ok(wallet) =
+                        get_organization_wallet_from_api_key(&state_clone, &api_key_id).await
+                    {
+                        if let Err(err) = wallet.redeem_pendings().await {
+                            eprintln!("Error redeeming pendings: {:?}", err);
+                        }
+                    }
                 }
             });
 
@@ -274,7 +342,18 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 .unwrap()
         });
     } else {
-        let res = state.wallet.receive(&token).await.unwrap();
+        let wallet = if let Some(api_key_id) = api_key_id {
+            match get_organization_wallet_from_api_key(state, api_key_id).await {
+                Ok(wallet) => wallet,
+                Err(_) => {
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet")
+                        .into_response()
+                }
+            }
+        } else {
+            return (StatusCode::UNAUTHORIZED, "API key required").into_response();
+        };
+        let res = wallet.receive(&token).await.unwrap();
         add_transaction(
             &state.db,
             &token,

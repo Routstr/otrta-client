@@ -1,21 +1,20 @@
 use axum::{
-    Router, middleware,
+    middleware,
     routing::{delete, get, post, put},
+    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{DatabaseSettings, Settings, get_configuration};
-use ecash_402_wallet::wallet::CashuWalletClient;
+use connection::{get_configuration, DatabaseSettings};
 use otrta::{
-    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware},
-    db::server_config::create_with_seed,
-    handlers::{self, get_server_config},
+    auth::{bearer_auth_middleware, nostr_auth_middleware_with_context, AuthConfig, AuthState},
+    handlers,
     models::AppState,
-    multimint::MultimintWalletWrapper,
+    multimint_manager::MultimintManager,
     proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -43,14 +42,15 @@ async fn main() {
         .await
         .unwrap();
 
-    let wallet = initialize_wallet(&connection_pool, &configuration, "ecash_402")
-        .await
-        .unwrap();
+    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./wallet_data".to_string());
+    std::fs::create_dir_all(&wallet_dir).unwrap();
+
+    let multimint_manager = Arc::new(MultimintManager::new(wallet_dir, connection_pool.clone()));
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),
         default_msats_per_request: configuration.application.default_msats_per_request,
-        wallet: Arc::new(wallet),
+        multimint_manager,
     });
 
     let job_runner = BackgroundJobRunner::new(Arc::clone(&app_state));
@@ -184,7 +184,7 @@ async fn main() {
 
         protected_routes = protected_routes.layer(middleware::from_fn_with_state(
             auth_state,
-            nostr_auth_middleware,
+            nostr_auth_middleware_with_context,
         ));
     }
 
@@ -219,7 +219,6 @@ pub async fn get_connection_pool(configuration: &DatabaseSettings) -> Result<PgP
         .connect_with(configuration.with_db())
         .await
 }
-
 async fn initialize_wallet(
     connection_pool: &PgPool,
     configuration: &Settings,

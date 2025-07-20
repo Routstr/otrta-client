@@ -23,7 +23,7 @@ use crate::{
     multimint::LocalMultimintSendOptions,
 };
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Extension, Path, Query, State},
     http::StatusCode,
     response::Response,
     Json,
@@ -121,8 +121,24 @@ pub async fn refresh_models_from_proxy(
 
 pub async fn redeem_token(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(payload): Json<Token>,
 ) -> Json<TokenRedeemResponse> {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Json(TokenRedeemResponse {
+                amount: None,
+                success: false,
+                message: Some("Failed to get organization wallet".to_string()),
+            })
+        }
+    };
+
     let token = payload.token.trim();
     println!("Attempting to redeem token: {}", token);
 
@@ -138,7 +154,7 @@ pub async fn redeem_token(
     };
 
     if let Ok(mint_url) = parsed_token.mint_url() {
-        let configured_mints = state.wallet.list_mints().await;
+        let configured_mints = wallet.list_mints().await;
         if !configured_mints.contains(&mint_url.to_string()) {
             return Json(TokenRedeemResponse {
                 amount: None,
@@ -150,12 +166,8 @@ pub async fn redeem_token(
             });
         }
 
-        if let Some(wallet) = state
-            .wallet
-            .get_wallet_for_mint(&mint_url.to_string())
-            .await
-        {
-            match wallet.receive(token).await {
+        if let Some(mint_wallet) = wallet.get_wallet_for_mint(&mint_url.to_string()).await {
+            match mint_wallet.receive(token).await {
                 Ok(amount) => {
                     return Json(TokenRedeemResponse {
                         amount: Some(amount.to_string()),
@@ -178,7 +190,7 @@ pub async fn redeem_token(
         }
     }
 
-    match state.wallet.receive(token).await {
+    match wallet.receive(token).await {
         Ok(amount) => Json(TokenRedeemResponse {
             amount: Some(amount.to_string()),
             success: true,
@@ -195,8 +207,20 @@ pub async fn redeem_token(
     }
 }
 
-pub async fn get_balance(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    Json(json!({"balance": state.wallet.balance().await.unwrap()}))
+pub async fn get_balance(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+) -> Json<serde_json::Value> {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => return Json(json!({"error": "Failed to get organization wallet"})),
+    };
+
+    Json(json!({"balance": wallet.balance().await.unwrap()}))
 }
 
 pub async fn update_server_config(
@@ -320,17 +344,45 @@ pub async fn get_api_key_statistics_handler(
     }
 }
 
-pub async fn get_pendings(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    let proofs = state.wallet.pending().await.unwrap();
+pub async fn get_pendings(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+) -> Json<serde_json::Value> {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => return Json(json!({"error": "Failed to get organization wallet"})),
+    };
+
+    let proofs = wallet.pending().await.unwrap();
     Json(json!({"pending": proofs}))
 }
 
 pub async fn send_token(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(payload): Json<SendTokenRequest>,
 ) -> Result<Json<SendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match state
-        .wallet
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
+    match wallet
         .send(
             payload.amount as u64,
             LocalMultimintSendOptions {
@@ -367,8 +419,20 @@ pub async fn send_token(
     }
 }
 
-pub async fn redeem_pendings(State(state): State<Arc<AppState>>) -> StatusCode {
-    if state.wallet.redeem_pendings().await.is_ok() {
+pub async fn redeem_pendings(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+) -> StatusCode {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
+    };
+
+    if wallet.redeem_pendings().await.is_ok() {
         return StatusCode::OK;
     }
 
@@ -772,8 +836,25 @@ pub async fn get_mint_handler(
 
 pub async fn create_mint_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(request): Json<CreateMintRequest>,
 ) -> Result<Json<Mint>, (StatusCode, Json<serde_json::Value>)> {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
     // Validate the request
     if request.mint_url.trim().is_empty() {
         return Err((
@@ -803,9 +884,9 @@ pub async fn create_mint_handler(
         Ok(mint) => {
             let currency_unit = mint
                 .currency_unit
-                .parse::<crate::db::mint::CurrencyUnit>()
-                .unwrap_or(crate::db::mint::CurrencyUnit::Sat);
-            if let Err(e) = state.wallet.add_mint(&mint.mint_url, currency_unit).await {
+                .parse::<cdk::nuts::CurrencyUnit>()
+                .unwrap_or(cdk::nuts::CurrencyUnit::Sat);
+            if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
                 eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
             }
             Ok(Json(mint))
@@ -957,9 +1038,26 @@ pub async fn set_mint_active_handler(
 
 pub async fn get_multimint_balance_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<MultimintBalanceResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
     // Get complete multimint balance information
-    let multimint_balance = match state.wallet.get_total_balance().await {
+    let multimint_balance = match wallet.get_total_balance().await {
         Ok(balance) => balance,
         Err(e) => {
             eprintln!("Failed to get multimint balance: {:?}", e);
@@ -997,8 +1095,25 @@ pub async fn get_multimint_balance_handler(
 
 pub async fn send_multimint_token_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(payload): Json<MultimintSendTokenRequest>,
 ) -> Result<Json<MultimintSendTokenResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
     let unit = payload
         .unit
         .and_then(|u| u.parse::<crate::db::mint::CurrencyUnit>().ok());
@@ -1008,8 +1123,7 @@ pub async fn send_multimint_token_handler(
         split_across_mints: payload.split_across_mints.unwrap_or(false),
     };
 
-    match state
-        .wallet
+    match wallet
         .send(payload.amount, send_options, &state.db, None)
         .await
     {
@@ -1035,9 +1149,26 @@ pub async fn send_multimint_token_handler(
 
 pub async fn transfer_between_mints_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(payload): Json<TransferBetweenMintsRequest>,
 ) -> Result<Json<TransferBetweenMintsResponse>, (StatusCode, Json<serde_json::Value>)> {
-    let configured_mints = state.wallet.list_mints().await;
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
+    let configured_mints = wallet.list_mints().await;
 
     if !configured_mints.contains(&payload.from_mint) {
         return Err((
@@ -1063,8 +1194,7 @@ pub async fn transfer_between_mints_handler(
         ));
     }
 
-    match state
-        .wallet
+    match wallet
         .transfer_between_mints(&payload.from_mint, &payload.to_mint, payload.amount)
         .await
     {
@@ -1092,11 +1222,28 @@ pub async fn transfer_between_mints_handler(
 
 pub async fn topup_mint_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(payload): Json<TopupMintRequest>,
 ) -> Result<Json<TopupMintResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
     match payload.method.as_str() {
         "ecash" => {
             if let Some(token) = payload.token {
+                let token_data = cdk::nuts::Token::from_str(&token).unwrap();
                 let mint_exists_in_db =
                     match crate::db::mint::get_mint_by_url(&state.db, &payload.mint_url).await {
                         Ok(mint_option) => mint_option.is_some(),
@@ -1109,7 +1256,7 @@ pub async fn topup_mint_handler(
                 if !mint_exists_in_db {
                     let create_request = crate::db::mint::CreateMintRequest {
                         mint_url: payload.mint_url.clone(),
-                        currency_unit: Some(crate::db::mint::CurrencyUnit::Sat.to_string()),
+                        currency_unit: Some(token_data.unit().unwrap().to_string()),
                         name: None,
                     };
 
@@ -1127,14 +1274,16 @@ pub async fn topup_mint_handler(
                 }
 
                 let mint_exists_in_wallet = {
-                    let mints = state.wallet.list_mints().await;
+                    let mints = wallet.list_mints().await;
                     mints.contains(&payload.mint_url)
                 };
 
                 if !mint_exists_in_wallet {
-                    if let Err(e) = state
-                        .wallet
-                        .add_mint(&payload.mint_url, crate::db::mint::CurrencyUnit::Sat)
+                    if let Err(e) = wallet
+                        .add_mint(
+                            &payload.mint_url,
+                            token_data.unit().unwrap_or(cdk::nuts::CurrencyUnit::Sat),
+                        )
                         .await
                     {
                         eprintln!("Failed to add mint to wallet {}: {:?}", payload.mint_url, e);
@@ -1150,8 +1299,8 @@ pub async fn topup_mint_handler(
                     }
                 }
 
-                if let Some(wallet) = state.wallet.get_wallet_for_mint(&payload.mint_url).await {
-                    match wallet.receive(&token).await {
+                if let Some(mint_wallet) = wallet.get_wallet_for_mint(&payload.mint_url).await {
+                    match mint_wallet.receive(&token).await {
                         Ok(amount) => Ok(Json(TopupMintResponse {
                             success: true,
                             message: format!(
@@ -1176,7 +1325,7 @@ pub async fn topup_mint_handler(
                         }
                     }
                 } else {
-                    match state.wallet.receive(&token).await {
+                    match wallet.receive(&token).await {
                         Ok(amount) => Ok(Json(TopupMintResponse {
                             success: true,
                             message: format!(
@@ -1494,8 +1643,24 @@ pub struct CreateLightningInvoiceResponse {
 
 pub async fn create_lightning_payment_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(payload): Json<CreateLightningPaymentRequest>,
 ) -> Result<Json<CreateLightningPaymentResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let org_wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
     use cdk::Bolt11Invoice;
     use std::str::FromStr;
 
@@ -1529,7 +1694,7 @@ pub async fn create_lightning_payment_handler(
     );
 
     let wallet = if let Some(mint_url) = &payload.mint_url {
-        match state.wallet.get_wallet_for_mint(&mint_url).await {
+        match org_wallet.get_wallet_for_mint(&mint_url).await {
             Some(wallet) => {
                 eprintln!("DEBUG: Found wallet for specified mint");
                 wallet
@@ -1624,9 +1789,26 @@ pub async fn create_lightning_payment_handler(
 
 pub async fn check_lightning_payment_status_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(payload): Path<LightningPaymentStatus>,
 ) -> Result<Json<PaymentStatusResponse>, (StatusCode, Json<serde_json::Value>)> {
-    let wallet = match state.wallet.get_wallet_for_mint(&payload.mint_url).await {
+    let org_wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
+    let wallet = match org_wallet.get_wallet_for_mint(&payload.mint_url).await {
         Some(wallet) => {
             eprintln!("DEBUG: Found wallet for specified mint");
             wallet
@@ -1662,9 +1844,26 @@ pub async fn check_lightning_payment_status_handler(
 
 pub async fn check_lightning_payment_status_with_mint_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(payload): Json<LightningPaymentStatus>,
 ) -> Result<Json<PaymentStatusResponse>, (StatusCode, Json<serde_json::Value>)> {
-    let wallet = match state.wallet.get_wallet_for_mint(&payload.mint_url).await {
+    let org_wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
+    let wallet = match org_wallet.get_wallet_for_mint(&payload.mint_url).await {
         Some(wallet) => {
             eprintln!("DEBUG: Found wallet for specified mint");
             wallet
@@ -1700,15 +1899,32 @@ pub async fn check_lightning_payment_status_with_mint_handler(
 
 pub async fn complete_lightning_topup_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(quote_id): Path<String>,
 ) -> Result<Json<TopupMintResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let org_wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
     use cdk::nuts::CurrencyUnit;
     use cdk::wallet::types::WalletKey;
 
     let unit = CurrencyUnit::Msat;
 
     // Try to execute the melt across all wallets
-    let balances = match state.wallet.inner().cdk_wallet().get_balances(&unit).await {
+    let balances = match org_wallet.inner().cdk_wallet().get_balances(&unit).await {
         Ok(balances) => balances,
         Err(e) => {
             return Err((
@@ -1725,8 +1941,7 @@ pub async fn complete_lightning_topup_handler(
 
     for (mint_url, _) in balances {
         let wallet_key = WalletKey::new(mint_url, unit.clone());
-        if let Some(wallet) = state
-            .wallet
+        if let Some(wallet) = org_wallet
             .inner()
             .cdk_wallet()
             .get_wallet(&wallet_key)
@@ -1766,15 +1981,31 @@ pub async fn complete_lightning_topup_handler(
 
 pub async fn create_lightning_invoice_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(payload): Json<CreateLightningInvoiceRequest>,
 ) -> Result<Json<CreateLightningInvoiceResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let org_wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
     eprintln!(
         "DEBUG: Create lightning invoice request - amount: {}, unit: {:?}, mint_url: {:?}, description: {:?}",
         payload.amount, payload.unit, payload.mint_url, payload.description
     );
 
     let wallet = if let Some(mint_url) = &payload.mint_url {
-        match state.wallet.get_wallet_for_mint(&mint_url).await {
+        match org_wallet.get_wallet_for_mint(&mint_url).await {
             Some(wallet) => {
                 eprintln!("DEBUG: Found wallet for specified mint");
                 wallet
@@ -1872,16 +2103,33 @@ pub async fn create_lightning_invoice_handler(
 
 pub async fn get_wallet_debug_info(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let org_wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(&user_ctx.organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
     use cdk::nuts::CurrencyUnit;
 
     let mut debug_info = serde_json::Map::new();
 
-    let mints_list = state.wallet.list_mints().await;
+    let mints_list = org_wallet.list_mints().await;
     debug_info.insert("configured_mints".to_string(), json!(mints_list));
 
     for unit in [CurrencyUnit::Sat, CurrencyUnit::Msat] {
-        match state.wallet.inner().cdk_wallet().get_balances(&unit).await {
+        match org_wallet.inner().cdk_wallet().get_balances(&unit).await {
             Ok(balances) => {
                 let balances_map: std::collections::HashMap<String, u64> = balances
                     .into_iter()
@@ -1901,7 +2149,7 @@ pub async fn get_wallet_debug_info(
         }
     }
 
-    match state.wallet.get_total_balance().await {
+    match org_wallet.get_total_balance().await {
         Ok(total_balance) => {
             debug_info.insert("total_balance".to_string(), json!(total_balance));
         }
@@ -1944,10 +2192,27 @@ async fn signup_handler(
         ));
     }
 
+    // Get or create default organization first
+    let organization = match crate::auth::ensure_default_organization_exists(&app_state).await {
+        Ok(org) => org,
+        Err(e) => {
+            tracing::error!("Failed to ensure default organization: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": "organization_creation_failed",
+                    "message": "Failed to create organization",
+                    "type": "internal_server_error"
+                })),
+            ));
+        }
+    };
+
     let create_user_request = crate::models::CreateUserRequest {
         npub: request.npub.clone(),
         display_name: request.display_name.clone(),
         email: request.email.clone(),
+        organization_id: organization.id,
     };
 
     let user = match users::create_user(&app_state.db, &create_user_request).await {
@@ -1965,33 +2230,7 @@ async fn signup_handler(
         }
     };
 
-    let org_name = request.organization_name.unwrap_or_else(|| {
-        format!(
-            "{}'s Organization",
-            request.display_name.as_deref().unwrap_or("User")
-        )
-    });
-
-    let create_org_request = crate::models::CreateOrganizationRequest {
-        name: org_name,
-        owner_npub: request.npub.clone(),
-    };
-
-    let organization =
-        match organizations::create_organization(&app_state.db, &create_org_request).await {
-            Ok(org) => org,
-            Err(e) => {
-                tracing::error!("Failed to create organization: {}", e);
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": "organization_creation_failed",
-                        "message": "Failed to create organization",
-                        "type": "internal_server_error"
-                    })),
-                ));
-            }
-        };
+    // Organization was already created/retrieved above
 
     Ok(Json(SignupResponse {
         success: true,
@@ -2041,15 +2280,15 @@ pub async fn get_user_organizations_handler(
 ) -> Result<Json<Vec<Organization>>, (StatusCode, Json<serde_json::Value>)> {
     use crate::db::organizations;
 
-    let organizations = match organizations::get_organizations_by_owner(&app_state.db, &npub).await
-    {
-        Ok(orgs) => orgs,
+    let organizations = match organizations::get_organization_for_user(&app_state.db, &npub).await {
+        Ok(Some(org)) => vec![org],
+        Ok(None) => vec![],
         Err(e) => {
-            tracing::error!("Failed to get user organizations: {}", e);
+            tracing::error!("Failed to get user organization: {}", e);
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
-                    "error": "get_organizations_failed",
+                    "error": "get_organization_failed",
                     "message": "Failed to get user organizations",
                     "type": "internal_server_error"
                 })),

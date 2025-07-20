@@ -10,8 +10,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 
 use crate::db::api_keys::{get_api_key_by_key, update_last_used_at};
+use crate::db::{organizations, users};
 use crate::error::AppError;
-use crate::models::AppState;
+use crate::models::{AppState, CreateOrganizationRequest, UserContext};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
@@ -133,6 +134,80 @@ pub async fn nostr_auth_middleware(
         }
     );
     AppError::Unauthorized.into_response()
+}
+
+pub async fn nostr_auth_middleware_with_context(
+    State(auth_state): State<AuthState>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    if !auth_state.config.enabled {
+        return next.run(request).await;
+    }
+
+    let auth_header = match request.headers().get(AUTHORIZATION) {
+        Some(header) => header,
+        None => return AppError::Unauthorized.into_response(),
+    };
+
+    let auth_str = match auth_header.to_str() {
+        Ok(str) => str,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
+    if !auth_str.starts_with("Nostr ") {
+        warn!(
+            "Nostr token required but {} provided",
+            if auth_str.starts_with("Bearer ") {
+                "Bearer token"
+            } else {
+                "invalid format"
+            }
+        );
+        return AppError::Unauthorized.into_response();
+    }
+
+    let encoded_event = &auth_str[6..];
+    let decoded_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded_event) {
+        Ok(bytes) => bytes,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
+    let event_json = match std::str::from_utf8(&decoded_bytes) {
+        Ok(json) => json,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
+    let event: Event = match serde_json::from_str(event_json) {
+        Ok(event) => event,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
+    if let Err(err) = validate_auth_event(&event, &request, &auth_state.config) {
+        return err.into_response();
+    }
+
+    let npub = event.pubkey.to_bech32().unwrap_or_default();
+
+    let user_context = match create_or_get_user_context(&auth_state.app_state, &npub).await {
+        Ok(ctx) => ctx,
+        Err(e) => {
+            warn!("Failed to create user context: {}", e);
+            return e.into_response();
+        }
+    };
+
+    if let Err(e) =
+        ensure_organization_multimint(&auth_state.app_state, &user_context.organization_id).await
+    {
+        warn!("Failed to ensure organization multimint: {}", e);
+        return e.into_response();
+    }
+
+    request.extensions_mut().insert(user_context);
+
+    info!("Nostr authentication successful with user context");
+    next.run(request).await
 }
 
 fn validate_auth_event(
@@ -266,4 +341,81 @@ async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<String,
     }
 
     Ok(api_key.id)
+}
+
+async fn create_or_get_user_context(
+    app_state: &Arc<AppState>,
+    npub: &str,
+) -> Result<UserContext, AppError> {
+    if let Some(user) = users::get_user_by_npub(&app_state.db, npub).await? {
+        let organization =
+            organizations::get_organization_by_id(&app_state.db, &user.organization_id)
+                .await?
+                .ok_or_else(|| {
+                    warn!(
+                        "User {} has invalid organization_id: {}",
+                        npub, user.organization_id
+                    );
+                    AppError::InternalServerError
+                })?;
+        return Ok(UserContext::new(npub.to_string(), organization));
+    }
+
+    // User doesn't exist, assign them to default organization and create user
+    info!(
+        "User {} not found, creating user and assigning to default organization",
+        npub
+    );
+    let organization = ensure_default_organization_exists(app_state).await?;
+
+    let create_user_request = crate::models::CreateUserRequest {
+        npub: npub.to_string(),
+        display_name: None,
+        email: None,
+        organization_id: organization.id,
+    };
+    users::create_user(&app_state.db, &create_user_request).await?;
+
+    Ok(UserContext::new(npub.to_string(), organization))
+}
+
+pub async fn ensure_default_organization_exists(
+    app_state: &Arc<AppState>,
+) -> Result<crate::models::Organization, AppError> {
+    // Check if default organization already exists
+    if let Ok(Some(row)) = sqlx::query!(
+        r#"SELECT id, name, created_at, updated_at, is_active FROM organizations WHERE name = 'Default Organization' AND is_active = true LIMIT 1"#
+    ).fetch_optional(&app_state.db).await {
+        let org = crate::models::Organization {
+            id: row.id,
+            name: row.name,
+            created_at: row.created_at.unwrap_or_else(chrono::Utc::now),
+            updated_at: row.updated_at.unwrap_or_else(chrono::Utc::now),
+            is_active: row.is_active.unwrap_or(true),
+        };
+        return Ok(org);
+    }
+
+    // Create default organization if it doesn't exist
+    let create_org_request = CreateOrganizationRequest {
+        name: "Default Organization".to_string(),
+    };
+
+    let organization =
+        organizations::create_organization(&app_state.db, &create_org_request).await?;
+    info!("Created default organization: {}", organization.id);
+
+    Ok(organization)
+}
+
+async fn ensure_organization_multimint(
+    app_state: &Arc<AppState>,
+    org_id: &uuid::Uuid,
+) -> Result<(), AppError> {
+    app_state
+        .multimint_manager
+        .preload_multimint(org_id)
+        .await?;
+    info!("Ensured multimint exists for organization: {}", org_id);
+    Ok(())
 }

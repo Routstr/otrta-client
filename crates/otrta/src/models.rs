@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use crate::db::mint::CurrencyUnit;
-use crate::multimint::MultimintWalletWrapper;
+use crate::multimint_manager::MultimintManager;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Token {
@@ -25,7 +26,7 @@ pub struct TokenRedeemResponse {
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_msats_per_request: u32,
-    pub wallet: Arc<MultimintWalletWrapper>,
+    pub multimint_manager: Arc<MultimintManager>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -334,6 +335,7 @@ pub struct User {
     pub npub: String,
     pub display_name: Option<String>,
     pub email: Option<String>,
+    pub organization_id: uuid::Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_login_at: Option<DateTime<Utc>>,
@@ -344,7 +346,6 @@ pub struct User {
 pub struct Organization {
     pub id: uuid::Uuid,
     pub name: String,
-    pub owner_npub: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_active: bool,
@@ -355,12 +356,12 @@ pub struct CreateUserRequest {
     pub npub: String,
     pub display_name: Option<String>,
     pub email: Option<String>,
+    pub organization_id: uuid::Uuid,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateOrganizationRequest {
     pub name: String,
-    pub owner_npub: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -377,4 +378,21 @@ pub struct SignupResponse {
     pub user: User,
     pub organization: Organization,
     pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UserContext {
+    pub npub: String,
+    pub organization_id: Uuid,
+    pub organization: Organization,
+}
+
+impl UserContext {
+    pub fn new(npub: String, organization: Organization) -> Self {
+        Self {
+            npub,
+            organization_id: organization.id,
+            organization,
+        }
+    }
 }

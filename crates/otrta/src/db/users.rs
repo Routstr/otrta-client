@@ -9,13 +9,14 @@ pub async fn create_user(pool: &PgPool, request: &CreateUserRequest) -> Result<U
 
     let row = sqlx::query!(
         r#"
-        INSERT INTO users (npub, display_name, email, created_at, updated_at, is_active)
-        VALUES ($1, $2, $3, $4, $4, true)
-        RETURNING npub, display_name, email, created_at, updated_at, last_login_at, is_active
+        INSERT INTO users (npub, display_name, email, organization_id, created_at, updated_at, is_active)
+        VALUES ($1, $2, $3, $4, $5, $5, true)
+        RETURNING npub, display_name, email, organization_id, created_at, updated_at, last_login_at, is_active
         "#,
         request.npub,
         request.display_name,
         request.email,
+        request.organization_id,
         now
     )
     .fetch_one(pool)
@@ -29,6 +30,7 @@ pub async fn create_user(pool: &PgPool, request: &CreateUserRequest) -> Result<U
         npub: row.npub,
         display_name: row.display_name,
         email: row.email,
+        organization_id: row.organization_id,
         created_at: row.created_at.unwrap_or_else(Utc::now),
         updated_at: row.updated_at.unwrap_or_else(Utc::now),
         last_login_at: row.last_login_at,
@@ -41,7 +43,7 @@ pub async fn create_user(pool: &PgPool, request: &CreateUserRequest) -> Result<U
 pub async fn get_user_by_npub(pool: &PgPool, npub: &str) -> Result<Option<User>, AppError> {
     let row = sqlx::query!(
         r#"
-        SELECT npub, display_name, email, created_at, updated_at, last_login_at, is_active
+        SELECT npub, display_name, email, organization_id, created_at, updated_at, last_login_at, is_active
         FROM users
         WHERE npub = $1 AND is_active = true
         "#,
@@ -58,6 +60,7 @@ pub async fn get_user_by_npub(pool: &PgPool, npub: &str) -> Result<Option<User>,
         npub: r.npub,
         display_name: r.display_name,
         email: r.email,
+        organization_id: r.organization_id,
         created_at: r.created_at.unwrap_or_else(Utc::now),
         updated_at: r.updated_at.unwrap_or_else(Utc::now),
         last_login_at: r.last_login_at,

@@ -53,13 +53,13 @@ impl MultimintWalletWrapper {
     }
 
     pub async fn from_existing_wallet(
-        _wallet: &ecash_402_wallet::wallet::CashuWalletClient,
+        wallet: &ecash_402_wallet::wallet::CashuWalletClient,
         mint_url: &str,
         seed: &str,
         base_db_path: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let wallet =
-            MultimintWallet::from_existing_wallet(_wallet, mint_url, seed, base_db_path).await?;
+            MultimintWallet::from_existing_wallet(wallet, mint_url, seed, base_db_path).await?;
         Ok(Self { inner: wallet })
     }
 
@@ -70,11 +70,9 @@ impl MultimintWalletWrapper {
     pub async fn add_mint(
         &self,
         mint_url: &str,
-        unit: CurrencyUnit,
+        unit: cdk::nuts::CurrencyUnit,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.inner
-            .add_mint(mint_url, Some(convert_currency_unit(unit)))
-            .await?;
+        self.inner.add_mint(mint_url, Some(unit)).await?;
         Ok(())
     }
 
@@ -135,8 +133,7 @@ impl MultimintWalletWrapper {
     ) -> Result<String, Box<dyn std::error::Error>> {
         let send_options = MultimintSendOptions {
             preferred_mint: options.preferred_mint,
-            unit: options.unit.map(convert_currency_unit),
-            split_across_mints: options.split_across_mints,
+            ..Default::default() // split_across_mints: options.split_across_mints,
         };
 
         let token = self.inner.send(amount, send_options).await?;
