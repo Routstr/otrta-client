@@ -198,14 +198,14 @@ impl ProxyModelFromApi {
                 self.id.clone()
             },
             input_cost: (self.sats_pricing.as_ref().map(|p| p.prompt).unwrap_or(0.0)
-                * 1000_000.0
+                * 1_000_000.0
                 * 1000.0) as i64, // Convert to msats
             output_cost: (self
                 .sats_pricing
                 .as_ref()
                 .map(|p| p.completion)
                 .unwrap_or(0.0)
-                * 1000_000.0
+                * 1_000_000.0
                 * 1000.0) as i64,
             min_cash_per_request: (self
                 .sats_pricing

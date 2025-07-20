@@ -189,12 +189,7 @@ impl MultimintManager {
         Ok(())
     }
 
-    async fn generate_deterministic_seed(
-        &self,
-        organization: &Organization,
-    ) -> Result<String, AppError> {
-        Ok(self.generate_deterministic_seed_sync(organization))
-    }
+
 
     fn generate_deterministic_seed_sync(&self, organization: &Organization) -> String {
         use bip39::Mnemonic;

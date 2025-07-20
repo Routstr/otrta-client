@@ -143,7 +143,7 @@ pub async fn get_api_key_statistics(
     end_date: Option<DateTime<Utc>>,
 ) -> Result<ApiKeyStatistics, sqlx::Error> {
     let start_date = start_date.unwrap_or_else(|| Utc::now() - chrono::Duration::days(30));
-    let end_date = end_date.unwrap_or_else(|| Utc::now());
+    let end_date = end_date.unwrap_or_else(Utc::now);
 
     let api_key_uuid = Uuid::parse_str(api_key_id).map_err(|_| sqlx::Error::RowNotFound)?;
 

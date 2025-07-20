@@ -142,7 +142,7 @@ pub async fn redeem_token(
     let token = payload.token.trim();
     println!("Attempting to redeem token: {}", token);
 
-    let parsed_token = match cdk::nuts::Token::from_str(&token) {
+    let parsed_token = match cdk::nuts::Token::from_str(token) {
         Ok(t) => t,
         Err(e) => {
             return Json(TokenRedeemResponse {
@@ -255,10 +255,10 @@ pub async fn get_current_server_config(
         }));
     }
 
-    return Ok(Json(ServerConfig {
+    Ok(Json(ServerConfig {
         endpoint: "".to_string(),
         api_key: "".to_string(),
-    }));
+    }))
 }
 
 pub async fn get_server_config(db: &Pool) -> Option<ServerConfigRecord> {
@@ -437,7 +437,7 @@ pub async fn redeem_pendings(
         return StatusCode::OK;
     }
 
-    return StatusCode::BAD_REQUEST;
+    StatusCode::BAD_REQUEST
 }
 
 pub async fn get_providers(
@@ -494,7 +494,7 @@ pub async fn get_provider(
 }
 
 async fn refresh_models_internal(db: &crate::db::Pool) -> Result<RefreshModelsResponse, String> {
-    let server_config = if let Ok(Some(config)) = get_default_provider(&db).await {
+    let server_config = if let Ok(Some(config)) = get_default_provider(db).await {
         config
     } else {
         return Err(
@@ -532,7 +532,7 @@ async fn refresh_models_internal(db: &crate::db::Pool) -> Result<RefreshModelsRe
         }
     };
 
-    let deleted_count = match delete_all_models(&db).await {
+    let deleted_count = match delete_all_models(db).await {
         Ok(count) => count,
         Err(e) => {
             eprintln!("Failed to delete existing models: {}", e);
@@ -543,7 +543,7 @@ async fn refresh_models_internal(db: &crate::db::Pool) -> Result<RefreshModelsRe
     let mut models_added = 0;
 
     for proxy_model in &proxy_models_data.data {
-        match upsert_model(&db, &proxy_model).await {
+        match upsert_model(db, proxy_model).await {
             Ok(_) => {
                 models_added += 1;
             }
@@ -1695,7 +1695,7 @@ pub async fn create_lightning_payment_handler(
     );
 
     let wallet = if let Some(mint_url) = &payload.mint_url {
-        match org_wallet.get_wallet_for_mint(&mint_url).await {
+        match org_wallet.get_wallet_for_mint(mint_url).await {
             Some(wallet) => {
                 eprintln!("DEBUG: Found wallet for specified mint");
                 wallet
@@ -1831,7 +1831,7 @@ pub async fn check_lightning_payment_status_handler(
         }
     };
 
-    let quote = wallet.check_melt_quote(&payload.quote_id).await.unwrap();
+    wallet.check_melt_quote(&payload.quote_id).await.unwrap();
 
     Ok(Json(PaymentStatusResponse {
         quote_id: payload.quote_id.clone(),
@@ -1886,7 +1886,7 @@ pub async fn check_lightning_payment_status_with_mint_handler(
         }
     };
 
-    let _quote = wallet.check_melt_quote(&payload.quote_id).await.unwrap();
+    wallet.check_melt_quote(&payload.quote_id).await.unwrap();
 
     Ok(Json(PaymentStatusResponse {
         quote_id: payload.quote_id.clone(),
@@ -2006,7 +2006,7 @@ pub async fn create_lightning_invoice_handler(
     );
 
     let wallet = if let Some(mint_url) = &payload.mint_url {
-        match org_wallet.get_wallet_for_mint(&mint_url).await {
+        match org_wallet.get_wallet_for_mint(mint_url).await {
             Some(wallet) => {
                 eprintln!("DEBUG: Found wallet for specified mint");
                 wallet
@@ -2162,84 +2162,7 @@ pub async fn get_wallet_debug_info(
     Ok(Json(json!(debug_info)))
 }
 
-async fn signup_handler(
-    State(app_state): State<Arc<AppState>>,
-    Json(request): Json<SignupRequest>,
-) -> Result<Json<SignupResponse>, (StatusCode, Json<serde_json::Value>)> {
-    use crate::db::{organizations, users};
 
-    if let Err(validation_error) = users::validate_npub(&request.npub) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "error": "validation_error",
-                "message": validation_error.to_string(),
-                "type": "validation_error"
-            })),
-        ));
-    }
-
-    if users::user_exists(&app_state.db, &request.npub)
-        .await
-        .unwrap_or(false)
-    {
-        return Err((
-            StatusCode::CONFLICT,
-            Json(json!({
-                "error": "user_already_exists",
-                "message": "User with this npub already exists",
-                "type": "conflict"
-            })),
-        ));
-    }
-
-    // Get or create default organization first
-    let organization = match crate::auth::ensure_default_organization_exists(&app_state).await {
-        Ok(org) => org,
-        Err(e) => {
-            tracing::error!("Failed to ensure default organization: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": "organization_creation_failed",
-                    "message": "Failed to create organization",
-                    "type": "internal_server_error"
-                })),
-            ));
-        }
-    };
-
-    let create_user_request = crate::models::CreateUserRequest {
-        npub: request.npub.clone(),
-        display_name: request.display_name.clone(),
-        email: request.email.clone(),
-        organization_id: organization.id,
-    };
-
-    let user = match users::create_user(&app_state.db, &create_user_request).await {
-        Ok(user) => user,
-        Err(e) => {
-            tracing::error!("Failed to create user: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": "user_creation_failed",
-                    "message": "Failed to create user",
-                    "type": "internal_server_error"
-                })),
-            ));
-        }
-    };
-
-    // Organization was already created/retrieved above
-
-    Ok(Json(SignupResponse {
-        success: true,
-        user,
-        organization,
-        message: Some("User and organization created successfully".to_string()),
-    }))
-}
 
 pub async fn get_user_profile_handler(
     State(app_state): State<Arc<AppState>>,

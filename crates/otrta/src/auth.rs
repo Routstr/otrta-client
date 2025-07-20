@@ -58,8 +58,7 @@ pub async fn bearer_auth_middleware(
         Err(_) => return AppError::Unauthorized.into_response(),
     };
 
-    if auth_str.starts_with("Bearer ") {
-        let token = &auth_str[7..];
+    if let Some(token) = auth_str.strip_prefix("Bearer ") {
         match validate_bearer_token(&auth_state.app_state.db, token).await {
             Ok(api_key_id) => {
                 let mut request = request;
@@ -101,8 +100,7 @@ pub async fn nostr_auth_middleware(
         Err(_) => return AppError::Unauthorized.into_response(),
     };
 
-    if auth_str.starts_with("Nostr ") {
-        let encoded_event = &auth_str[6..];
+    if let Some(encoded_event) = auth_str.strip_prefix("Nostr ") {
         let decoded_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded_event) {
             Ok(bytes) => bytes,
             Err(_) => return AppError::Unauthorized.into_response(),
@@ -231,7 +229,7 @@ fn validate_auth_event(
         return Err(AppError::Unauthorized);
     }
 
-    if !event.verify().is_ok() {
+    if event.verify().is_err() {
         warn!("Invalid event signature");
         return Err(AppError::Unauthorized);
     }

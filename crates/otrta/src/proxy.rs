@@ -141,11 +141,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     };
 
     let model = if let Some(ref model_name) = model_name {
-        if let Ok(m) = get_model(&state.db, &model_name).await {
-            m
-        } else {
-            None
-        }
+        (get_model(&state.db, model_name).await).unwrap_or_default()
     } else {
         None
     };
@@ -259,7 +255,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     let res = wallet.receive(in_token).await.unwrap();
                     add_transaction(
                         &state.db,
-                        &in_token,
+                        in_token,
                         &res.to_string(),
                         TransactionDirection::Incoming,
                         api_key_id,
@@ -292,7 +288,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 let res = wallet.receive(in_token).await.unwrap();
                 add_transaction(
                     &state.db,
-                    &in_token,
+                    in_token,
                     &res.to_string(),
                     TransactionDirection::Incoming,
                     api_key_id,
@@ -311,8 +307,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
         let stream = resp.bytes_stream().map(|result| {
             result.map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
+                io::Error::other(
                     format!("Error reading from upstream: {}", e),
                 )
             })
@@ -371,11 +366,11 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         (StatusCode::INTERNAL_SERVER_ERROR, error_json).into_response()
     };
 
-    return response;
+    response
 }
 
 pub async fn forward_request(db: &Pool, path: &str) -> Response<Body> {
-    let server_config = if let Ok(Some(config)) = get_default_provider(&db).await {
+    let server_config = if let Ok(Some(config)) = get_default_provider(db).await {
         config
     } else {
         return (

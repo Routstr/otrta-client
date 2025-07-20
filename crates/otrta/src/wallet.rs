@@ -46,7 +46,7 @@ pub async fn finalize_request(
 ) {
     if let Ok(res) = wallet.receive(token_received).await {
         add_transaction(
-            &db,
+            db,
             token_send,
             &sats_send.to_string(),
             TransactionDirection::Outgoing,
@@ -56,7 +56,7 @@ pub async fn finalize_request(
         .unwrap();
 
         add_transaction(
-            &db,
+            db,
             token_received,
             &res.to_string(),
             TransactionDirection::Incoming,

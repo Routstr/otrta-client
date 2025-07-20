@@ -190,7 +190,7 @@ pub async fn upsert_model(
     pool: &PgPool,
     model: &ProxyModelFromApi,
 ) -> Result<ModelRecord, sqlx::Error> {
-    let provider = get_default_provider(&pool).await.unwrap().unwrap();
+    let provider = get_default_provider(pool).await.unwrap().unwrap();
     let model_record = model.to_model_record(provider.id);
 
     let record = sqlx::query!(

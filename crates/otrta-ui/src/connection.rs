@@ -15,6 +15,7 @@ pub struct ApplicationSettings {
     pub port: u16,
     pub host: String,
     pub default_msats_per_request: u32,
+    #[allow(dead_code)]
     pub mint_url: String,
     pub enable_authentication: bool,
     pub whitelisted_npubs: Vec<String>,
@@ -43,7 +44,7 @@ impl DatabaseSettings {
         PgConnectOptions::new()
             .host(&self.host)
             .username(&self.username)
-            .password(&self.password.expose_secret())
+            .password(self.password.expose_secret())
             .port(self.port)
             .ssl_mode(ssl_mode)
     }
