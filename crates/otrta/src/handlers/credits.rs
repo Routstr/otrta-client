@@ -7,8 +7,12 @@ use crate::{
     },
     models::AppState,
 };
-use axum::{extract::{Path, Query, State}, http::StatusCode, Json};
-use serde::{Deserialize};
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    Json,
+};
+use serde::Deserialize;
 use serde_json::{self, json};
 use std::sync::Arc;
 
@@ -86,4 +90,4 @@ pub async fn get_api_key_statistics_handler(
             ))
         }
     }
-} 
+}

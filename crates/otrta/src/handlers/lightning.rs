@@ -1,7 +1,9 @@
-use crate::{
-    models::{AppState, TopupMintResponse, UserContext},
+use crate::models::{AppState, TopupMintResponse, UserContext};
+use axum::{
+    extract::{Extension, Path, State},
+    http::StatusCode,
+    Json,
 };
-use axum::{extract::{Extension, Path, State}, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
@@ -533,4 +535,4 @@ pub async fn create_lightning_invoice_handler(
         ),
         mint_url: payload.mint_url.clone().unwrap_or_default(), // Include the mint_url used for the invoice
     }))
-} 
+}

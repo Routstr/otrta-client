@@ -1,8 +1,14 @@
 use crate::{
-    models::{AppState, SendTokenRequest, SendTokenResponse, Token, TokenRedeemResponse, UserContext},
+    models::{
+        AppState, SendTokenRequest, SendTokenResponse, Token, TokenRedeemResponse, UserContext,
+    },
     multimint::LocalMultimintSendOptions,
 };
-use axum::{extract::{Extension, State}, http::StatusCode, Json};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    Json,
+};
 use serde_json::{self, json};
 use std::{str::FromStr, sync::Arc};
 
@@ -289,4 +295,4 @@ pub async fn get_wallet_debug_info(
     }
 
     Ok(Json(json!(debug_info)))
-} 
+}

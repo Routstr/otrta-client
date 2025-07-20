@@ -52,4 +52,4 @@ pub async fn get_server_config(db: &Pool) -> Option<ServerConfigRecord> {
     }
 
     None
-} 
+}

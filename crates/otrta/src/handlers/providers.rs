@@ -4,10 +4,14 @@ use crate::{
         get_provider_by_id, refresh_providers_from_nostr, set_default_provider,
         CreateCustomProviderRequest, ProviderListResponse, RefreshProvidersResponse,
     },
-    models::AppState,
     handlers::models::refresh_models_internal,
+    models::AppState,
 };
-use axum::{extract::{Path, State}, http::StatusCode, Json};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    Json,
+};
 use serde_json::{self, json};
 use std::sync::Arc;
 
@@ -254,4 +258,4 @@ pub async fn get_default_provider_handler(
             ))
         }
     }
-} 
+}

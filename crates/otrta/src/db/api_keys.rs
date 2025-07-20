@@ -1,3 +1,4 @@
+use crate::models::UserContext;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -52,8 +53,6 @@ pub struct ApiKey {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateApiKeyRequest {
     pub name: String,
-    pub user_id: String,
-    pub organization_id: String,
     pub expires_at: Option<String>,
     pub is_active: Option<bool>,
 }
@@ -73,8 +72,6 @@ pub struct ApiKeyListResponse {
     pub page_size: i64,
     pub total_pages: i64,
 }
-
-
 
 pub async fn get_all_api_keys(
     pool: &PgPool,
@@ -110,10 +107,7 @@ pub async fn get_all_api_keys(
         .await?
         .unwrap_or(0);
 
-        let api_keys = rows
-            .into_iter()
-            .map(ApiKey::from)
-            .collect();
+        let api_keys = rows.into_iter().map(ApiKey::from).collect();
 
         (api_keys, total)
     } else {
@@ -137,10 +131,7 @@ pub async fn get_all_api_keys(
             .await?
             .unwrap_or(0);
 
-        let api_keys = rows
-            .into_iter()
-            .map(ApiKey::from)
-            .collect();
+        let api_keys = rows.into_iter().map(ApiKey::from).collect();
 
         (api_keys, total)
     };
@@ -195,6 +186,7 @@ pub async fn get_api_key_by_key(pool: &PgPool, key: &str) -> Result<Option<ApiKe
 pub async fn create_api_key(
     pool: &PgPool,
     request: CreateApiKeyRequest,
+    user_context: &UserContext,
 ) -> Result<ApiKey, sqlx::Error> {
     let api_key = generate_api_key();
     let is_active = request.is_active.unwrap_or(true);
@@ -219,8 +211,8 @@ pub async fn create_api_key(
         "#,
         request.name,
         api_key,
-        request.user_id,
-        request.organization_id,
+        user_context.npub,
+        user_context.organization_id.to_string(),
         expires_at,
         is_active
     )

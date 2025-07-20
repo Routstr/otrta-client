@@ -6,7 +6,11 @@ use crate::{
     },
     multimint::LocalMultimintSendOptions,
 };
-use axum::{extract::{Extension, State}, http::StatusCode, Json};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    Json,
+};
 use serde_json::{self, json};
 use std::sync::Arc;
 
@@ -189,4 +193,4 @@ pub async fn transfer_between_mints_handler(
             ))
         }
     }
-} 
+}

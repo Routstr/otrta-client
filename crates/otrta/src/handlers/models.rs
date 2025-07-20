@@ -69,7 +69,9 @@ pub async fn refresh_models_from_proxy(
     }
 }
 
-pub async fn refresh_models_internal(db: &crate::db::Pool) -> Result<RefreshModelsResponse, String> {
+pub async fn refresh_models_internal(
+    db: &crate::db::Pool,
+) -> Result<RefreshModelsResponse, String> {
     let server_config = if let Ok(Some(config)) = get_default_provider(db).await {
         config
     } else {
@@ -139,4 +141,4 @@ pub async fn refresh_models_internal(db: &crate::db::Pool) -> Result<RefreshMode
             deleted_count, models_added
         )),
     })
-} 
+}

@@ -1,7 +1,9 @@
-use crate::{
-    models::{AppState, Organization, User},
+use crate::models::{AppState, Organization, User};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    Json,
 };
-use axum::{extract::{Path, State}, http::StatusCode, Json};
 use serde_json::{self, json};
 use std::sync::Arc;
 
@@ -62,4 +64,4 @@ pub async fn get_user_organizations_handler(
     };
 
     Ok(Json(organizations))
-} 
+}

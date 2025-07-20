@@ -1,8 +1,12 @@
 use crate::{
-    models::AppState,
     handlers::credits::PaginationParams,
+    models::{AppState, UserContext},
 };
-use axum::{extract::{Path, Query, State}, http::StatusCode, Json};
+use axum::{
+    extract::{Extension, Path, Query, State},
+    http::StatusCode,
+    Json,
+};
 use serde_json::{self, json};
 use std::sync::Arc;
 
@@ -62,6 +66,7 @@ pub async fn get_api_key_handler(
 
 pub async fn create_api_key_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(request): Json<crate::db::api_keys::CreateApiKeyRequest>,
 ) -> Result<Json<crate::db::api_keys::ApiKey>, (StatusCode, Json<serde_json::Value>)> {
     if request.name.is_empty() {
@@ -76,31 +81,7 @@ pub async fn create_api_key_handler(
         ));
     }
 
-    if request.user_id.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "error": {
-                    "message": "User ID is required",
-                    "type": "validation_error"
-                }
-            })),
-        ));
-    }
-
-    if request.organization_id.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "error": {
-                    "message": "Organization ID is required",
-                    "type": "validation_error"
-                }
-            })),
-        ));
-    }
-
-    match crate::db::api_keys::create_api_key(&state.db, request).await {
+    match crate::db::api_keys::create_api_key(&state.db, request, &user_ctx).await {
         Ok(api_key) => Ok(Json(api_key)),
         Err(e) => {
             eprintln!("Error creating API key: {}", e);
@@ -190,4 +171,4 @@ pub async fn delete_api_key_handler(
             ))
         }
     }
-} 
+}

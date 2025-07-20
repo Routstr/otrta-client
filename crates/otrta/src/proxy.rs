@@ -306,11 +306,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         }
 
         let stream = resp.bytes_stream().map(|result| {
-            result.map_err(|e| {
-                io::Error::other(
-                    format!("Error reading from upstream: {}", e),
-                )
-            })
+            result.map_err(|e| io::Error::other(format!("Error reading from upstream: {}", e)))
         });
 
         let body = Body::from_stream(stream);
