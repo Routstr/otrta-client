@@ -10,14 +10,19 @@ import {
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Wallet, AlertCircle, ArrowLeft } from 'lucide-react';
+import { useNostrAuth } from '@/lib/auth/NostrAuthContext';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { login } = useNostrAuth();
 
-  const handleGoToLogin = () => {
-    router.push('/login');
+  const handleGoToSignIn = () => {
+    login();
+  };
+
+  const handleGoHome = () => {
+    router.push('/');
   };
 
   return (
@@ -51,20 +56,20 @@ export default function RegisterPage() {
             </ul>
           </div>
 
-          <Button onClick={handleGoToLogin} className='w-full'>
+          <Button onClick={handleGoToSignIn} className='w-full'>
             <ArrowLeft className='mr-2 h-4 w-4' />
-            Go to Sign In
+            Sign In with Nostr
           </Button>
 
           <div className='text-center'>
             <p className='text-muted-foreground text-sm'>
-              Already have an account?{' '}
-              <Link
-                href='/login'
+              Want to browse first?{' '}
+              <button
+                onClick={handleGoHome}
                 className='text-primary font-medium hover:underline'
               >
-                Sign in here
-              </Link>
+                Go to homepage
+              </button>
             </p>
           </div>
         </CardContent>

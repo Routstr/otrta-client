@@ -24,7 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useNostrAuth } from '@/lib/auth/NostrAuthContext';
 import { useRouter } from 'next/navigation';
 
 type NavUserProps = {
@@ -37,24 +37,24 @@ type NavUserProps = {
 
 export function NavUser({ user: propUser }: NavUserProps) {
   const { isMobile } = useSidebar();
-  const { user: authUser, signout } = useAuth();
+  const { isAuthenticated, npub, logout } = useNostrAuth();
   const router = useRouter();
 
-  // Use authenticated user if available, otherwise fall back to prop user or default
-  const userData = authUser
-    ? {
-        name: authUser.display_name || 'User',
-        email: authUser.email || '',
-        avatar: '/avatars/default.jpg',
-      }
-    : propUser || {
-        name: 'Guest User',
-        email: 'guest@example.com',
-        avatar: '/avatars/default.jpg',
-      };
+  const userData =
+    isAuthenticated && npub
+      ? {
+          name: npub.slice(0, 12) + '...',
+          email: npub,
+          avatar: '/avatars/default.jpg',
+        }
+      : propUser || {
+          name: 'Guest User',
+          email: 'guest@example.com',
+          avatar: '/avatars/default.jpg',
+        };
 
   const handleLogout = () => {
-    signout();
+    logout();
     router.push('/');
   };
 

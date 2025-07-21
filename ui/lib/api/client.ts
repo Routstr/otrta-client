@@ -1,9 +1,30 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosInstance } from 'axios';
-import { ConfigurationService } from './services/configuration';
-import { nostrAuthSimple as nostrAuth } from './services/nostr-auth-simple';
 import { authStateManager } from '../auth/auth-state';
 
-// Nostr window interface is defined in nostr-auth.ts
+declare global {
+  interface Window {
+    nostr?: {
+      getPublicKey(): Promise<string>;
+      signEvent(event: {
+        kind: number;
+        content: string;
+        tags: string[][];
+        created_at: number;
+        pubkey?: string;
+        id?: string;
+        sig?: string;
+      }): Promise<{
+        kind: number;
+        content: string;
+        tags: string[][];
+        created_at: number;
+        pubkey: string;
+        id: string;
+        sig: string;
+      }>;
+    };
+  }
+}
 
 class ApiClient {
   private axiosInstance: AxiosInstance;
@@ -23,10 +44,7 @@ class ApiClient {
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (
-          error.response?.status === 401 &&
-          ConfigurationService.isAuthenticationEnabled()
-        ) {
+        if (error.response?.status === 401 && this.isAuthenticationEnabled()) {
           await this.handle401Error();
         }
         return Promise.reject(error);
@@ -35,7 +53,14 @@ class ApiClient {
   }
 
   private getBaseUrl(): string {
-    return ConfigurationService.getBaseUrl();
+    if (typeof window !== 'undefined') {
+      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    }
+    return 'http://localhost:3333';
+  }
+
+  private isAuthenticationEnabled(): boolean {
+    return process.env.NEXT_PUBLIC_ENABLE_AUTHENTICATION === 'true';
   }
 
   private async handle401Error(): Promise<void> {
@@ -45,18 +70,12 @@ class ApiClient {
     authStateManager.setRedirecting(true);
 
     try {
-      console.log('401 Unauthorized - logging out and redirecting to login');
+      console.log('401 Unauthorized - clearing auth and redirecting');
 
-      // Clear auth since server rejected the authentication
-      if (nostrAuth.isAuthenticated()) {
-        await nostrAuth.logout();
-      }
-
-      // Initialize nostr auth for fresh login
-      await nostrAuth.initialize();
-
-      // Redirect to login page
-      window.location.href = '/login';
+      document.dispatchEvent(new Event('nlLogout'));
+      document.dispatchEvent(
+        new CustomEvent('nlLaunch', { detail: 'welcome' })
+      );
     } catch (error) {
       console.error('Failed to handle 401 error:', error);
     } finally {
@@ -65,7 +84,6 @@ class ApiClient {
     }
   }
 
-  // Helper method to construct headers
   private async getHeaders(
     method: string,
     path: string
@@ -75,11 +93,7 @@ class ApiClient {
       'Content-Type': 'application/json',
     };
 
-    // Add NIP-98 authentication if enabled and nostr is available
-    if (
-      ConfigurationService.isAuthenticationEnabled() &&
-      typeof window !== 'undefined'
-    ) {
+    if (this.isAuthenticationEnabled() && typeof window !== 'undefined') {
       try {
         if (window.nostr) {
           const auth_event = await window.nostr.signEvent({
@@ -90,8 +104,10 @@ class ApiClient {
               ['u', `${this.getBaseUrl()}${path}`],
               ['method', method],
             ],
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any);
+            pubkey: undefined,
+            id: undefined,
+            sig: undefined,
+          });
 
           headers['Authorization'] =
             `Nostr ${btoa(JSON.stringify(auth_event))}`;
@@ -100,15 +116,16 @@ class ApiClient {
         console.warn('Failed to create NIP-98 authentication:', error);
       }
     } else {
-      // Only add Bearer token auth headers when Nostr auth is disabled
-      const configHeaders = ConfigurationService.getAuthHeaders();
-      Object.assign(headers, configHeaders);
+      const apiKey =
+        typeof window !== 'undefined' ? localStorage.getItem('api_key') : null;
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
     }
 
     return headers;
   }
 
-  // GET request
   async get<T>(
     endpoint: string,
     params?: Record<string, string | number | boolean | undefined>
@@ -143,7 +160,6 @@ class ApiClient {
     }
   }
 
-  // POST request
   async post<T>(endpoint: string, data: Record<string, unknown>): Promise<T> {
     const config: AxiosRequestConfig = {
       headers: await this.getHeaders('POST', endpoint),
@@ -176,7 +192,6 @@ class ApiClient {
     }
   }
 
-  // PUT request
   async put<T>(endpoint: string, data: Record<string, unknown>): Promise<T> {
     const config: AxiosRequestConfig = {
       headers: await this.getHeaders('PUT', endpoint),
@@ -199,7 +214,6 @@ class ApiClient {
     }
   }
 
-  // DELETE request
   async delete<T>(endpoint: string): Promise<T> {
     const config: AxiosRequestConfig = {
       headers: await this.getHeaders('DELETE', endpoint),

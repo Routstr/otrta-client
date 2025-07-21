@@ -129,41 +129,12 @@ pub async fn create_custom_provider(
 }
 
 pub async fn delete_custom_provider(db: &Pool, id: i32) -> Result<bool, sqlx::Error> {
-    // First check if the provider exists and get its details
-    let provider_check = sqlx::query!(
-        "SELECT id, name, is_custom, organization_id FROM providers WHERE id = $1",
-        id
-    )
-    .fetch_optional(db)
-    .await?;
-
-    if let Some(provider) = provider_check {
-        eprintln!(
-            "Provider found: id={}, name={}, is_custom={:?}, organization_id={:?}",
-            provider.id, provider.name, provider.is_custom, provider.organization_id
-        );
-
-        if !provider.is_custom.unwrap_or(false) {
-            eprintln!("Provider {} is not marked as custom, cannot delete", id);
-            return Ok(false);
-        }
-    } else {
-        eprintln!("Provider {} not found", id);
-        return Ok(false);
-    }
-
     let result = sqlx::query("DELETE FROM providers WHERE id = $1 AND is_custom = TRUE")
         .bind(id)
         .execute(db)
         .await?;
 
-    let deleted = result.rows_affected() > 0;
-    eprintln!(
-        "Delete result for provider {}: {} rows affected",
-        id,
-        result.rows_affected()
-    );
-    Ok(deleted)
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn upsert_provider(

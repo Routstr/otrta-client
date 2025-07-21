@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNip60 } from '@/lib/hooks/useNip60';
-import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
+import { useNostrAuth } from '@/lib/auth/NostrAuthContext';
 
 export function NostrWalletSettings() {
   const {
@@ -139,10 +139,11 @@ export function NostrWalletSettings() {
   const handleConnectToNostr = async () => {
     try {
       if (!nsecKey.trim()) {
-        toast.error('Please enter your nsec key');
+        toast.info('Please use the login modal to connect with your nsec key');
+        loginWithNsec();
         return;
       }
-      await loginWithNsec(nsecKey);
+      loginWithNsec();
       await connectToNostr();
       toast.success('Connected to Nostr network');
     } catch {

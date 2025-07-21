@@ -24,7 +24,7 @@ import {
   Lock,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
+import { useNostrAuth } from '@/lib/auth/NostrAuthContext';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -58,7 +58,11 @@ const iconRotate = {
 };
 
 export default function LandingPage() {
-  const { isAuthenticated } = useNostrAuth();
+  const { isAuthenticated, login } = useNostrAuth();
+
+  const handleSignIn = () => {
+    login();
+  };
 
   return (
     <div className='bg-background min-h-screen'>
@@ -104,11 +108,9 @@ export default function LandingPage() {
                 </Link>
               </Button>
             ) : (
-              <Button size='sm' asChild>
-                <Link href='/login'>
-                  Sign In
-                  <ArrowRight className='ml-2 h-4 w-4' />
-                </Link>
+              <Button size='sm' onClick={handleSignIn}>
+                Sign In
+                <ArrowRight className='ml-2 h-4 w-4' />
               </Button>
             )}
           </motion.div>
