@@ -45,6 +45,18 @@ const scaleOnHover = {
   transition: { type: 'spring' as const, stiffness: 300 },
 };
 
+const iconFloat = {
+  y: [0, -8, 0],
+};
+
+const iconPulse = {
+  scale: [1, 1.05, 1],
+};
+
+const iconRotate = {
+  rotate: [0, 360],
+};
+
 export default function LandingPage() {
   const { isAuthenticated } = useNostrAuth();
 
@@ -137,9 +149,10 @@ export default function LandingPage() {
             >
               OTRTA is the Routstr client that implements the Routstr protocol.
               Access OpenAI&apos;s language models without revealing your
-              identity using Cashu e-cash notes with NUT-24 X-Cashu payment standard.
-              Our focus is to bring AI not only for private users but also for institutions with larger teams.
-              Pay exactly what you consume with millisatoshi precision.
+              identity using Cashu e-cash notes with NUT-24 X-Cashu payment
+              standard. Our focus is to bring AI not only for private users but
+              also for institutions with larger teams. Pay exactly what you
+              consume with millisatoshi precision.
             </motion.p>
 
             <motion.div
@@ -184,7 +197,8 @@ export default function LandingPage() {
                 Why otrta?
               </h2>
               <p className='text-muted-foreground mx-auto max-w-2xl'>
-                A comprehensive platform for privacy-first AI access with smart budget management and team collaboration
+                A comprehensive platform for privacy-first AI access with smart
+                budget management and team collaboration
               </p>
             </div>
 
@@ -198,14 +212,24 @@ export default function LandingPage() {
               <motion.div variants={fadeInUp} className='w-full'>
                 <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
                   <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20'>
+                    <motion.div
+                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20'
+                      animate={iconFloat}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    >
                       <Shield className='h-10 w-10 text-blue-600 dark:text-blue-400' />
-                    </div>
+                    </motion.div>
                     <CardTitle className='mb-3 text-xl'>
                       Complete Privacy & Self-Hosting
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Access AI models without revealing your identity. Fully customizable and private with self-hosted deployment options for complete control.
+                      Access AI models without revealing your identity. Fully
+                      customizable and private with self-hosted deployment
+                      options for complete control.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -214,14 +238,24 @@ export default function LandingPage() {
               <motion.div variants={fadeInUp} className='w-full'>
                 <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
                   <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/20'>
+                    <motion.div
+                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/20'
+                      animate={iconPulse}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    >
                       <Zap className='h-10 w-10 text-purple-600 dark:text-purple-400' />
-                    </div>
+                    </motion.div>
                     <CardTitle className='mb-3 text-xl'>
                       Smart Provider Switching
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Intelligent provider selection based on price and latency. Pay exactly what you consume with millisatoshi precision and optimal routing.
+                      Intelligent provider selection based on price and latency.
+                      Pay exactly what you consume with millisatoshi precision
+                      and optimal routing.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -230,14 +264,24 @@ export default function LandingPage() {
               <motion.div variants={fadeInUp} className='w-full'>
                 <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
                   <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20'>
+                    <motion.div
+                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20'
+                      animate={iconRotate}
+                      transition={{
+                        duration: 20,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }}
+                    >
                       <Wallet className='h-10 w-10 text-green-600 dark:text-green-400' />
-                    </div>
+                    </motion.div>
                     <CardTitle className='mb-3 text-xl'>
                       Smart Budget Management
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Automatic budget top-up from main wallet and smart change management through Cashu notes. Efficient team budget allocation and control.
+                      Automatic budget top-up from main wallet and smart change
+                      management through Cashu notes. Efficient team budget
+                      allocation and control.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -249,7 +293,7 @@ export default function LandingPage() {
               initial='initial'
               whileInView='animate'
               viewport={{ once: true }}
-              className='mx-auto grid max-w-7xl justify-items-center gap-8 md:grid-cols-3 mt-8'
+              className='mx-auto mt-8 grid max-w-7xl justify-items-center gap-8 md:grid-cols-3'
             >
               <motion.div variants={fadeInUp} className='w-full'>
                 <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
@@ -261,7 +305,9 @@ export default function LandingPage() {
                       Nostr Team Invitations
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Seamlessly invite people to your organization via Nostr protocol. Decentralized team collaboration with privacy-first approach.
+                      Seamlessly invite people to your organization via Nostr
+                      protocol. Decentralized team collaboration with
+                      privacy-first approach.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -277,7 +323,9 @@ export default function LandingPage() {
                       Search & Chat Interface
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Integrated interface for both intelligent search and conversational AI. Streamlined user experience for all your AI needs.
+                      Integrated interface for both intelligent search and
+                      conversational AI. Streamlined user experience for all
+                      your AI needs.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -293,13 +341,14 @@ export default function LandingPage() {
                       Enterprise-Ready
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Built for both individual users and institutions with larger teams. Scalable budget management and organizational controls.
+                      Built for both individual users and institutions with
+                      larger teams. Scalable budget management and
+                      organizational controls.
                     </CardDescription>
                   </CardHeader>
                 </Card>
               </motion.div>
             </motion.div>
-
           </motion.div>
         </section>
 
@@ -316,7 +365,9 @@ export default function LandingPage() {
                 Routstr Protocol Integration
               </h2>
               <p className='text-muted-foreground mx-auto max-w-2xl'>
-                OTRTA serves as your Routstr client, connecting you to the decentralized LLM routing marketplace powered by Nostr and Bitcoin
+                OTRTA serves as your Routstr client, connecting you to the
+                decentralized LLM routing marketplace powered by Nostr and
+                Bitcoin
               </p>
             </div>
 
@@ -387,6 +438,315 @@ export default function LandingPage() {
                 </Link>
               </Button>
             </motion.div>
+          </motion.div>
+        </section>
+
+        <section className='container px-4 py-16'>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className='mx-auto max-w-6xl'
+          >
+            <div className='mb-16 text-center'>
+              <h2 className='mb-4 text-3xl font-bold sm:text-4xl'>
+                Complete Feature Set
+              </h2>
+              <p className='text-muted-foreground mx-auto max-w-3xl'>
+                OTRTA provides a comprehensive suite of features for
+                privacy-first AI access, wallet management, and team
+                collaboration through the Routstr protocol
+              </p>
+            </div>
+
+            <motion.div
+              variants={staggerContainer}
+              initial='initial'
+              whileInView='animate'
+              viewport={{ once: true }}
+              className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'
+            >
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <motion.div
+                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/20'
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      transition={{ type: 'spring', stiffness: 300 }}
+                    >
+                      <span className='text-2xl'>🧠</span>
+                    </motion.div>
+                    <CardTitle className='mb-3 text-xl'>
+                      AI Model Management
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Access and manage 50+ AI models from independent providers
+                      with live pricing and performance tracking.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <motion.div
+                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20'
+                      whileHover={{ scale: 1.15, y: -5 }}
+                      transition={{ type: 'spring', stiffness: 400 }}
+                    >
+                      <span className='text-2xl'>💰</span>
+                    </motion.div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Wallet & E-cash
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Complete Cashu wallet management with multi-mint support,
+                      Lightning integration, and NUT-24 X-Cashu payments.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20'>
+                      <span className='text-2xl'>🔐</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Nostr Authentication
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Secure, decentralized identity with browser extension
+                      support and automatic organization creation.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <motion.div
+                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/20'
+                      whileHover={{ scale: 1.2, rotate: 360 }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 200,
+                        duration: 0.6,
+                      }}
+                    >
+                      <span className='text-2xl'>🌐</span>
+                    </motion.div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Provider Management
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Configure marketplace providers with Nostr discovery,
+                      custom configurations, and Tor support.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/20'>
+                      <span className='text-2xl'>📊</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Transaction Monitoring
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Real-time payment tracking with live transaction feeds,
+                      pending payment monitoring, and detailed history.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/20'>
+                      <span className='text-2xl'>🔑</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      API Management
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Secure API access control with key generation, usage
+                      analytics, and organization-scoped permissions.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </section>
+
+        <section className='container px-4 py-16'>
+          <div className='mb-8 text-center'>
+            <h3 className='mb-2 text-2xl font-bold'>Enterprise Features</h3>
+            <p className='text-muted-foreground'>
+              Built for teams and institutions with advanced organizational
+              controls
+            </p>
+          </div>
+
+          <motion.div
+            variants={staggerContainer}
+            initial='initial'
+            whileInView='animate'
+            viewport={{ once: true }}
+            className='grid gap-6 md:grid-cols-2 lg:grid-cols-4'
+          >
+            <motion.div variants={fadeInUp} className='w-full'>
+              <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                  <motion.div
+                    className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/20'
+                    whileHover={{ scale: 1.1, rotate: -5 }}
+                    transition={{ type: 'spring', stiffness: 300 }}
+                  >
+                    <span className='text-2xl'>🏢</span>
+                  </motion.div>
+                  <CardTitle className='mb-3 text-xl'>
+                    Organization Management
+                  </CardTitle>
+                  <CardDescription className='text-center text-base leading-relaxed'>
+                    Automatic organization creation, team member invitations,
+                    and hierarchical access control.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={fadeInUp} className='w-full'>
+              <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                  <motion.div
+                    className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20'
+                    whileHover={{ scale: 1.15, y: -8 }}
+                    transition={{ type: 'spring', stiffness: 400 }}
+                  >
+                    <span className='text-2xl'>💳</span>
+                  </motion.div>
+                  <CardTitle className='mb-3 text-xl'>
+                    Budget Controls
+                  </CardTitle>
+                  <CardDescription className='text-center text-base leading-relaxed'>
+                    Smart budget management, automatic wallet top-ups, and
+                    organizational spending limits with alerts.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={fadeInUp} className='w-full'>
+              <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                  <motion.div
+                    className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20'
+                    whileHover={{ scale: 1.1, rotate: 10 }}
+                    transition={{ type: 'spring', stiffness: 350 }}
+                  >
+                    <span className='text-2xl'>🔒</span>
+                  </motion.div>
+                  <CardTitle className='mb-3 text-xl'>
+                    Privacy & Security
+                  </CardTitle>
+                  <CardDescription className='text-center text-base leading-relaxed'>
+                    Self-hosted deployment options, end-to-end encryption, and
+                    completely anonymous payment processing.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={fadeInUp} className='w-full'>
+              <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                  <motion.div
+                    className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20'
+                    whileHover={{ scale: 1.2, rotate: 180 }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 250,
+                      duration: 0.8,
+                    }}
+                  >
+                    <span className='text-2xl'>🔗</span>
+                  </motion.div>
+                  <CardTitle className='mb-3 text-xl'>Integration</CardTitle>
+                  <CardDescription className='text-center text-base leading-relaxed'>
+                    OpenAI API compatibility, RESTful API endpoints, and webhook
+                    notifications for seamless integration.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </motion.div>
+          </motion.div>
+
+          <motion.div variants={fadeInUp} className='mt-12 text-center'>
+            <h3 className='mb-4 text-2xl font-bold'>Getting Started Guide</h3>
+            <div className='mx-auto max-w-4xl'>
+              <Card className='text-left'>
+                <CardContent className='p-8'>
+                  <div className='grid gap-6 md:grid-cols-2'>
+                    <div>
+                      <h4 className='mb-3 text-lg font-semibold'>
+                        🚀 Quick Setup
+                      </h4>
+                      <ol className='space-y-2 text-sm'>
+                        <li>
+                          1. <strong>Sign Up:</strong> Register using your Nostr
+                          public key (npub)
+                        </li>
+                        <li>
+                          2. <strong>Configure Provider:</strong> Select or add
+                          a Routstr provider
+                        </li>
+                        <li>
+                          3. <strong>Setup Wallet:</strong> Add Cashu mints and
+                          fund with Lightning
+                        </li>
+                        <li>
+                          4. <strong>Start Using AI:</strong> Access models
+                          through the dashboard
+                        </li>
+                      </ol>
+                    </div>
+                    <div>
+                      <h4 className='mb-3 text-lg font-semibold'>
+                        🎯 Advanced Features
+                      </h4>
+                      <ul className='space-y-2 text-sm'>
+                        <li>
+                          • <strong>Team Collaboration:</strong> Invite members
+                          via Nostr
+                        </li>
+                        <li>
+                          • <strong>Custom Providers:</strong> Add your own
+                          marketplace endpoints
+                        </li>
+                        <li>
+                          • <strong>Budget Management:</strong> Set
+                          organizational spending limits
+                        </li>
+                        <li>
+                          • <strong>Analytics:</strong> Monitor usage with
+                          detailed statistics
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </motion.div>
         </section>
 
@@ -630,212 +990,60 @@ export default function LandingPage() {
                 </Button>
               </motion.div>
             </motion.div>
-          </motion.div>
-        </section>
 
-        <section className='container px-4 py-16'>
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className='mx-auto max-w-6xl'
-          >
-            <div className='mb-16 text-center'>
-              <h2 className='mb-4 text-3xl font-bold sm:text-4xl'>
-                Complete Feature Set
-              </h2>
-              <p className='text-muted-foreground mx-auto max-w-3xl'>
-                OTRTA provides a comprehensive suite of features for privacy-first AI access, 
-                wallet management, and team collaboration through the Routstr protocol
-              </p>
-            </div>
-
-            <motion.div
-              variants={staggerContainer}
-              initial='initial'
-              whileInView='animate'
-              viewport={{ once: true }}
-              className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'
-            >
-              <motion.div variants={fadeInUp} className='w-full'>
-                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
-                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/20'>
-                      <span className='text-2xl'>🧠</span>
-                    </div>
-                    <CardTitle className='mb-3 text-xl'>
-                      AI Model Management
-                    </CardTitle>
-                    <CardDescription className='text-center text-base leading-relaxed'>
-                      Access and manage 50+ AI models from independent providers with live pricing and performance tracking.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeInUp} className='w-full'>
-                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
-                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20'>
-                      <span className='text-2xl'>💰</span>
-                    </div>
-                    <CardTitle className='mb-3 text-xl'>
-                      Wallet & E-cash
-                    </CardTitle>
-                    <CardDescription className='text-center text-base leading-relaxed'>
-                      Complete Cashu wallet management with multi-mint support, Lightning integration, and NUT-24 X-Cashu payments.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeInUp} className='w-full'>
-                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
-                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20'>
-                      <span className='text-2xl'>🔐</span>
-                    </div>
-                    <CardTitle className='mb-3 text-xl'>
-                      Nostr Authentication
-                    </CardTitle>
-                    <CardDescription className='text-center text-base leading-relaxed'>
-                      Secure, decentralized identity with browser extension support and automatic organization creation.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeInUp} className='w-full'>
-                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
-                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/20'>
-                      <span className='text-2xl'>🌐</span>
-                    </div>
-                    <CardTitle className='mb-3 text-xl'>
-                      Provider Management
-                    </CardTitle>
-                    <CardDescription className='text-center text-base leading-relaxed'>
-                      Configure marketplace providers with Nostr discovery, custom configurations, and Tor support.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeInUp} className='w-full'>
-                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
-                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/20'>
-                      <span className='text-2xl'>📊</span>
-                    </div>
-                    <CardTitle className='mb-3 text-xl'>
-                      Transaction Monitoring
-                    </CardTitle>
-                    <CardDescription className='text-center text-base leading-relaxed'>
-                      Real-time payment tracking with live transaction feeds, pending payment monitoring, and detailed history.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeInUp} className='w-full'>
-                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
-                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
-                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/20'>
-                      <span className='text-2xl'>🔑</span>
-                    </div>
-                    <CardTitle className='mb-3 text-xl'>
-                      API Management
-                    </CardTitle>
-                    <CardDescription className='text-center text-base leading-relaxed'>
-                      Secure API access control with key generation, usage analytics, and organization-scoped permissions.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeInUp} className='col-span-full'>
-                <Card className='border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 dark:border-gray-800 dark:from-gray-950/20 dark:to-gray-900/20'>
-                  <CardHeader>
-                    <CardTitle className='text-gray-900 dark:text-gray-100'>
-                      🏢 Enterprise Features
-                    </CardTitle>
-                    <CardDescription className='text-gray-700 dark:text-gray-300'>
-                      Built for teams and institutions with advanced organizational controls
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className='text-gray-600 dark:text-gray-300'>
-                    <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
-                      <div>
-                        <h4 className='font-semibold mb-2'>Organization Management</h4>
-                        <ul className='space-y-1 text-sm'>
-                          <li>• Automatic org creation per user</li>
-                          <li>• Team member invitations</li>
-                          <li>• Hierarchical access control</li>
-                        </ul>
-                      </div>
-                      <div>
-                        <h4 className='font-semibold mb-2'>Budget Controls</h4>
-                        <ul className='space-y-1 text-sm'>
-                          <li>• Smart budget management</li>
-                          <li>• Automatic wallet top-ups</li>
-                          <li>• Spending limits and alerts</li>
-                        </ul>
-                      </div>
-                      <div>
-                        <h4 className='font-semibold mb-2'>Privacy & Security</h4>
-                        <ul className='space-y-1 text-sm'>
-                          <li>• Self-hosted deployment</li>
-                          <li>• End-to-end encryption</li>
-                          <li>• Anonymous payments</li>
-                        </ul>
-                      </div>
-                      <div>
-                        <h4 className='font-semibold mb-2'>Integration</h4>
-                        <ul className='space-y-1 text-sm'>
-                          <li>• OpenAI API compatibility</li>
-                          <li>• RESTful API endpoints</li>
-                          <li>• Webhook notifications</li>
-                        </ul>
+            <motion.div variants={fadeInUp} className='mt-12'>
+              <Card className='mx-auto max-w-xl border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 dark:border-purple-800 dark:from-purple-950/20 dark:to-purple-900/20'>
+                <CardHeader className='pb-4 text-center'>
+                  <motion.div
+                    className='mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm dark:bg-purple-900/40'
+                    whileHover={{ scale: 1.1, rotate: 10 }}
+                    transition={{ type: 'spring', stiffness: 300 }}
+                  >
+                    <Image
+                      src='/routstr.svg'
+                      alt='OTRTA Logo'
+                      width={32}
+                      height={32}
+                      className='dark:invert'
+                    />
+                  </motion.div>
+                  <CardTitle className='mb-2 text-lg text-purple-900 dark:text-purple-100'>
+                    Enterprise Support
+                  </CardTitle>
+                  <CardDescription className='text-sm text-purple-700 dark:text-purple-300'>
+                    Need custom deployment or enterprise features?
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className='pt-0 pb-6'>
+                  <div className='space-y-3'>
+                    <div className='text-center'>
+                      <p className='mb-2 text-sm font-medium text-purple-800 dark:text-purple-200'>
+                        Contact us via Nostr:
+                      </p>
+                      <div className='rounded-lg border border-purple-200 bg-white/80 p-3 dark:border-purple-700 dark:bg-purple-900/30'>
+                        <code className='mb-3 block font-mono text-xs break-all text-purple-900 dark:text-purple-100'>
+                          npub1enterprise7contact8here9abc123def456ghi789jkl012mno345pqr678stu901vwx234yz
+                        </code>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className='w-full rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700'
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              'npub1enterprise7contact8here9abc123def456ghi789jkl012mno345pqr678stu901vwx234yz'
+                            );
+                          }}
+                        >
+                          Copy Nostr Contact
+                        </motion.button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </motion.div>
-
-            <motion.div variants={fadeInUp} className='mt-12 text-center'>
-              <h3 className='mb-4 text-2xl font-bold'>Getting Started Guide</h3>
-              <div className='mx-auto max-w-4xl'>
-                <Card className='text-left'>
-                  <CardContent className='p-8'>
-                    <div className='grid gap-6 md:grid-cols-2'>
-                      <div>
-                        <h4 className='mb-3 text-lg font-semibold'>🚀 Quick Setup</h4>
-                        <ol className='space-y-2 text-sm'>
-                          <li>1. <strong>Sign Up:</strong> Register using your Nostr public key (npub)</li>
-                          <li>2. <strong>Configure Provider:</strong> Select or add a Routstr provider</li>
-                          <li>3. <strong>Setup Wallet:</strong> Add Cashu mints and fund with Lightning</li>
-                          <li>4. <strong>Start Using AI:</strong> Access models through the dashboard</li>
-                        </ol>
-                      </div>
-                      <div>
-                        <h4 className='mb-3 text-lg font-semibold'>🎯 Advanced Features</h4>
-                        <ul className='space-y-2 text-sm'>
-                          <li>• <strong>Team Collaboration:</strong> Invite members via Nostr</li>
-                          <li>• <strong>Custom Providers:</strong> Add your own marketplace endpoints</li>
-                          <li>• <strong>Budget Management:</strong> Set organizational spending limits</li>
-                          <li>• <strong>Analytics:</strong> Monitor usage with detailed statistics</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
             </motion.div>
           </motion.div>
         </section>
-
       </main>
 
       <footer className='bg-muted/20 w-full border-t'>
