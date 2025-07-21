@@ -148,11 +148,11 @@ export default function LandingPage() {
               className='text-muted-foreground mx-auto mb-8 max-w-2xl text-lg sm:text-xl'
             >
               OTRTA is the Routstr client that implements the Routstr protocol.
-              Access OpenAI&apos;s language models without revealing your
-              identity using Cashu e-cash notes with NUT-24 X-Cashu payment
-              standard. Our focus is to bring AI not only for private users but
-              also for institutions with larger teams. Pay exactly what you
-              consume with millisatoshi precision.
+              Access language models without revealing your identity using Cashu
+              e-cash notes with NUT-24 X-Cashu payment standard. Our focus is to
+              bring AI not only for private users but also for institutions with
+              larger teams. Pay exactly what you consume with millisatoshi
+              precision.
             </motion.p>
 
             <motion.div
@@ -934,6 +934,65 @@ export default function LandingPage() {
                           </motion.span>
                         </Button>
                       </motion.div>
+                      <div className='mt-6'>
+                        <p className='text-foreground mb-3 text-sm font-semibold'>
+                          ⚡ Lightning Address:
+                        </p>
+                        <motion.div
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className='cursor-pointer rounded-lg border-2 border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50 p-4 text-center transition-all duration-200 hover:shadow-md dark:border-yellow-600 dark:from-yellow-900/20 dark:to-orange-900/20'
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              'otrta@minibits.cash'
+                            );
+                            // You could add a toast notification here
+                          }}
+                        >
+                          <div className='flex items-center justify-center'>
+                            <code className='font-mono text-base font-bold text-yellow-800 select-all dark:text-yellow-200'>
+                              otrta@minibits.cash
+                            </code>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              className='ml-3 flex h-8 w-8 items-center justify-center rounded-md bg-yellow-200 transition-colors hover:bg-yellow-300 dark:bg-yellow-700 dark:hover:bg-yellow-600'
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(
+                                  'otrta@minibits.cash'
+                                );
+                              }}
+                            >
+                              <svg
+                                xmlns='http://www.w3.org/2000/svg'
+                                width='16'
+                                height='16'
+                                viewBox='0 0 24 24'
+                                fill='none'
+                                stroke='currentColor'
+                                strokeWidth='2'
+                                strokeLinecap='round'
+                                strokeLinejoin='round'
+                                className='text-yellow-800 dark:text-yellow-200'
+                              >
+                                <rect
+                                  width='14'
+                                  height='14'
+                                  x='8'
+                                  y='8'
+                                  rx='2'
+                                  ry='2'
+                                />
+                                <path d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2' />
+                              </svg>
+                            </motion.button>
+                          </div>
+                          <p className='mt-2 text-xs text-yellow-700 dark:text-yellow-300'>
+                            Click anywhere to copy
+                          </p>
+                        </motion.div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1022,7 +1081,7 @@ export default function LandingPage() {
                       </p>
                       <div className='rounded-lg border border-purple-200 bg-white/80 p-3 dark:border-purple-700 dark:bg-purple-900/30'>
                         <code className='mb-3 block font-mono text-xs break-all text-purple-900 dark:text-purple-100'>
-                          npub1enterprise7contact8here9abc123def456ghi789jkl012mno345pqr678stu901vwx234yz
+                          npub1ygjd597hdwu8larprmhj893d5p832j5mhejpx40ukezgudvayg9qeklajc
                         </code>
                         <motion.button
                           whileHover={{ scale: 1.02 }}
