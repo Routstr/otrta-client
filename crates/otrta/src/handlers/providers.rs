@@ -1,14 +1,16 @@
 use crate::{
     db::provider::{
-        create_custom_provider, delete_custom_provider, get_all_providers, get_default_provider,
-        get_provider_by_id, refresh_providers_from_nostr, set_default_provider,
-        CreateCustomProviderRequest, ProviderListResponse, RefreshProvidersResponse,
+        create_custom_provider_for_organization, delete_custom_provider_for_organization,
+        get_default_provider_for_organization, get_provider_by_id_for_organization,
+        get_providers_for_organization, refresh_providers_from_nostr,
+        set_default_provider_for_organization, CreateCustomProviderRequest, ProviderListResponse,
+        RefreshProvidersResponse,
     },
     handlers::models::refresh_models_internal,
-    models::AppState,
+    models::{AppState, UserContext},
 };
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     Json,
 };
@@ -17,8 +19,9 @@ use std::sync::Arc;
 
 pub async fn get_providers(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<ProviderListResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match get_all_providers(&state.db).await {
+    match get_providers_for_organization(&state.db, &user_ctx.organization_id).await {
         Ok(providers) => {
             let total = providers.len() as i32;
             Ok(Json(ProviderListResponse { providers, total }))
@@ -40,9 +43,10 @@ pub async fn get_providers(
 
 pub async fn get_provider(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<i32>,
 ) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
-    match get_provider_by_id(&state.db, id).await {
+    match get_provider_by_id_for_organization(&state.db, id, &user_ctx.organization_id).await {
         Ok(Some(provider)) => Ok(Json(provider)),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
@@ -70,9 +74,10 @@ pub async fn get_provider(
 
 pub async fn set_provider_default(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<i32>,
 ) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
-    match set_default_provider(&state.db, id).await {
+    match set_default_provider_for_organization(&state.db, id, &user_ctx.organization_id).await {
         Ok(_) => {
             if let Err(e) = refresh_models_internal(&state.db).await {
                 eprintln!(
@@ -81,7 +86,9 @@ pub async fn set_provider_default(
                 );
             }
 
-            match get_provider_by_id(&state.db, id).await {
+            match get_provider_by_id_for_organization(&state.db, id, &user_ctx.organization_id)
+                .await
+            {
                 Ok(Some(provider)) => Ok(Json(provider)),
                 Ok(None) => Err((
                     StatusCode::NOT_FOUND,
@@ -143,6 +150,7 @@ pub async fn refresh_providers(
 
 pub async fn create_custom_provider_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Json(request): Json<CreateCustomProviderRequest>,
 ) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
     // Validate the request
@@ -170,7 +178,9 @@ pub async fn create_custom_provider_handler(
         ));
     }
 
-    match create_custom_provider(&state.db, request).await {
+    match create_custom_provider_for_organization(&state.db, request, &user_ctx.organization_id)
+        .await
+    {
         Ok(provider) => Ok(Json(provider)),
         Err(e) => {
             eprintln!("Failed to create custom provider: {}", e);
@@ -204,9 +214,10 @@ pub async fn create_custom_provider_handler(
 
 pub async fn delete_custom_provider_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<i32>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    match delete_custom_provider(&state.db, id).await {
+    match delete_custom_provider_for_organization(&state.db, id, &user_ctx.organization_id).await {
         Ok(deleted) => {
             if deleted {
                 Ok(Json(json!({
@@ -242,8 +253,9 @@ pub async fn delete_custom_provider_handler(
 
 pub async fn get_default_provider_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<Option<crate::db::provider::Provider>>, (StatusCode, Json<serde_json::Value>)> {
-    match get_default_provider(&state.db).await {
+    match get_default_provider_for_organization(&state.db, &user_ctx.organization_id).await {
         Ok(provider) => Ok(Json(provider)),
         Err(e) => {
             eprintln!("Failed to get default provider: {}", e);

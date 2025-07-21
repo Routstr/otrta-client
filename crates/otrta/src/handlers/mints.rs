@@ -1,7 +1,8 @@
 use crate::{
     db::mint::{
-        create_mint_for_organization, delete_mint_for_organization, get_active_mints_for_organization,
-        get_mint_by_id_for_organization, get_mints_for_organization, set_mint_active_status_for_organization,
+        create_mint_for_organization, delete_mint_for_organization,
+        get_active_mints_for_organization, get_mint_by_id_for_organization,
+        get_mints_for_organization, set_mint_active_status_for_organization,
         update_mint_for_organization, CreateMintRequest, Mint, MintListResponse, UpdateMintRequest,
     },
     handlers::wallet::get_user_friendly_wallet_error_message,
@@ -139,7 +140,8 @@ pub async fn create_mint_handler(
         ));
     }
 
-    match create_mint_for_organization(&state.db, request.clone(), &user_ctx.organization_id).await {
+    match create_mint_for_organization(&state.db, request.clone(), &user_ctx.organization_id).await
+    {
         Ok(mint) => {
             let currency_unit = mint
                 .currency_unit
@@ -261,7 +263,14 @@ pub async fn set_mint_active_handler(
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
-    match set_mint_active_status_for_organization(&state.db, id, &user_ctx.organization_id, is_active).await {
+    match set_mint_active_status_for_organization(
+        &state.db,
+        id,
+        &user_ctx.organization_id,
+        is_active,
+    )
+    .await
+    {
         Ok(updated) => {
             if updated {
                 Ok(Json(json!({

@@ -1,6 +1,7 @@
 use crate::db::Pool;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Provider {
@@ -13,6 +14,7 @@ pub struct Provider {
     pub zaps: i32,
     pub is_default: bool,
     pub is_custom: bool,
+    pub organization_id: Option<Uuid>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -41,8 +43,8 @@ pub struct CreateCustomProviderRequest {
 
 pub async fn get_all_providers(db: &Pool) -> Result<Vec<Provider>, sqlx::Error> {
     let providers = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, created_at, updated_at 
-         FROM providers 
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
+         FROM providers
          ORDER BY is_default DESC, is_custom ASC, followers DESC, zaps DESC"
     )
     .fetch_all(db)
@@ -53,8 +55,8 @@ pub async fn get_all_providers(db: &Pool) -> Result<Vec<Provider>, sqlx::Error> 
 
 pub async fn get_default_provider(db: &Pool) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, created_at, updated_at 
-         FROM providers 
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
+         FROM providers
          WHERE is_default = TRUE"
     )
     .fetch_optional(db)
@@ -65,8 +67,8 @@ pub async fn get_default_provider(db: &Pool) -> Result<Option<Provider>, sqlx::E
 
 pub async fn get_provider_by_id(db: &Pool, id: i32) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, created_at, updated_at 
-         FROM providers 
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
+         FROM providers
          WHERE id = $1"
     )
     .bind(id)
@@ -96,7 +98,7 @@ pub async fn create_custom_provider(
     let provider = sqlx::query_as::<_, Provider>(
         "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, updated_at)
          VALUES ($1, $2, $3, $4, 0, 0, TRUE, NOW())
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, created_at, updated_at"
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
     )
     .bind(&request.name)
     .bind(&request.url)
@@ -129,15 +131,15 @@ pub async fn upsert_provider(
     let provider = sqlx::query_as::<_, Provider>(
         "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, FALSE, NOW())
-         ON CONFLICT (url) 
-         DO UPDATE SET 
+         ON CONFLICT (url)
+         DO UPDATE SET
             name = EXCLUDED.name,
             mints = EXCLUDED.mints,
             use_onion = EXCLUDED.use_onion,
             followers = EXCLUDED.followers,
             zaps = EXCLUDED.zaps,
             updated_at = NOW()
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, created_at, updated_at"
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
     )
     .bind(name)
     .bind(url)
@@ -202,4 +204,115 @@ pub async fn refresh_providers_from_nostr(
             providers_updated
         )),
     })
+}
+
+pub async fn get_providers_for_organization(
+    db: &Pool,
+    organization_id: &Uuid,
+) -> Result<Vec<Provider>, sqlx::Error> {
+    let providers = sqlx::query_as::<_, Provider>(
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
+         FROM providers
+         WHERE organization_id IS NULL OR organization_id = $1
+         ORDER BY is_default DESC, is_custom ASC, followers DESC, zaps DESC"
+    )
+    .bind(organization_id)
+    .fetch_all(db)
+    .await?;
+
+    Ok(providers)
+}
+
+pub async fn get_default_provider_for_organization(
+    db: &Pool,
+    organization_id: &Uuid,
+) -> Result<Option<Provider>, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
+         FROM providers
+         WHERE is_default = TRUE AND (organization_id IS NULL OR organization_id = $1)"
+    )
+    .bind(organization_id)
+    .fetch_optional(db)
+    .await?;
+
+    Ok(provider)
+}
+
+pub async fn get_provider_by_id_for_organization(
+    db: &Pool,
+    id: i32,
+    organization_id: &Uuid,
+) -> Result<Option<Provider>, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
+         FROM providers
+         WHERE id = $1 AND (organization_id IS NULL OR organization_id = $2)"
+    )
+    .bind(id)
+    .bind(organization_id)
+    .fetch_optional(db)
+    .await?;
+
+    Ok(provider)
+}
+
+pub async fn create_custom_provider_for_organization(
+    db: &Pool,
+    request: CreateCustomProviderRequest,
+    organization_id: &Uuid,
+) -> Result<Provider, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, 0, 0, TRUE, $5, NOW())
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
+    )
+    .bind(&request.name)
+    .bind(&request.url)
+    .bind(&request.mints)
+    .bind(request.use_onion)
+    .bind(organization_id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(provider)
+}
+
+pub async fn delete_custom_provider_for_organization(
+    db: &Pool,
+    id: i32,
+    organization_id: &Uuid,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "DELETE FROM providers WHERE id = $1 AND is_custom = TRUE AND organization_id = $2",
+    )
+    .bind(id)
+    .bind(organization_id)
+    .execute(db)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+pub async fn set_default_provider_for_organization(
+    db: &Pool,
+    id: i32,
+    organization_id: &Uuid,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE providers SET is_default = FALSE WHERE organization_id = $1")
+        .bind(organization_id)
+        .execute(db)
+        .await?;
+
+    let result = sqlx::query("UPDATE providers SET is_default = TRUE WHERE id = $1 AND (organization_id IS NULL OR organization_id = $2)")
+        .bind(id)
+        .bind(organization_id)
+        .execute(db)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(sqlx::Error::RowNotFound);
+    }
+
+    Ok(())
 }
