@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, \n            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,\n            COALESCE(op.is_active, false) as is_active_for_org,\n            COALESCE(op.is_default, false) as is_default_for_org\n        FROM providers p\n        LEFT JOIN organization_providers op \n            ON p.id = op.provider_id AND op.organization_id = $1\n        WHERE p.organization_id IS NULL OR p.organization_id = $1\n        ORDER BY p.is_default DESC, p.is_custom ASC, p.followers DESC, p.zaps DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "url",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "mints",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "use_onion",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "followers",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "zaps",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_default",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "is_custom",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "organization_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "is_active_for_org",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 13,
+        "name": "is_default_for_org",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "ced1927c18c45991f317c7d904ae767ff4b84ad3cd8a939cc89f0bcb1f3d94a3"
+}

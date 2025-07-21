@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) \n        FROM transactions t\n        LEFT JOIN api_keys ak ON t.api_key_id = ak.id\n        WHERE ak.organization_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5248df24acbe43dc37abc02d0961c5a0372020c8b21a564278c77942b1d4d4d5"
+}

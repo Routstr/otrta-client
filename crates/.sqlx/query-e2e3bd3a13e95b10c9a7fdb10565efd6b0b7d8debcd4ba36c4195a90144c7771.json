@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            t.id,\n            t.created_at,\n            t.token,\n            t.amount,\n            t.direction as \"direction: TransactionDirection\",\n            t.api_key_id::text\n        FROM transactions t\n        LEFT JOIN api_keys ak ON t.api_key_id = ak.id\n        WHERE ak.organization_id = $1\n        ORDER BY t.created_at DESC\n        LIMIT $2 OFFSET $3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "amount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "direction: TransactionDirection",
+        "type_info": {
+          "Custom": {
+            "name": "transaction_direction",
+            "kind": {
+              "Enum": [
+                "Incoming",
+                "Outgoing"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "api_key_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "e2e3bd3a13e95b10c9a7fdb10565efd6b0b7d8debcd4ba36c4195a90144c7771"
+}

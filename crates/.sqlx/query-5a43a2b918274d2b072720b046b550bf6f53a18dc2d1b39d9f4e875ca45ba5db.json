@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE organization_providers SET is_active = false, updated_at = NOW() WHERE organization_id = $1 AND provider_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5a43a2b918274d2b072720b046b550bf6f53a18dc2d1b39d9f4e875ca45ba5db"
+}
