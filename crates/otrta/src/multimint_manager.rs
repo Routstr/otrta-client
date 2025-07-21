@@ -47,7 +47,7 @@ impl MultimintManager {
                 AppError::NotFound
             })?;
 
-        let db_path = format!("{}multimint/{}", self.base_db_path, org_id);
+        let db_path = format!("{}{}", self.base_db_path, org_id);
 
         use crate::db::server_config::{
             create_with_seed_for_organization, get_config_by_organization,

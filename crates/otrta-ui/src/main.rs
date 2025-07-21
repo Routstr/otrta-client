@@ -1,19 +1,20 @@
 use axum::{
-    Router, middleware,
+    middleware,
     routing::{delete, get, post, put},
+    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{DatabaseSettings, get_configuration};
+use connection::{get_configuration, DatabaseSettings};
 use otrta::{
-    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware_with_context},
+    auth::{bearer_auth_middleware, nostr_auth_middleware_with_context, AuthConfig, AuthState},
     handlers,
     models::AppState,
     multimint_manager::MultimintManager,
     proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -41,7 +42,7 @@ async fn main() {
         .await
         .unwrap();
 
-    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./wallet_data".to_string());
+    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./multimint".to_string());
     std::fs::create_dir_all(&wallet_dir).unwrap();
 
     let multimint_manager = Arc::new(MultimintManager::new(wallet_dir, connection_pool.clone()));
