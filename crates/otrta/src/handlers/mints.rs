@@ -1,8 +1,8 @@
 use crate::{
     db::mint::{
-        create_mint, delete_mint, get_active_mints, get_all_mints, get_mint_by_id,
-        set_mint_active_status, update_mint, CreateMintRequest, Mint, MintListResponse,
-        UpdateMintRequest,
+        create_mint_for_organization, delete_mint_for_organization, get_active_mints_for_organization,
+        get_mint_by_id_for_organization, get_mints_for_organization, set_mint_active_status_for_organization,
+        update_mint_for_organization, CreateMintRequest, Mint, MintListResponse, UpdateMintRequest,
     },
     handlers::wallet::get_user_friendly_wallet_error_message,
     models::{AppState, TopupMintRequest, TopupMintResponse, UserContext},
@@ -17,8 +17,9 @@ use std::{str::FromStr, sync::Arc};
 
 pub async fn get_all_mints_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<MintListResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match get_all_mints(&state.db).await {
+    match get_mints_for_organization(&state.db, &user_ctx.organization_id).await {
         Ok(mints) => {
             let total = mints.len() as i32;
             Ok(Json(MintListResponse { mints, total }))
@@ -40,8 +41,9 @@ pub async fn get_all_mints_handler(
 
 pub async fn get_active_mints_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<MintListResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match get_active_mints(&state.db).await {
+    match get_active_mints_for_organization(&state.db, &user_ctx.organization_id).await {
         Ok(mints) => {
             let total = mints.len() as i32;
             Ok(Json(MintListResponse { mints, total }))
@@ -63,9 +65,10 @@ pub async fn get_active_mints_handler(
 
 pub async fn get_mint_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<i32>,
 ) -> Result<Json<Mint>, (StatusCode, Json<serde_json::Value>)> {
-    match get_mint_by_id(&state.db, id).await {
+    match get_mint_by_id_for_organization(&state.db, id, &user_ctx.organization_id).await {
         Ok(Some(mint)) => Ok(Json(mint)),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
@@ -112,7 +115,6 @@ pub async fn create_mint_handler(
         }
     };
 
-    // Validate the request
     if request.mint_url.trim().is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -137,7 +139,7 @@ pub async fn create_mint_handler(
         ));
     }
 
-    match create_mint(&state.db, request.clone()).await {
+    match create_mint_for_organization(&state.db, request.clone(), &user_ctx.organization_id).await {
         Ok(mint) => {
             let currency_unit = mint
                 .currency_unit
@@ -179,10 +181,11 @@ pub async fn create_mint_handler(
 
 pub async fn update_mint_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<i32>,
     Json(request): Json<UpdateMintRequest>,
 ) -> Result<Json<Mint>, (StatusCode, Json<serde_json::Value>)> {
-    match update_mint(&state.db, id, request).await {
+    match update_mint_for_organization(&state.db, id, &user_ctx.organization_id, request).await {
         Ok(Some(mint)) => Ok(Json(mint)),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
@@ -210,9 +213,10 @@ pub async fn update_mint_handler(
 
 pub async fn delete_mint_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<i32>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    match delete_mint(&state.db, id).await {
+    match delete_mint_for_organization(&state.db, id, &user_ctx.organization_id).await {
         Ok(deleted) => {
             if deleted {
                 Ok(Json(json!({
@@ -248,6 +252,7 @@ pub async fn delete_mint_handler(
 
 pub async fn set_mint_active_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<i32>,
     Json(request): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
@@ -256,7 +261,7 @@ pub async fn set_mint_active_handler(
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
-    match set_mint_active_status(&state.db, id, is_active).await {
+    match set_mint_active_status_for_organization(&state.db, id, &user_ctx.organization_id, is_active).await {
         Ok(updated) => {
             if updated {
                 Ok(Json(json!({

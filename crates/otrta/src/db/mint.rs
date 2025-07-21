@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::str::FromStr;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CurrencyUnit {
@@ -38,6 +39,7 @@ pub struct Mint {
     pub currency_unit: String,
     pub is_active: bool,
     pub name: Option<String>,
+    pub organization_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -77,7 +79,7 @@ pub struct MultimintBalance {
 
 pub async fn get_all_mints(db: &Pool) -> Result<Vec<Mint>, sqlx::Error> {
     let mints = sqlx::query_as::<_, Mint>(
-        "SELECT id, mint_url, currency_unit, is_active, name, created_at, updated_at 
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
          FROM mints 
          ORDER BY created_at ASC",
     )
@@ -89,7 +91,7 @@ pub async fn get_all_mints(db: &Pool) -> Result<Vec<Mint>, sqlx::Error> {
 
 pub async fn get_active_mints(db: &Pool) -> Result<Vec<Mint>, sqlx::Error> {
     let mints = sqlx::query_as::<_, Mint>(
-        "SELECT id, mint_url, currency_unit, is_active, name, created_at, updated_at 
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
          FROM mints 
          WHERE is_active = TRUE
          ORDER BY created_at ASC",
@@ -102,7 +104,7 @@ pub async fn get_active_mints(db: &Pool) -> Result<Vec<Mint>, sqlx::Error> {
 
 pub async fn get_mint_by_id(db: &Pool, id: i32) -> Result<Option<Mint>, sqlx::Error> {
     let mint = sqlx::query_as::<_, Mint>(
-        "SELECT id, mint_url, currency_unit, is_active, name, created_at, updated_at 
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
          FROM mints 
          WHERE id = $1",
     )
@@ -115,7 +117,7 @@ pub async fn get_mint_by_id(db: &Pool, id: i32) -> Result<Option<Mint>, sqlx::Er
 
 pub async fn get_mint_by_url(db: &Pool, mint_url: &str) -> Result<Option<Mint>, sqlx::Error> {
     let mint = sqlx::query_as::<_, Mint>(
-        "SELECT id, mint_url, currency_unit, is_active, name, created_at, updated_at 
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
          FROM mints 
          WHERE mint_url = $1",
     )
@@ -132,7 +134,7 @@ pub async fn create_mint(db: &Pool, request: CreateMintRequest) -> Result<Mint, 
     let mint = sqlx::query_as::<_, Mint>(
         "INSERT INTO mints (mint_url, currency_unit, is_active, name, updated_at)
          VALUES ($1, $2, TRUE, $3, NOW())
-         RETURNING id, mint_url, currency_unit, is_active, name, created_at, updated_at",
+         RETURNING id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at",
     )
     .bind(&request.mint_url)
     .bind(&currency_unit)
@@ -160,7 +162,7 @@ pub async fn update_mint(
              name = COALESCE($2, name),
              updated_at = NOW()
          WHERE id = $3
-         RETURNING id, mint_url, currency_unit, is_active, name, created_at, updated_at",
+         RETURNING id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at",
     )
     .bind(request.is_active)
     .bind(request.name)
@@ -190,6 +192,137 @@ pub async fn set_mint_active_status(
         .bind(id)
         .execute(db)
         .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+pub async fn get_mints_for_organization(
+    db: &Pool,
+    organization_id: &Uuid,
+) -> Result<Vec<Mint>, sqlx::Error> {
+    let mints = sqlx::query_as::<_, Mint>(
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
+         FROM mints 
+         WHERE organization_id IS NULL OR organization_id = $1
+         ORDER BY created_at ASC",
+    )
+    .bind(organization_id)
+    .fetch_all(db)
+    .await?;
+
+    Ok(mints)
+}
+
+pub async fn get_active_mints_for_organization(
+    db: &Pool,
+    organization_id: &Uuid,
+) -> Result<Vec<Mint>, sqlx::Error> {
+    let mints = sqlx::query_as::<_, Mint>(
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
+         FROM mints 
+         WHERE is_active = TRUE AND (organization_id IS NULL OR organization_id = $1)
+         ORDER BY created_at ASC",
+    )
+    .bind(organization_id)
+    .fetch_all(db)
+    .await?;
+
+    Ok(mints)
+}
+
+pub async fn get_mint_by_id_for_organization(
+    db: &Pool,
+    id: i32,
+    organization_id: &Uuid,
+) -> Result<Option<Mint>, sqlx::Error> {
+    let mint = sqlx::query_as::<_, Mint>(
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
+         FROM mints 
+         WHERE id = $1 AND (organization_id IS NULL OR organization_id = $2)",
+    )
+    .bind(id)
+    .bind(organization_id)
+    .fetch_optional(db)
+    .await?;
+
+    Ok(mint)
+}
+
+pub async fn create_mint_for_organization(
+    db: &Pool,
+    request: CreateMintRequest,
+    organization_id: &Uuid,
+) -> Result<Mint, sqlx::Error> {
+    let currency_unit = request.currency_unit.unwrap_or_else(|| "Msat".to_string());
+
+    let mint = sqlx::query_as::<_, Mint>(
+        "INSERT INTO mints (mint_url, currency_unit, is_active, name, organization_id, updated_at)
+         VALUES ($1, $2, TRUE, $3, $4, NOW())
+         RETURNING id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at",
+    )
+    .bind(&request.mint_url)
+    .bind(&currency_unit)
+    .bind(&request.name)
+    .bind(organization_id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(mint)
+}
+
+pub async fn update_mint_for_organization(
+    db: &Pool,
+    id: i32,
+    organization_id: &Uuid,
+    request: UpdateMintRequest,
+) -> Result<Option<Mint>, sqlx::Error> {
+    let mint = sqlx::query_as::<_, Mint>(
+        "UPDATE mints 
+         SET is_active = COALESCE($3, is_active),
+             name = COALESCE($4, name),
+             updated_at = NOW()
+         WHERE id = $1 AND organization_id = $2
+         RETURNING id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at",
+    )
+    .bind(id)
+    .bind(organization_id)
+    .bind(request.is_active)
+    .bind(request.name)
+    .fetch_optional(db)
+    .await?;
+
+    Ok(mint)
+}
+
+pub async fn delete_mint_for_organization(
+    db: &Pool,
+    id: i32,
+    organization_id: &Uuid,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM mints WHERE id = $1 AND organization_id = $2")
+        .bind(id)
+        .bind(organization_id)
+        .execute(db)
+        .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+pub async fn set_mint_active_status_for_organization(
+    db: &Pool,
+    id: i32,
+    organization_id: &Uuid,
+    is_active: bool,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE mints SET is_active = $3, updated_at = NOW() 
+         WHERE id = $1 AND organization_id = $2",
+    )
+    .bind(id)
+    .bind(organization_id)
+    .bind(is_active)
+    .execute(db)
+    .await?;
 
     Ok(result.rows_affected() > 0)
 }
