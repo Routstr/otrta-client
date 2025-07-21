@@ -3,7 +3,7 @@ use sqlx::PgPool;
 
 use crate::models::{ModelRecord, ProxyModel, ProxyModelFromApi};
 
-use super::provider::get_default_provider;
+use super::provider::get_default_provider_for_organization_new;
 
 pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Error> {
     let models = sqlx::query!(
@@ -19,6 +19,77 @@ pub async fn get_all_models(pool: &PgPool) -> Result<Vec<ModelRecord>, sqlx::Err
         WHERE soft_deleted = false OR soft_deleted IS NULL
         ORDER BY name ASC
         "#
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|record| ModelRecord {
+        id: record.id,
+        provider_id: record.provider_id,
+        name: record.name,
+        input_cost: record.input_cost,
+        output_cost: record.output_cost,
+        min_cash_per_request: record.min_cash_per_request,
+        min_cost_per_request: record.min_cost_per_request,
+        provider: record.provider,
+        soft_deleted: record.soft_deleted.unwrap_or(false),
+        model_type: record.model_type,
+        description: record.description,
+        context_length: record.context_length,
+        is_free: record.is_free.unwrap_or(false),
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+        last_seen_at: record.last_seen_at,
+        modality: record.modality,
+        input_modalities: record.input_modalities,
+        output_modalities: record.output_modalities,
+        tokenizer: record.tokenizer,
+        instruct_type: record.instruct_type,
+        created_timestamp: record.created_timestamp,
+        prompt_cost: record.prompt_cost,
+        completion_cost: record.completion_cost,
+        request_cost: record.request_cost,
+        image_cost: record.image_cost,
+        web_search_cost: record.web_search_cost,
+        internal_reasoning_cost: record.internal_reasoning_cost,
+        max_cost: record.max_cost,
+        max_completion_tokens: record.max_completion_tokens,
+        is_moderated: record.is_moderated,
+    })
+    .collect();
+
+    Ok(models)
+}
+
+pub async fn get_models_for_organization(
+    pool: &PgPool,
+    organization_id: &uuid::Uuid,
+) -> Result<Vec<ModelRecord>, sqlx::Error> {
+    // Get the default provider for this organization
+    let default_provider = get_default_provider_for_organization_new(pool, organization_id).await?;
+
+    let provider_id = match default_provider {
+        Some(provider) => provider.id,
+        None => {
+            // If no default provider for organization, return empty list
+            return Ok(vec![]);
+        }
+    };
+
+    let models = sqlx::query!(
+        r#"
+        SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
+               min_cost_per_request, provider, soft_deleted, model_type, 
+               description, context_length, is_free, created_at, updated_at, last_seen_at,
+               modality, input_modalities, output_modalities, tokenizer, instruct_type,
+               created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,
+               web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
+               is_moderated
+        FROM models
+        WHERE provider_id = $1 AND (soft_deleted = false OR soft_deleted IS NULL)
+        ORDER BY name ASC
+        "#,
+        provider_id
     )
     .fetch_all(pool)
     .await?
@@ -186,12 +257,29 @@ pub async fn delete_all_models(pool: &PgPool) -> Result<i64, sqlx::Error> {
     Ok(result.rows_affected() as i64)
 }
 
+pub async fn delete_models_for_provider(
+    pool: &PgPool,
+    provider_id: i32,
+) -> Result<i64, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM models
+        WHERE provider_id = $1
+        "#,
+        provider_id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() as i64)
+}
+
 pub async fn upsert_model(
     pool: &PgPool,
     model: &ProxyModelFromApi,
+    provider_id: i32,
 ) -> Result<ModelRecord, sqlx::Error> {
-    let provider = get_default_provider(pool).await.unwrap().unwrap();
-    let model_record = model.to_model_record(provider.id);
+    let model_record = model.to_model_record(provider_id);
 
     let record = sqlx::query!(
         r#"

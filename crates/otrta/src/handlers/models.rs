@@ -1,11 +1,16 @@
 use crate::{
-    db::{
-        models::{delete_all_models, get_all_models, models_to_proxy_models, upsert_model},
-        provider::get_default_provider,
+    db::models::{
+        delete_models_for_provider, get_models_for_organization, models_to_proxy_models,
+        upsert_model,
     },
-    models::{AppState, ModelListResponse, ProxyModel, RefreshModelsResponse},
+    models::{AppState, ModelListResponse, ProxyModel, RefreshModelsResponse, UserContext},
 };
-use axum::{extract::State, http::StatusCode, response::Response, Json};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    response::Response,
+    Json,
+};
 use serde_json::{self, json};
 use std::sync::Arc;
 
@@ -15,8 +20,9 @@ pub async fn list_openai_models(State(state): State<Arc<AppState>>) -> Response 
 
 pub async fn get_proxy_models(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<Vec<ProxyModel>>, (StatusCode, Json<serde_json::Value>)> {
-    let models = match get_all_models(&state.db).await {
+    let models = match get_models_for_organization(&state.db, &user_ctx.organization_id).await {
         Ok(models) => models,
         Err(_) => {
             return Err((
@@ -38,8 +44,9 @@ pub async fn get_proxy_models(
 
 pub async fn refresh_models_from_proxy(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<RefreshModelsResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match refresh_models_internal(&state.db).await {
+    match refresh_models_internal(&state.db, &user_ctx.organization_id).await {
         Ok(response) => Ok(Json(response)),
         Err(e) => {
             eprintln!("Failed to refresh models: {}", e);
@@ -71,12 +78,15 @@ pub async fn refresh_models_from_proxy(
 
 pub async fn refresh_models_internal(
     db: &crate::db::Pool,
+    organization_id: &uuid::Uuid,
 ) -> Result<RefreshModelsResponse, String> {
-    let server_config = if let Ok(Some(config)) = get_default_provider(db).await {
+    let server_config = if let Ok(Some(config)) =
+        crate::db::provider::get_default_provider_for_organization_new(db, organization_id).await
+    {
         config
     } else {
         return Err(
-            "Server configuration missing. Cannot fetch models without a configured endpoint."
+            "No default provider configured for organization. Cannot fetch models without a configured provider."
                 .to_string(),
         );
     };
@@ -110,18 +120,18 @@ pub async fn refresh_models_internal(
         }
     };
 
-    let deleted_count = match delete_all_models(db).await {
+    let deleted_count = match delete_models_for_provider(db, server_config.id).await {
         Ok(count) => count,
         Err(e) => {
-            eprintln!("Failed to delete existing models: {}", e);
-            return Err("Failed to delete existing models".to_string());
+            eprintln!("Failed to delete existing models for provider: {}", e);
+            return Err("Failed to delete existing models for provider".to_string());
         }
     };
 
     let mut models_added = 0;
 
     for proxy_model in &proxy_models_data.data {
-        match upsert_model(db, proxy_model).await {
+        match upsert_model(db, proxy_model, server_config.id).await {
             Ok(_) => {
                 models_added += 1;
             }
@@ -137,8 +147,24 @@ pub async fn refresh_models_internal(
         models_added,
         models_marked_removed: deleted_count as i32,
         message: Some(format!(
-            "Successfully deleted {} existing models and added {} new models",
-            deleted_count, models_added
+            "Successfully deleted {} existing models and added {} new models for provider {}",
+            deleted_count, models_added, server_config.id
         )),
     })
+}
+
+pub async fn refresh_models_background(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<RefreshModelsResponse>, (StatusCode, Json<serde_json::Value>)> {
+    // For now, background refresh is disabled since it needs organization context
+    // This can be enhanced later to refresh for all organizations
+    Err((
+        StatusCode::NOT_IMPLEMENTED,
+        Json(json!({
+            "error": {
+                "message": "Background model refresh is not implemented for organization-specific models",
+                "type": "not_implemented"
+            }
+        })),
+    ))
 }

@@ -1,5 +1,5 @@
 use super::*;
-use otrta::handlers::refresh_models_from_proxy;
+use otrta::handlers::refresh_models_background;
 use tokio::time::{Duration, interval};
 use tracing::{error, info};
 
@@ -33,7 +33,7 @@ impl BackgroundJobRunner {
             interval.tick().await;
             info!("Running background model refresh...");
 
-            match refresh_models_from_proxy(axum::extract::State(Arc::clone(&app_state))).await {
+            match refresh_models_background(axum::extract::State(Arc::clone(&app_state))).await {
                 Ok(response) => {
                     info!("Model refresh completed successfully: {:?}", response.0);
                 }

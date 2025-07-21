@@ -341,7 +341,7 @@ pub async fn set_provider_default(
     match set_default_provider_for_organization_new(&state.db, &user_ctx.organization_id, id).await
     {
         Ok(_) => {
-            if let Err(e) = refresh_models_internal(&state.db).await {
+            if let Err(e) = refresh_models_internal(&state.db, &user_ctx.organization_id).await {
                 eprintln!(
                     "Warning: Failed to refresh models after setting default provider: {}",
                     e
