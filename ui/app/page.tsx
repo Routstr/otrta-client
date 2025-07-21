@@ -135,9 +135,11 @@ export default function LandingPage() {
               variants={fadeInUp}
               className='text-muted-foreground mx-auto mb-8 max-w-2xl text-lg sm:text-xl'
             >
+              OTRTA is the Routstr client that implements the Routstr protocol.
               Access OpenAI&apos;s language models without revealing your
-              identity using Cashu e-cash notes. Pay exactly what you consume
-              with millisatoshi precision.
+              identity using Cashu e-cash notes with NUT-24 X-Cashu payment standard.
+              Our focus is to bring AI not only for private users but also for institutions with larger teams.
+              Pay exactly what you consume with millisatoshi precision.
             </motion.p>
 
             <motion.div
@@ -182,8 +184,7 @@ export default function LandingPage() {
                 Why otrta?
               </h2>
               <p className='text-muted-foreground mx-auto max-w-2xl'>
-                Addressing the micropayment challenge for AI services through
-                innovative e-cash technology
+                A comprehensive platform for privacy-first AI access with smart budget management and team collaboration
               </p>
             </div>
 
@@ -201,11 +202,10 @@ export default function LandingPage() {
                       <Shield className='h-10 w-10 text-blue-600 dark:text-blue-400' />
                     </div>
                     <CardTitle className='mb-3 text-xl'>
-                      Complete Privacy
+                      Complete Privacy & Self-Hosting
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Access AI models without revealing your identity. No
-                      accounts, no tracking, just anonymous payments.
+                      Access AI models without revealing your identity. Fully customizable and private with self-hosted deployment options for complete control.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -218,11 +218,10 @@ export default function LandingPage() {
                       <Zap className='h-10 w-10 text-purple-600 dark:text-purple-400' />
                     </div>
                     <CardTitle className='mb-3 text-xl'>
-                      Millisatoshi Precision
+                      Smart Provider Switching
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Pay exactly what you consume down to the millisatoshi
-                      level. No more rounding errors or overpayment waste.
+                      Intelligent provider selection based on price and latency. Pay exactly what you consume with millisatoshi precision and optimal routing.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -235,16 +234,72 @@ export default function LandingPage() {
                       <Wallet className='h-10 w-10 text-green-600 dark:text-green-400' />
                     </div>
                     <CardTitle className='mb-3 text-xl'>
-                      Smart Change Management
+                      Smart Budget Management
                     </CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Automatic change calculation and return through Cashu
-                      notes. Efficient fee handling with change notes.
+                      Automatic budget top-up from main wallet and smart change management through Cashu notes. Efficient team budget allocation and control.
                     </CardDescription>
                   </CardHeader>
                 </Card>
               </motion.div>
             </motion.div>
+
+            <motion.div
+              variants={staggerContainer}
+              initial='initial'
+              whileInView='animate'
+              viewport={{ once: true }}
+              className='mx-auto grid max-w-7xl justify-items-center gap-8 md:grid-cols-3 mt-8'
+            >
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/20'>
+                      <Network className='h-10 w-10 text-orange-600 dark:text-orange-400' />
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Nostr Team Invitations
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Seamlessly invite people to your organization via Nostr protocol. Decentralized team collaboration with privacy-first approach.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/20'>
+                      <Globe className='h-10 w-10 text-cyan-600 dark:text-cyan-400' />
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Search & Chat Interface
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Integrated interface for both intelligent search and conversational AI. Streamlined user experience for all your AI needs.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/20'>
+                      <Heart className='h-10 w-10 text-indigo-600 dark:text-indigo-400' />
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Enterprise-Ready
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Built for both individual users and institutions with larger teams. Scalable budget management and organizational controls.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+            </motion.div>
+
           </motion.div>
         </section>
 
@@ -261,8 +316,7 @@ export default function LandingPage() {
                 Routstr Protocol Integration
               </h2>
               <p className='text-muted-foreground mx-auto max-w-2xl'>
-                Built on the decentralized LLM routing marketplace powered by
-                Nostr and Bitcoin
+                OTRTA serves as your Routstr client, connecting you to the decentralized LLM routing marketplace powered by Nostr and Bitcoin
               </p>
             </div>
 
@@ -578,6 +632,210 @@ export default function LandingPage() {
             </motion.div>
           </motion.div>
         </section>
+
+        <section className='container px-4 py-16'>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className='mx-auto max-w-6xl'
+          >
+            <div className='mb-16 text-center'>
+              <h2 className='mb-4 text-3xl font-bold sm:text-4xl'>
+                Complete Feature Set
+              </h2>
+              <p className='text-muted-foreground mx-auto max-w-3xl'>
+                OTRTA provides a comprehensive suite of features for privacy-first AI access, 
+                wallet management, and team collaboration through the Routstr protocol
+              </p>
+            </div>
+
+            <motion.div
+              variants={staggerContainer}
+              initial='initial'
+              whileInView='animate'
+              viewport={{ once: true }}
+              className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'
+            >
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/20'>
+                      <span className='text-2xl'>🧠</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      AI Model Management
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Access and manage 50+ AI models from independent providers with live pricing and performance tracking.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20'>
+                      <span className='text-2xl'>💰</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Wallet & E-cash
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Complete Cashu wallet management with multi-mint support, Lightning integration, and NUT-24 X-Cashu payments.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20'>
+                      <span className='text-2xl'>🔐</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Nostr Authentication
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Secure, decentralized identity with browser extension support and automatic organization creation.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/20'>
+                      <span className='text-2xl'>🌐</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Provider Management
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Configure marketplace providers with Nostr discovery, custom configurations, and Tor support.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/20'>
+                      <span className='text-2xl'>📊</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      Transaction Monitoring
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Real-time payment tracking with live transaction feeds, pending payment monitoring, and detailed history.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/20'>
+                      <span className='text-2xl'>🔑</span>
+                    </div>
+                    <CardTitle className='mb-3 text-xl'>
+                      API Management
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed'>
+                      Secure API access control with key generation, usage analytics, and organization-scoped permissions.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='col-span-full'>
+                <Card className='border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 dark:border-gray-800 dark:from-gray-950/20 dark:to-gray-900/20'>
+                  <CardHeader>
+                    <CardTitle className='text-gray-900 dark:text-gray-100'>
+                      🏢 Enterprise Features
+                    </CardTitle>
+                    <CardDescription className='text-gray-700 dark:text-gray-300'>
+                      Built for teams and institutions with advanced organizational controls
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className='text-gray-600 dark:text-gray-300'>
+                    <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
+                      <div>
+                        <h4 className='font-semibold mb-2'>Organization Management</h4>
+                        <ul className='space-y-1 text-sm'>
+                          <li>• Automatic org creation per user</li>
+                          <li>• Team member invitations</li>
+                          <li>• Hierarchical access control</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className='font-semibold mb-2'>Budget Controls</h4>
+                        <ul className='space-y-1 text-sm'>
+                          <li>• Smart budget management</li>
+                          <li>• Automatic wallet top-ups</li>
+                          <li>• Spending limits and alerts</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className='font-semibold mb-2'>Privacy & Security</h4>
+                        <ul className='space-y-1 text-sm'>
+                          <li>• Self-hosted deployment</li>
+                          <li>• End-to-end encryption</li>
+                          <li>• Anonymous payments</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className='font-semibold mb-2'>Integration</h4>
+                        <ul className='space-y-1 text-sm'>
+                          <li>• OpenAI API compatibility</li>
+                          <li>• RESTful API endpoints</li>
+                          <li>• Webhook notifications</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </motion.div>
+
+            <motion.div variants={fadeInUp} className='mt-12 text-center'>
+              <h3 className='mb-4 text-2xl font-bold'>Getting Started Guide</h3>
+              <div className='mx-auto max-w-4xl'>
+                <Card className='text-left'>
+                  <CardContent className='p-8'>
+                    <div className='grid gap-6 md:grid-cols-2'>
+                      <div>
+                        <h4 className='mb-3 text-lg font-semibold'>🚀 Quick Setup</h4>
+                        <ol className='space-y-2 text-sm'>
+                          <li>1. <strong>Sign Up:</strong> Register using your Nostr public key (npub)</li>
+                          <li>2. <strong>Configure Provider:</strong> Select or add a Routstr provider</li>
+                          <li>3. <strong>Setup Wallet:</strong> Add Cashu mints and fund with Lightning</li>
+                          <li>4. <strong>Start Using AI:</strong> Access models through the dashboard</li>
+                        </ol>
+                      </div>
+                      <div>
+                        <h4 className='mb-3 text-lg font-semibold'>🎯 Advanced Features</h4>
+                        <ul className='space-y-2 text-sm'>
+                          <li>• <strong>Team Collaboration:</strong> Invite members via Nostr</li>
+                          <li>• <strong>Custom Providers:</strong> Add your own marketplace endpoints</li>
+                          <li>• <strong>Budget Management:</strong> Set organizational spending limits</li>
+                          <li>• <strong>Analytics:</strong> Monitor usage with detailed statistics</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </motion.div>
+          </motion.div>
+        </section>
+
       </main>
 
       <footer className='bg-muted/20 w-full border-t'>
