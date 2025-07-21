@@ -10,8 +10,11 @@ export interface Provider {
   zaps: number;
   is_default: boolean;
   is_custom: boolean;
+  organization_id: string | null;
   created_at: string;
   updated_at: string;
+  is_active_for_org: boolean;
+  is_default_for_org: boolean;
 }
 
 export interface ProviderListResponse {
@@ -108,6 +111,34 @@ export class ProviderService {
       );
     } catch (error) {
       console.error(`Error deleting custom provider ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async activateProvider(
+    id: number
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      return await apiClient.post<{ success: boolean; message: string }>(
+        `/api/providers/${id}/activate`,
+        {}
+      );
+    } catch (error) {
+      console.error(`Error activating provider ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async deactivateProvider(
+    id: number
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      return await apiClient.post<{ success: boolean; message: string }>(
+        `/api/providers/${id}/deactivate`,
+        {}
+      );
+    } catch (error) {
+      console.error(`Error deactivating provider ${id}:`, error);
       throw error;
     }
   }

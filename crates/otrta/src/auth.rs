@@ -187,7 +187,13 @@ pub async fn nostr_auth_middleware_with_context(
 
     let npub = event.pubkey.to_bech32().unwrap_or_default();
 
-    let user_context = match create_or_get_user_context(&auth_state.app_state, &npub).await {
+    let user_context = match create_or_get_user_context(
+        &auth_state.app_state,
+        &npub,
+        &auth_state.config.whitelisted_npubs,
+    )
+    .await
+    {
         Ok(ctx) => ctx,
         Err(e) => {
             warn!("Failed to create user context: {}", e);
@@ -234,13 +240,8 @@ fn validate_auth_event(
         return Err(AppError::Unauthorized);
     }
 
-    // if !config.whitelisted_npubs.is_empty() {
-    //     let user_npub = event.pubkey.to_bech32().unwrap_or_default();
-    //     if !config.whitelisted_npubs.contains(&user_npub) {
-    //         warn!("User {} not in whitelist", user_npub);
-    //         return Err(AppError::Unauthorized);
-    //     }
-    // }
+    // Admin validation is now handled in create_or_get_user_context function
+    // This allows non-admin users to authenticate but admin status is tracked separately
 
     let mut url_found = false;
     let mut method_found = false;
@@ -341,9 +342,14 @@ async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<String,
     Ok(api_key.id)
 }
 
+pub fn is_user_admin(npub: &str, whitelisted_npubs: &[String]) -> bool {
+    !whitelisted_npubs.is_empty() && whitelisted_npubs.contains(&npub.to_string())
+}
+
 async fn create_or_get_user_context(
     app_state: &Arc<AppState>,
     npub: &str,
+    whitelisted_npubs: &[String],
 ) -> Result<UserContext, AppError> {
     if let Some(user) = users::get_user_by_npub(&app_state.db, npub).await? {
         let organization =
@@ -356,7 +362,12 @@ async fn create_or_get_user_context(
                     );
                     AppError::InternalServerError
                 })?;
-        return Ok(UserContext::new(npub.to_string(), organization));
+        let is_admin = is_user_admin(npub, whitelisted_npubs);
+        return Ok(UserContext::new_with_admin_status(
+            npub.to_string(),
+            organization,
+            is_admin,
+        ));
     }
 
     // User doesn't exist, assign them to default organization and create user
@@ -374,7 +385,12 @@ async fn create_or_get_user_context(
     };
     users::create_user(&app_state.db, &create_user_request).await?;
 
-    Ok(UserContext::new(npub.to_string(), organization))
+    let is_admin = is_user_admin(npub, whitelisted_npubs);
+    Ok(UserContext::new_with_admin_status(
+        npub.to_string(),
+        organization,
+        is_admin,
+    ))
 }
 
 pub async fn ensure_default_organization_exists(

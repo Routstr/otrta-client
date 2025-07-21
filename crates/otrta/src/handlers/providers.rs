@@ -1,10 +1,12 @@
 use crate::{
     db::provider::{
-        create_custom_provider_for_organization, delete_custom_provider_for_organization,
-        get_default_provider_for_organization, get_provider_by_id_for_organization,
-        get_providers_for_organization, refresh_providers_from_nostr,
-        set_default_provider_for_organization, CreateCustomProviderRequest, ProviderListResponse,
-        RefreshProvidersResponse,
+        activate_provider_for_organization, create_custom_provider,
+        create_custom_provider_for_organization, deactivate_provider_for_organization,
+        delete_custom_provider_for_organization, get_active_providers_for_organization,
+        get_available_providers_for_organization, get_default_provider_for_organization_new,
+        get_provider_by_id_for_organization, refresh_providers_from_nostr,
+        set_default_provider_for_organization_new, CreateCustomProviderRequest,
+        ProviderListResponse, ProviderWithStatus, RefreshProvidersResponse,
     },
     handlers::models::refresh_models_internal,
     models::{AppState, UserContext},
@@ -14,17 +16,24 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProviderWithStatusListResponse {
+    pub providers: Vec<ProviderWithStatus>,
+    pub total: i32,
+}
 
 pub async fn get_providers(
     State(state): State<Arc<AppState>>,
     Extension(user_ctx): Extension<UserContext>,
-) -> Result<Json<ProviderListResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match get_providers_for_organization(&state.db, &user_ctx.organization_id).await {
+) -> Result<Json<ProviderWithStatusListResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match get_available_providers_for_organization(&state.db, &user_ctx.organization_id).await {
         Ok(providers) => {
             let total = providers.len() as i32;
-            Ok(Json(ProviderListResponse { providers, total }))
+            Ok(Json(ProviderWithStatusListResponse { providers, total }))
         }
         Err(e) => {
             eprintln!("Failed to get providers: {}", e);
@@ -33,6 +42,111 @@ pub async fn get_providers(
                 Json(json!({
                     "error": {
                         "message": "Failed to retrieve providers",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn get_active_providers(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+) -> Result<Json<ProviderListResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match get_active_providers_for_organization(&state.db, &user_ctx.organization_id).await {
+        Ok(providers) => {
+            let total = providers.len() as i32;
+            Ok(Json(ProviderListResponse { providers, total }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get active providers: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve active providers",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn activate_provider(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+    Path(provider_id): Path<i32>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match activate_provider_for_organization(&state.db, &user_ctx.organization_id, provider_id)
+        .await
+    {
+        Ok(_) => Ok(Json(json!({
+            "success": true,
+            "message": "Provider activated successfully"
+        }))),
+        Err(sqlx::Error::RowNotFound) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "Provider not found or not available to your organization",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Failed to activate provider {}: {}", provider_id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to activate provider",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn deactivate_provider(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+    Path(provider_id): Path<i32>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match deactivate_provider_for_organization(&state.db, &user_ctx.organization_id, provider_id)
+        .await
+    {
+        Ok(true) => Ok(Json(json!({
+            "success": true,
+            "message": "Provider deactivated successfully"
+        }))),
+        Ok(false) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "Provider not found or not active for your organization",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(sqlx::Error::RowNotFound) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "Cannot deactivate the default provider. Please set another provider as default first.",
+                    "type": "constraint_violation"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Failed to deactivate provider {}: {}", provider_id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to deactivate provider",
                         "type": "database_error"
                     }
                 })),
@@ -72,62 +186,6 @@ pub async fn get_provider(
     }
 }
 
-pub async fn set_provider_default(
-    State(state): State<Arc<AppState>>,
-    Extension(user_ctx): Extension<UserContext>,
-    Path(id): Path<i32>,
-) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
-    match set_default_provider_for_organization(&state.db, id, &user_ctx.organization_id).await {
-        Ok(_) => {
-            if let Err(e) = refresh_models_internal(&state.db).await {
-                eprintln!(
-                    "Warning: Failed to refresh models after setting default provider: {}",
-                    e
-                );
-            }
-
-            match get_provider_by_id_for_organization(&state.db, id, &user_ctx.organization_id)
-                .await
-            {
-                Ok(Some(provider)) => Ok(Json(provider)),
-                Ok(None) => Err((
-                    StatusCode::NOT_FOUND,
-                    Json(json!({
-                        "error": {
-                            "message": "Provider not found",
-                            "type": "not_found"
-                        }
-                    })),
-                )),
-                Err(e) => {
-                    eprintln!("Failed to get updated provider {}: {}", id, e);
-                    Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({
-                            "error": {
-                                "message": "Failed to retrieve updated provider",
-                                "type": "database_error"
-                            }
-                        })),
-                    ))
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to set default provider {}: {}", id, e);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": {
-                        "message": "Failed to set default provider",
-                        "type": "database_error"
-                    }
-                })),
-            ))
-        }
-    }
-}
-
 pub async fn refresh_providers(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<RefreshProvidersResponse>, (StatusCode, Json<serde_json::Value>)> {
@@ -153,7 +211,6 @@ pub async fn create_custom_provider_handler(
     Extension(user_ctx): Extension<UserContext>,
     Json(request): Json<CreateCustomProviderRequest>,
 ) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
-    // Validate the request
     if request.name.trim().is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -178,13 +235,17 @@ pub async fn create_custom_provider_handler(
         ));
     }
 
-    match create_custom_provider_for_organization(&state.db, request, &user_ctx.organization_id)
-        .await
-    {
+    // Admin users create global providers, regular users create org-specific providers
+    let result = if user_ctx.is_admin {
+        create_custom_provider(&state.db, request).await
+    } else {
+        create_custom_provider_for_organization(&state.db, request, &user_ctx.organization_id).await
+    };
+
+    match result {
         Ok(provider) => Ok(Json(provider)),
         Err(e) => {
             eprintln!("Failed to create custom provider: {}", e);
-            // Check if it's a unique constraint violation
             if e.to_string()
                 .contains("duplicate key value violates unique constraint")
             {
@@ -255,7 +316,7 @@ pub async fn get_default_provider_handler(
     State(state): State<Arc<AppState>>,
     Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<Option<crate::db::provider::Provider>>, (StatusCode, Json<serde_json::Value>)> {
-    match get_default_provider_for_organization(&state.db, &user_ctx.organization_id).await {
+    match get_default_provider_for_organization_new(&state.db, &user_ctx.organization_id).await {
         Ok(provider) => Ok(Json(provider)),
         Err(e) => {
             eprintln!("Failed to get default provider: {}", e);
@@ -264,6 +325,63 @@ pub async fn get_default_provider_handler(
                 Json(json!({
                     "error": {
                         "message": "Failed to get default provider",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn set_provider_default(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+    Path(id): Path<i32>,
+) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
+    match set_default_provider_for_organization_new(&state.db, &user_ctx.organization_id, id).await
+    {
+        Ok(_) => {
+            if let Err(e) = refresh_models_internal(&state.db).await {
+                eprintln!(
+                    "Warning: Failed to refresh models after setting default provider: {}",
+                    e
+                );
+            }
+
+            match get_provider_by_id_for_organization(&state.db, id, &user_ctx.organization_id)
+                .await
+            {
+                Ok(Some(provider)) => Ok(Json(provider)),
+                Ok(None) => Err((
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": "Provider not found",
+                            "type": "not_found"
+                        }
+                    })),
+                )),
+                Err(e) => {
+                    eprintln!("Failed to get updated provider {}: {}", id, e);
+                    Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "error": {
+                                "message": "Failed to retrieve updated provider",
+                                "type": "database_error"
+                            }
+                        })),
+                    ))
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to set default provider {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to set default provider",
                         "type": "database_error"
                     }
                 })),

@@ -7,6 +7,7 @@ import {
   useProviders,
   useSetDefaultProvider,
   useDeleteCustomProvider,
+  useActivateProvider,
 } from '@/lib/hooks/useProviders';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -59,6 +60,7 @@ export default function ProvidersPage() {
   const { providers, isLoading, error } = useProviders();
   const setDefaultProvider = useSetDefaultProvider();
   const deleteCustomProvider = useDeleteCustomProvider();
+  const activateProvider = useActivateProvider();
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedMints, setExpandedMints] = useState<Set<number>>(new Set());
 
@@ -68,6 +70,10 @@ export default function ProvidersPage() {
 
   const handleDeleteCustomProvider = async (providerId: number) => {
     await deleteCustomProvider.mutateAsync(providerId);
+  };
+
+  const handleActivateProvider = async (providerId: number) => {
+    await activateProvider.mutateAsync(providerId);
   };
 
   const toggleMintsExpanded = (providerId: number) => {
@@ -174,7 +180,7 @@ export default function ProvidersPage() {
                 <Card
                   key={provider.id}
                   className={`relative transition-all hover:shadow-md ${
-                    provider.is_default
+                    provider.is_default_for_org
                       ? 'bg-green-50 ring-2 ring-green-500 dark:bg-green-950'
                       : ''
                   }`}
@@ -187,7 +193,7 @@ export default function ProvidersPage() {
                             {provider.name}
                           </CardTitle>
                           <div className='flex flex-shrink-0 gap-1'>
-                            {provider.is_default && (
+                            {provider.is_default_for_org && (
                               <Badge className='bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-100'>
                                 <CheckIcon className='mr-1 h-3 w-3' />
                                 Default
@@ -321,16 +327,30 @@ export default function ProvidersPage() {
                       })}
                     </div>
 
-                    {!provider.is_default && (
+                    {provider.is_active_for_org &&
+                      !provider.is_default_for_org && (
+                        <Button
+                          onClick={() => handleSetDefault(provider.id)}
+                          disabled={setDefaultProvider.isPending}
+                          className='w-full'
+                          size='sm'
+                        >
+                          {setDefaultProvider.isPending
+                            ? 'Setting...'
+                            : 'Set as Default'}
+                        </Button>
+                      )}
+                    {!provider.is_active_for_org && (
                       <Button
-                        onClick={() => handleSetDefault(provider.id)}
-                        disabled={setDefaultProvider.isPending}
+                        onClick={() => handleActivateProvider(provider.id)}
+                        disabled={activateProvider.isPending}
+                        variant='outline'
                         className='w-full'
                         size='sm'
                       >
-                        {setDefaultProvider.isPending
-                          ? 'Setting...'
-                          : 'Set as Default'}
+                        {activateProvider.isPending
+                          ? 'Activating...'
+                          : 'Activate Provider'}
                       </Button>
                     )}
                   </CardContent>

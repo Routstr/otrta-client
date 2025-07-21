@@ -106,3 +106,39 @@ export function useDeleteCustomProvider() {
     },
   });
 }
+
+export function useActivateProvider() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (providerId: number) =>
+      ProviderService.activateProvider(providerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['providers'] });
+      queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
+      toast.success('Provider activated successfully');
+    },
+    onError: (error) => {
+      console.error('Error activating provider:', error);
+      toast.error('Failed to activate provider');
+    },
+  });
+}
+
+export function useDeactivateProvider() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (providerId: number) =>
+      ProviderService.deactivateProvider(providerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['providers'] });
+      queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
+      toast.success('Provider deactivated successfully');
+    },
+    onError: (error) => {
+      console.error('Error deactivating provider:', error);
+      toast.error('Failed to deactivate provider');
+    },
+  });
+}

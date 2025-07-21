@@ -82,6 +82,15 @@ async fn main() {
             "/api/providers/{id}/set-default",
             post(handlers::set_provider_default),
         )
+        .route(
+            "/api/providers/{id}/activate",
+            post(handlers::activate_provider),
+        )
+        .route(
+            "/api/providers/{id}/deactivate",
+            post(handlers::deactivate_provider),
+        )
+        .route("/api/providers/active", get(handlers::get_active_providers))
         .route("/api/providers/refresh", post(handlers::refresh_providers))
         .route(
             "/api/proxy/models/refresh",

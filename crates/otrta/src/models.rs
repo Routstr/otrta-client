@@ -384,6 +384,7 @@ pub struct UserContext {
     pub npub: String,
     pub organization_id: Uuid,
     pub organization: Organization,
+    pub is_admin: bool,
 }
 
 impl UserContext {
@@ -392,6 +393,16 @@ impl UserContext {
             npub,
             organization_id: organization.id,
             organization,
+            is_admin: false,
+        }
+    }
+
+    pub fn new_with_admin_status(npub: String, organization: Organization, is_admin: bool) -> Self {
+        Self {
+            npub,
+            organization_id: organization.id,
+            organization,
+            is_admin,
         }
     }
 }
