@@ -341,13 +341,13 @@ pub async fn get_available_providers_for_organization(
 ) -> Result<Vec<ProviderWithStatus>, sqlx::Error> {
     let providers = sqlx::query!(
         r#"
-        SELECT 
-            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
+        SELECT
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
             p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
             COALESCE(op.is_active, false) as is_active_for_org,
             COALESCE(op.is_default, false) as is_default_for_org
         FROM providers p
-        LEFT JOIN organization_providers op 
+        LEFT JOIN organization_providers op
             ON p.id = op.provider_id AND op.organization_id = $1
         WHERE p.organization_id IS NULL OR p.organization_id = $1
         ORDER BY p.is_default DESC, p.is_custom ASC, p.followers DESC, p.zaps DESC
@@ -388,12 +388,12 @@ pub async fn get_active_providers_for_organization(
 ) -> Result<Vec<Provider>, sqlx::Error> {
     let providers = sqlx::query_as::<_, Provider>(
         r#"
-        SELECT 
-            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
+        SELECT
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
             p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at
         FROM providers p
-        INNER JOIN organization_providers op 
-            ON p.id = op.provider_id 
+        INNER JOIN organization_providers op
+            ON p.id = op.provider_id
         WHERE op.organization_id = $1 AND op.is_active = true
         ORDER BY op.is_default DESC, p.followers DESC, p.zaps DESC
         "#,
@@ -411,12 +411,12 @@ pub async fn get_default_provider_for_organization_new(
 ) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
         r#"
-        SELECT 
-            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
+        SELECT
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
             p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at
         FROM providers p
-        INNER JOIN organization_providers op 
-            ON p.id = op.provider_id 
+        INNER JOIN organization_providers op
+            ON p.id = op.provider_id
         WHERE op.organization_id = $1 AND op.is_default = true AND op.is_active = true
         "#,
     )
@@ -451,7 +451,7 @@ pub async fn activate_provider_for_organization(
         INSERT INTO organization_providers (organization_id, provider_id, is_active, updated_at)
         VALUES ($1, $2, true, NOW())
         ON CONFLICT (organization_id, provider_id)
-        DO UPDATE SET 
+        DO UPDATE SET
             is_active = true,
             updated_at = NOW()
         RETURNING organization_id, provider_id, is_default, is_active, created_at, updated_at
@@ -519,7 +519,7 @@ pub async fn set_default_provider_for_organization_new(
         INSERT INTO organization_providers (organization_id, provider_id, is_default, is_active, updated_at)
         VALUES ($1, $2, true, true, NOW())
         ON CONFLICT (organization_id, provider_id)
-        DO UPDATE SET 
+        DO UPDATE SET
             is_default = true,
             is_active = true,
             updated_at = NOW()

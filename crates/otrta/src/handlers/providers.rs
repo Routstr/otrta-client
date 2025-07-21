@@ -235,7 +235,6 @@ pub async fn create_custom_provider_handler(
         ));
     }
 
-    // Admin users create global providers, regular users create org-specific providers
     let result = if user_ctx.is_admin {
         create_custom_provider(&state.db, request).await
     } else {
@@ -243,7 +242,12 @@ pub async fn create_custom_provider_handler(
     };
 
     match result {
-        Ok(provider) => Ok(Json(provider)),
+        Ok(provider) => {
+            if let Err(e) = activate_provider_for_organization(&state.db, &user_ctx.organization_id, provider.id).await {
+                eprintln!("Warning: Failed to automatically activate new provider {}: {}", provider.id, e);
+            }
+            Ok(Json(provider))
+        },
         Err(e) => {
             eprintln!("Failed to create custom provider: {}", e);
             if e.to_string()
