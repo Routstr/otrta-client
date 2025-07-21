@@ -15,8 +15,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isAuthEnabled, setIsAuthEnabled] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
-  const { isAuthenticated, isLoading, user, validateAuth } = useNostrAuth();
+  const { isAuthenticated, isLoading } = useNostrAuth();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -42,66 +41,16 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    if (!isAuthEnabled || isPublicRoute || isLoading || hasCheckedAuth) {
-      return;
-    }
-
-    const checkAuthState = async () => {
-      try {
-        setHasCheckedAuth(true);
-
-        if (!isAuthenticated) {
-          // Only redirect if we're definitely not authenticated
-          setIsRedirecting(true);
-          router.push('/login');
-          return;
-        }
-
-        // Validate auth if user exists
-        if (user) {
-          const isValid = await validateAuth();
-          if (!isValid) {
-            setIsRedirecting(true);
-            router.push('/login');
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        // Only redirect on auth failures if we're certain there's no valid auth
-        if (!user) {
-          setIsRedirecting(true);
-          router.push('/login');
-        }
-      }
-    };
-
-    checkAuthState();
-  }, [
-    isAuthEnabled,
-    isPublicRoute,
-    isLoading,
-    isAuthenticated,
-    user,
-    validateAuth,
-    router,
-    hasCheckedAuth,
-  ]);
-
-  // Reset auth check when pathname changes to allow re-validation
-  useEffect(() => {
-    setHasCheckedAuth(false);
-  }, [pathname]);
+  // Remove client-side validation - only show login on 401 server responses
+  // useEffect(() => {
+  //   // Client-side validation removed to prevent false logouts
+  // }, []);
 
   // Show loading screen while checking authentication settings
   if (isCheckingAuth) {
     return (
       <div className='flex min-h-screen items-center justify-center'>
-        <div className='text-center'>
-          <Loader2 className='mx-auto mb-4 h-8 w-8 animate-spin' />
-          <p className='text-muted-foreground'>Initializing...</p>
-        </div>
+        <Loader2 className='h-8 w-8 animate-spin' />
       </div>
     );
   }
@@ -117,25 +66,22 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   // Show loading screen while checking authentication status or redirecting
-  if (isLoading || isRedirecting || !hasCheckedAuth) {
+  if (isLoading || isRedirecting) {
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <div className='text-center'>
           <Loader2 className='mx-auto mb-4 h-8 w-8 animate-spin' />
           <p className='text-muted-foreground'>
-            {isRedirecting
-              ? 'Redirecting to authentication...'
-              : isLoading
-                ? 'Loading authentication...'
-                : 'Checking authentication...'}
+            {isRedirecting ? 'Redirecting to authentication...' : 'Loading...'}
           </p>
         </div>
       </div>
     );
   }
 
-  // If authentication is enabled but user is not authenticated, this will be handled by the useEffect above
+  // If authentication is enabled but user is not authenticated, show login
   if (!isAuthenticated) {
+    router.push('/login');
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <div className='text-center'>

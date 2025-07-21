@@ -29,16 +29,11 @@ export interface NostrUser {
   method: 'extension' | 'local';
 }
 
-const AUTH_STORAGE_KEY = 'nostr_auth_user';
-const AUTH_TIMESTAMP_KEY = 'nostr_auth_timestamp';
-const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-
 export class NostrAuthSimple {
   private static instance: NostrAuthSimple;
   private isInitialized = false;
   private currentUser: NostrUser | null = null;
   private authCallbacks: ((user: NostrUser | null) => void)[] = [];
-  private extensionCheckInterval: NodeJS.Timeout | null = null;
 
   private constructor() {}
 
@@ -57,107 +52,29 @@ export class NostrAuthSimple {
     }
 
     this.isInitialized = true;
-    await this.restoreAuthState();
-    this.startExtensionMonitoring();
+    await this.checkExistingAuth();
   }
 
-  private async restoreAuthState(): Promise<void> {
+  private async checkExistingAuth(): Promise<void> {
     try {
-      const savedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-      const savedTimestamp = localStorage.getItem(AUTH_TIMESTAMP_KEY);
-
-      if (savedUser && savedTimestamp) {
-        const timestamp = parseInt(savedTimestamp, 10);
-        const now = Date.now();
-
-        // Check if session hasn't expired
-        if (now - timestamp < SESSION_DURATION) {
-          const user: NostrUser = JSON.parse(savedUser);
-
-          // If it's an extension user, verify the extension is still available
-          if (user.method === 'extension') {
-            if (await this.verifyExtensionConnection(user.pubkey)) {
-              this.currentUser = user;
-              this.notifyAuthCallbacks(user);
-              return;
-            } else {
-              // Extension no longer available, clear stored auth
-              this.clearStoredAuth();
-            }
-          } else {
-            // Local method, restore directly
-            this.currentUser = user;
-            this.notifyAuthCallbacks(user);
-            return;
+      if (window.nostr && typeof window.nostr.getPublicKey === 'function') {
+        try {
+          const pubkey = await window.nostr.getPublicKey();
+          if (pubkey) {
+            const npub = nip19.npubEncode(pubkey);
+            const user: NostrUser = {
+              npub,
+              pubkey,
+              method: 'extension',
+            };
+            this.setCurrentUser(user);
           }
-        } else {
-          // Session expired
-          this.clearStoredAuth();
+        } catch {
+          console.log('No existing authentication found');
         }
       }
-
-      // Try to auto-connect to extension if available
-      await this.tryAutoConnectExtension();
     } catch (err) {
-      console.log('Error restoring auth state:', err);
-      this.clearStoredAuth();
-    }
-  }
-
-  private async verifyExtensionConnection(
-    expectedPubkey: string
-  ): Promise<boolean> {
-    try {
-      if (!window.nostr?.getPublicKey) return false;
-
-      const pubkey = await window.nostr.getPublicKey();
-      return pubkey === expectedPubkey;
-    } catch {
-      return false;
-    }
-  }
-
-  private async tryAutoConnectExtension(): Promise<void> {
-    try {
-      if (window.nostr?.getPublicKey) {
-        // Don't automatically request permission, just check if we already have it
-        const pubkey = await window.nostr.getPublicKey();
-        if (pubkey) {
-          const npub = nip19.npubEncode(pubkey);
-          const user: NostrUser = {
-            npub,
-            pubkey,
-            method: 'extension',
-          };
-          this.setCurrentUser(user);
-        }
-      }
-    } catch {
-      // Extension available but no permission granted - this is normal
-    }
-  }
-
-  private startExtensionMonitoring(): void {
-    // Monitor extension availability every 5 seconds
-    this.extensionCheckInterval = setInterval(() => {
-      if (this.currentUser?.method === 'extension' && !window.nostr) {
-        // Extension was disconnected
-        this.logout();
-      }
-    }, 5000);
-  }
-
-  private clearStoredAuth(): void {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(AUTH_TIMESTAMP_KEY);
-  }
-
-  private saveAuthState(user: NostrUser): void {
-    try {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      localStorage.setItem(AUTH_TIMESTAMP_KEY, Date.now().toString());
-    } catch (err) {
-      console.error('Failed to save auth state:', err);
+      console.log('No existing auth found:', err);
     }
   }
 
@@ -171,8 +88,7 @@ export class NostrAuthSimple {
         return {
           hasGetPublicKey: false,
           hasSignEvent: false,
-          error:
-            'No Nostr extension detected. Please install a Nostr extension like Alby or nos2x.',
+          error: 'No Nostr extension detected',
         };
       }
 
@@ -190,10 +106,9 @@ export class NostrAuthSimple {
 
       if (window.nostr.signEvent && hasGetPublicKey) {
         try {
-          // Use a test event that won't interfere with anything
           await window.nostr.signEvent({
             kind: 27235,
-            content: 'Permission test - this event will not be published',
+            content: 'Nostr extension permission test',
             tags: [],
             created_at: Math.floor(Date.now() / 1000),
           });
@@ -216,12 +131,9 @@ export class NostrAuthSimple {
   async loginWithExtension(): Promise<NostrUser> {
     try {
       if (!window.nostr) {
-        throw new Error(
-          'No Nostr extension detected. Please install a Nostr extension like Alby or nos2x.'
-        );
+        throw new Error('No Nostr extension detected');
       }
 
-      // Request public key (this will trigger permission request if needed)
       const pubkey = await window.nostr.getPublicKey();
       const npub = nip19.npubEncode(pubkey);
 
@@ -235,20 +147,6 @@ export class NostrAuthSimple {
       return user;
     } catch (error) {
       console.error('Failed to login with extension:', error);
-
-      if (error instanceof Error) {
-        if (error.message.includes('User rejected')) {
-          throw new Error(
-            'Permission denied by user. Please allow access to continue.'
-          );
-        }
-        if (error.message.includes('not found')) {
-          throw new Error(
-            'Nostr extension not found. Please install a Nostr extension like Alby or nos2x.'
-          );
-        }
-      }
-
       throw new Error(
         'Failed to authenticate with browser extension. Please try again.'
       );
@@ -300,19 +198,13 @@ export class NostrAuthSimple {
 
       const signedEvent = await window.nostr.signEvent(eventToSign);
 
+      // Ensure the signed event has all required fields for verification
       if (!signedEvent.pubkey || !signedEvent.id || !signedEvent.sig) {
         throw new Error('Signed event is missing required fields');
       }
 
-      // Type assertion for verification - we've already checked all required fields exist
-      const eventForVerification = {
-        ...signedEvent,
-        pubkey: signedEvent.pubkey,
-        id: signedEvent.id,
-        sig: signedEvent.sig,
-      };
-
-      if (!verifyEvent(eventForVerification)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (!verifyEvent(signedEvent as any)) {
         throw new Error('Event verification failed');
       }
 
@@ -324,24 +216,11 @@ export class NostrAuthSimple {
   }
 
   async logout(): Promise<void> {
-    this.clearStoredAuth();
     this.setCurrentUser(null);
-
-    if (this.extensionCheckInterval) {
-      clearInterval(this.extensionCheckInterval);
-      this.extensionCheckInterval = null;
-    }
   }
 
   private setCurrentUser(user: NostrUser | null): void {
     this.currentUser = user;
-
-    if (user) {
-      this.saveAuthState(user);
-    } else {
-      this.clearStoredAuth();
-    }
-
     this.notifyAuthCallbacks(user);
   }
 
@@ -376,17 +255,6 @@ export class NostrAuthSimple {
         console.error('Error in auth callback:', error);
       }
     });
-  }
-
-  // Cleanup method for when the instance is no longer needed
-  destroy(): void {
-    if (this.extensionCheckInterval) {
-      clearInterval(this.extensionCheckInterval);
-      this.extensionCheckInterval = null;
-    }
-    this.authCallbacks = [];
-    this.currentUser = null;
-    this.isInitialized = false;
   }
 }
 
