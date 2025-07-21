@@ -12,12 +12,20 @@ use std::sync::Arc;
 
 pub async fn get_all_api_keys_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     params: Query<PaginationParams>,
 ) -> Result<Json<crate::db::api_keys::ApiKeyListResponse>, (StatusCode, Json<serde_json::Value>)> {
     let page = params.page.unwrap_or(1);
     let page_size = params.page_size.unwrap_or(10);
 
-    match crate::db::api_keys::get_all_api_keys(&state.db, None, page, page_size).await {
+    match crate::db::api_keys::get_all_api_keys(
+        &state.db,
+        Some(&user_ctx.organization_id.to_string()),
+        page,
+        page_size,
+    )
+    .await
+    {
         Ok(response) => Ok(Json(response)),
         Err(e) => {
             eprintln!("Error getting API keys: {}", e);
@@ -36,9 +44,16 @@ pub async fn get_all_api_keys_handler(
 
 pub async fn get_api_key_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<String>,
 ) -> Result<Json<crate::db::api_keys::ApiKey>, (StatusCode, Json<serde_json::Value>)> {
-    match crate::db::api_keys::get_api_key_by_id(&state.db, &id).await {
+    match crate::db::api_keys::get_api_key_by_id_for_user(
+        &state.db,
+        &id,
+        &user_ctx.organization_id.to_string(),
+    )
+    .await
+    {
         Ok(Some(api_key)) => Ok(Json(api_key)),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
@@ -112,10 +127,18 @@ pub async fn create_api_key_handler(
 
 pub async fn update_api_key_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<String>,
     Json(request): Json<crate::db::api_keys::UpdateApiKeyRequest>,
 ) -> Result<Json<crate::db::api_keys::ApiKey>, (StatusCode, Json<serde_json::Value>)> {
-    match crate::db::api_keys::update_api_key(&state.db, &id, request).await {
+    match crate::db::api_keys::update_api_key_for_user(
+        &state.db,
+        &id,
+        &user_ctx.organization_id.to_string(),
+        request,
+    )
+    .await
+    {
         Ok(Some(api_key)) => Ok(Json(api_key)),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
@@ -143,9 +166,16 @@ pub async fn update_api_key_handler(
 
 pub async fn delete_api_key_handler(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    match crate::db::api_keys::delete_api_key(&state.db, &id).await {
+    match crate::db::api_keys::delete_api_key_for_user(
+        &state.db,
+        &id,
+        &user_ctx.organization_id.to_string(),
+    )
+    .await
+    {
         Ok(true) => Ok(Json(json!({
             "message": "API key deleted successfully"
         }))),

@@ -234,13 +234,13 @@ fn validate_auth_event(
         return Err(AppError::Unauthorized);
     }
 
-    if !config.whitelisted_npubs.is_empty() {
-        let user_npub = event.pubkey.to_bech32().unwrap_or_default();
-        if !config.whitelisted_npubs.contains(&user_npub) {
-            warn!("User {} not in whitelist", user_npub);
-            return Err(AppError::Unauthorized);
-        }
-    }
+    // if !config.whitelisted_npubs.is_empty() {
+    //     let user_npub = event.pubkey.to_bech32().unwrap_or_default();
+    //     if !config.whitelisted_npubs.contains(&user_npub) {
+    //         warn!("User {} not in whitelist", user_npub);
+    //         return Err(AppError::Unauthorized);
+    //     }
+    // }
 
     let mut url_found = false;
     let mut method_found = false;
@@ -380,23 +380,8 @@ async fn create_or_get_user_context(
 pub async fn ensure_default_organization_exists(
     app_state: &Arc<AppState>,
 ) -> Result<crate::models::Organization, AppError> {
-    // Check if default organization already exists
-    if let Ok(Some(row)) = sqlx::query!(
-        r#"SELECT id, name, created_at, updated_at, is_active FROM organizations WHERE name = 'Default Organization' AND is_active = true LIMIT 1"#
-    ).fetch_optional(&app_state.db).await {
-        let org = crate::models::Organization {
-            id: row.id,
-            name: row.name,
-            created_at: row.created_at.unwrap_or_else(chrono::Utc::now),
-            updated_at: row.updated_at.unwrap_or_else(chrono::Utc::now),
-            is_active: row.is_active.unwrap_or(true),
-        };
-        return Ok(org);
-    }
-
-    // Create default organization if it doesn't exist
     let create_org_request = CreateOrganizationRequest {
-        name: "Default Organization".to_string(),
+        name: "Organization".to_string(),
     };
 
     let organization =

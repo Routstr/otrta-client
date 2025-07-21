@@ -285,6 +285,93 @@ pub async fn update_last_used_at(pool: &PgPool, id: &str) -> Result<(), sqlx::Er
     Ok(())
 }
 
+pub async fn get_api_key_by_id_for_user(
+    pool: &PgPool,
+    id: &str,
+    organization_id: &str,
+) -> Result<Option<ApiKey>, sqlx::Error> {
+    let id_uuid = Uuid::parse_str(id).map_err(|_| sqlx::Error::RowNotFound)?;
+    let org_uuid = Uuid::parse_str(organization_id).map_err(|_| sqlx::Error::RowNotFound)?;
+
+    let row = sqlx::query_as!(
+        ApiKeyRow,
+        r#"
+        SELECT id, name, key, user_id, organization_id, last_used_at, expires_at, 
+               is_active, created_at, updated_at
+        FROM api_keys
+        WHERE id = $1 AND organization_id = $2
+        "#,
+        id_uuid,
+        org_uuid.to_string()
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(ApiKey::from))
+}
+
+pub async fn update_api_key_for_user(
+    pool: &PgPool,
+    id: &str,
+    organization_id: &str,
+    request: UpdateApiKeyRequest,
+) -> Result<Option<ApiKey>, sqlx::Error> {
+    let id_uuid = Uuid::parse_str(id).map_err(|_| sqlx::Error::RowNotFound)?;
+    let org_uuid = Uuid::parse_str(organization_id).map_err(|_| sqlx::Error::RowNotFound)?;
+
+    let expires_at = if let Some(expires_str) = &request.expires_at {
+        Some(
+            DateTime::parse_from_rfc3339(expires_str)
+                .map_err(|_| sqlx::Error::RowNotFound)?
+                .with_timezone(&Utc),
+        )
+    } else {
+        None
+    };
+
+    let row = sqlx::query_as!(
+        ApiKeyRow,
+        r#"
+        UPDATE api_keys
+        SET name = COALESCE($3, name),
+            is_active = COALESCE($4, is_active),
+            expires_at = COALESCE($5, expires_at),
+            updated_at = NOW()
+        WHERE id = $1 AND organization_id = $2
+        RETURNING id, name, key, user_id, organization_id, last_used_at, expires_at, 
+                  is_active, created_at, updated_at
+        "#,
+        id_uuid,
+        org_uuid.to_string(),
+        request.name,
+        request.is_active,
+        expires_at
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(ApiKey::from))
+}
+
+pub async fn delete_api_key_for_user(
+    pool: &PgPool,
+    id: &str,
+    organization_id: &str,
+) -> Result<bool, sqlx::Error> {
+    let id_uuid = Uuid::parse_str(id).map_err(|_| sqlx::Error::RowNotFound)?;
+    let org_uuid = Uuid::parse_str(organization_id).map_err(|_| sqlx::Error::RowNotFound)?;
+
+    let result = sqlx::query!(
+        "DELETE FROM api_keys WHERE id = $1 AND organization_id = $2",
+        id_uuid,
+        org_uuid.to_string()
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
 fn generate_api_key() -> String {
     use rand::distributions::Alphanumeric;
     use rand::prelude::*;

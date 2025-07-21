@@ -1,20 +1,19 @@
 use axum::{
-    middleware,
+    Router, middleware,
     routing::{delete, get, post, put},
-    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{get_configuration, DatabaseSettings};
+use connection::{DatabaseSettings, get_configuration};
 use otrta::{
-    auth::{bearer_auth_middleware, nostr_auth_middleware_with_context, AuthConfig, AuthState},
+    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware_with_context},
     handlers,
     models::AppState,
     multimint_manager::MultimintManager,
     proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
