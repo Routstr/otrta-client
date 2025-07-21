@@ -2,11 +2,12 @@ use crate::{
     db::provider::{
         activate_provider_for_organization, create_custom_provider,
         create_custom_provider_for_organization, deactivate_provider_for_organization,
-        delete_custom_provider_for_organization, get_active_providers_for_organization,
-        get_available_providers_for_organization, get_default_provider_for_organization_new,
-        get_provider_by_id_for_organization, refresh_providers_from_nostr,
-        set_default_provider_for_organization_new, CreateCustomProviderRequest,
-        ProviderListResponse, ProviderWithStatus, RefreshProvidersResponse,
+        delete_custom_provider, delete_custom_provider_for_organization,
+        get_active_providers_for_organization, get_available_providers_for_organization,
+        get_default_provider_for_organization_new, get_provider_by_id_for_organization,
+        refresh_providers_from_nostr, set_default_provider_for_organization_new,
+        CreateCustomProviderRequest, ProviderListResponse, ProviderWithStatus,
+        RefreshProvidersResponse,
     },
     handlers::models::refresh_models_internal,
     models::{AppState, UserContext},
@@ -243,11 +244,20 @@ pub async fn create_custom_provider_handler(
 
     match result {
         Ok(provider) => {
-            if let Err(e) = activate_provider_for_organization(&state.db, &user_ctx.organization_id, provider.id).await {
-                eprintln!("Warning: Failed to automatically activate new provider {}: {}", provider.id, e);
+            if let Err(e) = activate_provider_for_organization(
+                &state.db,
+                &user_ctx.organization_id,
+                provider.id,
+            )
+            .await
+            {
+                eprintln!(
+                    "Warning: Failed to automatically activate new provider {}: {}",
+                    provider.id, e
+                );
             }
             Ok(Json(provider))
-        },
+        }
         Err(e) => {
             eprintln!("Failed to create custom provider: {}", e);
             if e.to_string()
@@ -282,7 +292,13 @@ pub async fn delete_custom_provider_handler(
     Extension(user_ctx): Extension<UserContext>,
     Path(id): Path<i32>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    match delete_custom_provider_for_organization(&state.db, id, &user_ctx.organization_id).await {
+    let result = if user_ctx.is_admin {
+        delete_custom_provider(&state.db, id).await
+    } else {
+        delete_custom_provider_for_organization(&state.db, id, &user_ctx.organization_id).await
+    };
+
+    match result {
         Ok(deleted) => {
             if deleted {
                 Ok(Json(json!({

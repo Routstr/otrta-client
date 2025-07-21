@@ -15,6 +15,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isAuthEnabled, setIsAuthEnabled] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const { isAuthenticated, isLoading } = useNostrAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -23,31 +24,35 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const isPublicRoute = publicRoutes.includes(pathname);
 
   useEffect(() => {
-    // Check if authentication is enabled
-    const authEnabled = ConfigurationService.isAuthenticationEnabled();
-    setIsAuthEnabled(authEnabled);
-    setIsCheckingAuth(false);
+    setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    // Subscribe to redirecting state changes
+    if (!isMounted) return;
+
+    const authEnabled = ConfigurationService.isAuthenticationEnabled();
+    setIsAuthEnabled(authEnabled);
+    setIsCheckingAuth(false);
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
     const unsubscribe = authStateManager.onRedirectingChange(() => {
       setIsRedirecting(authStateManager.getIsRedirecting());
     });
 
-    // Set initial state
     setIsRedirecting(authStateManager.getIsRedirecting());
 
     return unsubscribe;
-  }, []);
+  }, [isMounted]);
 
   // Remove client-side validation - only show login on 401 server responses
   // useEffect(() => {
   //   // Client-side validation removed to prevent false logouts
   // }, []);
 
-  // Show loading screen while checking authentication settings
-  if (isCheckingAuth) {
+  if (!isMounted || isCheckingAuth) {
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <Loader2 className='h-8 w-8 animate-spin' />
@@ -55,17 +60,14 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // If authentication is disabled, show children directly
   if (!isAuthEnabled) {
     return <>{children}</>;
   }
 
-  // Allow public routes to be accessed without authentication
   if (isPublicRoute) {
     return <>{children}</>;
   }
 
-  // Show loading screen while checking authentication status or redirecting
   if (isLoading || isRedirecting) {
     return (
       <div className='flex min-h-screen items-center justify-center'>
@@ -79,7 +81,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // If authentication is enabled but user is not authenticated, show login
   if (!isAuthenticated) {
     router.push('/login');
     return (
@@ -92,6 +93,5 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // User is authenticated, show the protected content
   return <>{children}</>;
 }
