@@ -328,34 +328,7 @@ pub async fn topup_mint_handler(
         "ecash" => {
             if let Some(token) = payload.token {
                 let token_data = cdk::nuts::Token::from_str(&token).unwrap();
-                let mint_exists_in_db =
-                    match crate::db::mint::get_mint_by_url(&state.db, &payload.mint_url).await {
-                        Ok(mint_option) => mint_option.is_some(),
-                        Err(e) => {
-                            eprintln!("Failed to check if mint exists in database: {:?}", e);
-                            false
-                        }
-                    };
 
-                if !mint_exists_in_db {
-                    let create_request = crate::db::mint::CreateMintRequest {
-                        mint_url: payload.mint_url.clone(),
-                        currency_unit: Some(token_data.unit().unwrap().to_string()),
-                        name: None,
-                    };
-
-                    if let Err(e) = crate::db::mint::create_mint(&state.db, create_request).await {
-                        if !e
-                            .to_string()
-                            .contains("duplicate key value violates unique constraint")
-                        {
-                            eprintln!(
-                                "Failed to save mint to database {}: {:?}",
-                                payload.mint_url, e
-                            );
-                        }
-                    }
-                }
 
                 let mint_exists_in_wallet = {
                     let mints = wallet.list_mints().await;
