@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
-import { ConfigurationService } from '@/lib/api/services/configuration';
+import { usePathname } from 'next/navigation';
+import { useNostrHooks } from '@/lib/auth/NostrHooksProvider';
 import { authStateManager } from './auth-state';
 import { Loader2 } from 'lucide-react';
 
@@ -16,9 +15,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const { isAuthenticated, isLoading } = useNostrAuth();
+  const { isLoading } = useNostrHooks();
   const pathname = usePathname();
-  const router = useRouter();
 
   const publicRoutes = ['/', '/login', '/register'];
   const isPublicRoute = publicRoutes.includes(pathname);
@@ -30,7 +28,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   useEffect(() => {
     if (!isMounted) return;
 
-    const authEnabled = ConfigurationService.isAuthenticationEnabled();
+    // Check if authentication is enabled
+    const authEnabled =
+      process.env.NEXT_PUBLIC_ENABLE_AUTHENTICATION === 'true';
     setIsAuthEnabled(authEnabled);
     setIsCheckingAuth(false);
   }, [isMounted]);
@@ -47,28 +47,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return unsubscribe;
   }, [isMounted]);
 
-  // Remove client-side validation - only show login on 401 server responses
-  // useEffect(() => {
-  //   // Client-side validation removed to prevent false logouts
-  // }, []);
-
-  if (!isMounted || isCheckingAuth) {
-    return (
-      <div className='flex min-h-screen items-center justify-center'>
-        <Loader2 className='h-8 w-8 animate-spin' />
-      </div>
-    );
-  }
-
-  if (!isAuthEnabled) {
-    return <>{children}</>;
-  }
-
-  if (isPublicRoute) {
-    return <>{children}</>;
-  }
-
-  if (isLoading || isRedirecting) {
+  // Show loading while checking auth or during redirects
+  if (!isMounted || isCheckingAuth || isRedirecting) {
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <div className='text-center'>
@@ -81,17 +61,30 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!isAuthenticated) {
-    router.push('/login');
+  // If auth is disabled, always allow access
+  if (!isAuthEnabled) {
+    return <>{children}</>;
+  }
+
+  // Always allow access to public routes
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
+  // For protected routes, show loading if still initializing nostr-hooks
+  // but don't redirect - let the API client handle 401 responses
+  if (isLoading) {
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <div className='text-center'>
           <Loader2 className='mx-auto mb-4 h-8 w-8 animate-spin' />
-          <p className='text-muted-foreground'>Redirecting to login...</p>
+          <p className='text-muted-foreground'>Initializing...</p>
         </div>
       </div>
     );
   }
 
+  // Allow access to protected routes even if not authenticated
+  // The API client will handle 401 responses and redirect when necessary
   return <>{children}</>;
 }

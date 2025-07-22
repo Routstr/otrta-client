@@ -24,8 +24,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useNostrHooks } from '@/lib/auth/NostrHooksProvider';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 type NavUserProps = {
   user?: {
@@ -35,27 +36,45 @@ type NavUserProps = {
   };
 };
 
+function extractUserData(activeUser: unknown) {
+  if (!activeUser || typeof activeUser !== 'object') return null;
+
+  const user = activeUser as Record<string, unknown>;
+  const profile = (user.profile as Record<string, unknown>) || {};
+  const npub = user.npub as string;
+
+  return {
+    name:
+      (profile.displayName as string) ||
+      (profile.name as string) ||
+      (npub ? npub.slice(0, 12) + '...' : 'User'),
+    email: (profile.nip05 as string) || '',
+    avatar: (profile.image as string) || '/avatars/default.jpg',
+  };
+}
+
 export function NavUser({ user: propUser }: NavUserProps) {
   const { isMobile } = useSidebar();
-  const { user: authUser, signout } = useAuth();
+  const { activeUser, logout } = useNostrHooks();
   const router = useRouter();
 
   // Use authenticated user if available, otherwise fall back to prop user or default
-  const userData = authUser
-    ? {
-        name: authUser.display_name || 'User',
-        email: authUser.email || '',
-        avatar: '/avatars/default.jpg',
-      }
-    : propUser || {
-        name: 'Guest User',
-        email: 'guest@example.com',
-        avatar: '/avatars/default.jpg',
-      };
+  const userData = extractUserData(activeUser) ||
+    propUser || {
+      name: 'Guest User',
+      email: 'guest@example.com',
+      avatar: '/avatars/default.jpg',
+    };
 
-  const handleLogout = () => {
-    signout();
-    router.push('/');
+  const handleLogout = async () => {
+    try {
+      logout();
+      toast.success('Logged out successfully');
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to logout');
+    }
   };
 
   return (

@@ -1,5 +1,4 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosInstance } from 'axios';
-import { ConfigurationService } from './services/configuration';
 import { nostrAuthSimple as nostrAuth } from './services/nostr-auth-simple';
 import { authStateManager } from '../auth/auth-state';
 
@@ -11,7 +10,6 @@ class ApiClient {
 
   constructor() {
     this.axiosInstance = axios.create({
-      baseURL: this.getBaseUrl(),
       withCredentials: false,
       headers: {
         Accept: 'application/json',
@@ -20,9 +18,20 @@ class ApiClient {
       timeout: 30000,
     });
 
+    // Set up request interceptor to dynamically set baseURL
+    this.axiosInstance.interceptors.request.use((config) => {
+      if (!config.baseURL) {
+        config.baseURL = this.getBaseUrl();
+      }
+      return config;
+    });
+
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
+        const { ConfigurationService } = await import(
+          './services/configuration'
+        );
         if (
           error.response?.status === 401 &&
           ConfigurationService.isAuthenticationEnabled()
@@ -35,7 +44,22 @@ class ApiClient {
   }
 
   private getBaseUrl(): string {
-    return ConfigurationService.getBaseUrl();
+    // Dynamic import to avoid circular dependency
+    try {
+      if (typeof window !== 'undefined') {
+        // Client-side: check localStorage first
+        const endpoint = localStorage.getItem('server_endpoint');
+        const enabled = localStorage.getItem('server_enabled') === 'true';
+        if (enabled && endpoint) {
+          return endpoint;
+        }
+      }
+      // Fallback to environment variable or default
+      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    } catch (error) {
+      console.warn('Error getting base URL:', error);
+      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    }
   }
 
   private async handle401Error(): Promise<void> {
@@ -75,11 +99,12 @@ class ApiClient {
       'Content-Type': 'application/json',
     };
 
+    // Check if authentication is enabled
+    const isAuthEnabled =
+      process.env.NEXT_PUBLIC_ENABLE_AUTHENTICATION === 'true';
+
     // Add NIP-98 authentication if enabled and nostr is available
-    if (
-      ConfigurationService.isAuthenticationEnabled() &&
-      typeof window !== 'undefined'
-    ) {
+    if (isAuthEnabled && typeof window !== 'undefined') {
       try {
         if (window.nostr) {
           const auth_event = await window.nostr.signEvent({
@@ -101,8 +126,27 @@ class ApiClient {
       }
     } else {
       // Only add Bearer token auth headers when Nostr auth is disabled
-      const configHeaders = ConfigurationService.getAuthHeaders();
-      Object.assign(headers, configHeaders);
+      try {
+        // Check for API key first (bearer token authentication)
+        const apiKey =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('api_key')
+            : null;
+        if (apiKey) {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        } else {
+          // Fallback to legacy auth_user token
+          const authUser =
+            typeof window !== 'undefined'
+              ? localStorage.getItem('auth_user')
+              : null;
+          if (authUser) {
+            headers['Authorization'] = `Bearer ${authUser}`;
+          }
+        }
+      } catch (error) {
+        console.warn('Error accessing localStorage:', error);
+      }
     }
 
     return headers;
