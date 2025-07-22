@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use crate::db::mint::CurrencyUnit;
 use crate::multimint_manager::MultimintManager;
@@ -27,6 +29,7 @@ pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_msats_per_request: u32,
     pub multimint_manager: Arc<MultimintManager>,
+    pub search_cache: Arc<Mutex<HashMap<String, Instant>>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -8,6 +8,7 @@ import {
   DatabaseIcon,
   CoinsIcon,
   SettingsIcon,
+  SearchIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -36,6 +37,11 @@ const data = {
       title: 'Dashboard',
       url: '/dashboard',
       icon: LayoutDashboardIcon,
+    },
+    {
+      title: 'Search',
+      url: '/search',
+      icon: SearchIcon,
     },
     {
       title: 'Transactions',

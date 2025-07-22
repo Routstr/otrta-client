@@ -143,6 +143,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     let model = if let Some(ref model_name) = model_name {
         (get_model(&state.db, model_name).await).unwrap_or_default()
     } else {
+        eprintln!("No model name provided in request");
         None
     };
 
@@ -150,6 +151,18 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         Some(model) => model.is_free,
         None => false,
     };
+
+    eprintln!(
+        "Processing request for model: {:?}, is_free: {}, cost: {}",
+        model_name,
+        is_free_model,
+        match model {
+            Some(ref model) => model
+                .min_cost_per_request
+                .unwrap_or_else(|| state.default_msats_per_request as i64),
+            None => state.default_msats_per_request as i64,
+        }
+    );
 
     if let Some(body_data) = body {
         req_builder = req_builder.json(&body_data);
@@ -210,16 +223,32 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         match token_result {
             Ok(token) => token,
             Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Failed to generate payment token: {:?}", e),
-                            "type": "payment_error",
-                        }
-                    })),
-                )
-                    .into_response();
+                eprintln!(
+                    "Payment token generation failed for model: {:?}, cost: {} msats, error: {:?}",
+                    model_name, cost, e
+                );
+
+                // If the model should be free or cost is 0, continue without payment
+                if is_free_model || cost == 0 {
+                    eprintln!("Model is free or zero cost, proceeding without payment token");
+                    String::new()
+                } else {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "error": {
+                                "message": format!("Failed to generate payment token: {:?}. This usually means insufficient wallet balance or mint connectivity issues.", e),
+                                "type": "payment_error",
+                                "details": {
+                                    "model": model_name,
+                                    "cost_msats": cost,
+                                    "is_free_model": is_free_model
+                                }
+                            }
+                        })),
+                    )
+                        .into_response();
+                }
             }
         }
     };

@@ -119,7 +119,13 @@ pub async fn nostr_auth_middleware(
         if let Err(err) = validate_auth_event(&event, &request, &auth_state.config) {
             return err.into_response();
         }
-        info!("Nostr authentication successful");
+
+        // Extract user ID (public key) from the event and add it as an extension
+        let user_id = event.pubkey.to_hex();
+        info!("Nostr authentication successful for user: {}", user_id);
+
+        let mut request = request;
+        request.extensions_mut().insert(user_id);
         return next.run(request).await;
     }
 

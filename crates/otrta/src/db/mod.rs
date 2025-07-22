@@ -7,7 +7,8 @@ pub mod organizations;
 pub mod provider;
 pub mod server_config;
 pub mod transaction;
+pub mod user_search_groups;
+pub mod user_searches;
 pub mod users;
-
 pub use helpers::*;
 pub type Pool = sqlx::PgPool;

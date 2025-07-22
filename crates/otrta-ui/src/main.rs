@@ -50,6 +50,7 @@ async fn main() {
         db: connection_pool.clone(),
         default_msats_per_request: configuration.application.default_msats_per_request,
         multimint_manager,
+        search_cache: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
     });
 
     let job_runner = BackgroundJobRunner::new(Arc::clone(&app_state));
@@ -171,6 +172,21 @@ async fn main() {
             post(handlers::complete_lightning_topup_handler),
         )
         .route("/api/debug/wallet", get(handlers::get_wallet_debug_info))
+        .route("/api/search", get(handlers::get_searches_handler))
+        .route("/api/search", post(handlers::search_handler))
+        .route("/api/search/delete", post(handlers::delete_search_handler))
+        .route(
+            "/api/search/groups",
+            get(handlers::get_search_groups_handler),
+        )
+        .route(
+            "/api/search/groups",
+            post(handlers::create_search_group_handler),
+        )
+        .route(
+            "/api/search/groups/delete",
+            post(handlers::delete_search_group_handler),
+        )
         .with_state(app_state.clone());
 
     let mut unprotected_routes = Router::new()

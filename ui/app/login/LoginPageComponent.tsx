@@ -160,6 +160,7 @@ export default function LoginPageComponent() {
           <div className='bg-primary/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg'>
             <Wallet className='text-primary h-6 w-6' />
           </div>
+          <CardTitle className='text-2xl'>Welcome Back</CardTitle>
           <CardDescription>
             Choose your authentication method to sign in
           </CardDescription>
