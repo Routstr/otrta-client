@@ -3,7 +3,7 @@ use crate::{
         user_search_groups::{create_conversation, delete_search_group, get_search_groups},
         user_searches::{delete_search, get_searches, insert_search},
     },
-    models::*,
+    models::AppState,
     search::{perform_web_search, perform_web_search_with_llm, SearchRequest},
 };
 use axum::{
@@ -12,8 +12,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use std::time::{Duration, Instant};
-
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
@@ -60,35 +58,35 @@ pub async fn search_handler(
     };
 
     // Create a unique search identifier to prevent duplicate processing
-    let search_key = format!("{}:{}:{}", user_id, group_id, request.message);
+    // let search_key = format!("{}:{}:{}", user_id, group_id, request.message);
 
     // Check if this search is already being processed or was recently processed
-    {
-        let mut cache = state.search_cache.lock().unwrap();
-        let now = Instant::now();
+    // {
+    //     let mut cache = state.search_cache.lock().unwrap();
+    //     let now = Instant::now();
 
-        // Clean up old entries (older than 30 seconds)
-        cache.retain(|_, &mut timestamp| now.duration_since(timestamp) < Duration::from_secs(30));
+    //     // Clean up old entries (older than 30 seconds)
+    //     cache.retain(|_, &mut timestamp| now.duration_since(timestamp) < Duration::from_secs(30));
 
-        // Check if this search was attempted recently
-        if let Some(&last_attempt) = cache.get(&search_key) {
-            if now.duration_since(last_attempt) < Duration::from_secs(30) {
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    Json(json!({
-                        "error": {
-                            "message": "Search request is already being processed or was recently attempted",
-                            "type": "duplicate_request"
-                        }
-                    })),
-                )
-                    .into_response();
-            }
-        }
+    //     // Check if this search was attempted recently
+    //     if let Some(&last_attempt) = cache.get(&search_key) {
+    //         if now.duration_since(last_attempt) < Duration::from_secs(30) {
+    //             return (
+    //                 StatusCode::TOO_MANY_REQUESTS,
+    //                 Json(json!({
+    //                     "error": {
+    //                         "message": "Search request is already being processed or was recently attempted",
+    //                         "type": "duplicate_request"
+    //                     }
+    //                 })),
+    //             )
+    //                 .into_response();
+    //         }
+    //     }
 
-        // Mark this search as being processed
-        cache.insert(search_key.clone(), now);
-    }
+    //     // Mark this search as being processed
+    //     cache.insert(search_key.clone(), now);
+    // }
 
     // Perform web search with optional LLM integration
     let search_response = if request.model_id.is_some() {
@@ -105,10 +103,10 @@ pub async fn search_handler(
             Ok(response) => response,
             Err(e) => {
                 // Remove from cache on error to allow retry later
-                {
-                    let mut cache = state.search_cache.lock().unwrap();
-                    cache.remove(&search_key);
-                }
+                // {
+                //     let mut cache = state.search_cache.lock().unwrap();
+                //     cache.remove(&search_key);
+                // }
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({
@@ -126,10 +124,10 @@ pub async fn search_handler(
             Ok(response) => response,
             Err(e) => {
                 // Remove from cache on error to allow retry later
-                {
-                    let mut cache = state.search_cache.lock().unwrap();
-                    cache.remove(&search_key);
-                }
+                // {
+                //     let mut cache = state.search_cache.lock().unwrap();
+                //     cache.remove(&search_key);
+                // }
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({
@@ -154,10 +152,10 @@ pub async fn search_handler(
             search_response.message
         );
         // Remove from cache on validation error
-        {
-            let mut cache = state.search_cache.lock().unwrap();
-            cache.remove(&search_key);
-        }
+        // {
+        //     let mut cache = state.search_cache.lock().unwrap();
+        //     cache.remove(&search_key);
+        // }
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
@@ -181,10 +179,10 @@ pub async fn search_handler(
     .await;
 
     // Remove from cache since search completed successfully
-    {
-        let mut cache = state.search_cache.lock().unwrap();
-        cache.remove(&search_key);
-    }
+    // {
+    //     let mut cache = state.search_cache.lock().unwrap();
+    //     cache.remove(&search_key);
+    // }
 
     let response = SearchResultResponse {
         id: search_id.to_string(),
