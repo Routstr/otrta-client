@@ -29,12 +29,16 @@ export default function Page() {
   const { data: mintsData, isLoading: isLoadingMints } = useQuery({
     queryKey: ['mints'],
     queryFn: () => MintService.getAllMints(),
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const { data: balanceData, isLoading: isLoadingBalance } = useQuery({
     queryKey: ['multimint-balance'],
     queryFn: () => MultimintService.getMultimintBalance(),
     refetchInterval: 10000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const mints = mintsData?.mints || [];

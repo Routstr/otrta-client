@@ -118,23 +118,39 @@ class ApiClient {
         const authState = getGlobalAuthState();
 
         if (authState?.currentSigner && authState?.activeUser) {
-          const auth_event = await authState.signEvent({
-            kind: 27235,
-            created_at: Math.floor(new Date().getTime() / 1000),
-            content: 'application/json',
-            tags: [
-              ['u', `${this.getBaseUrl()}${path}`],
-              ['method', method],
-            ],
-          });
+          console.log('Creating NIP-98 auth event for:', method, path);
+          try {
+            const auth_event = await authState.signEvent({
+              kind: 27235,
+              created_at: Math.floor(new Date().getTime() / 1000),
+              content: 'application/json',
+              tags: [
+                ['u', `${this.getBaseUrl()}${path}`],
+                ['method', method],
+              ],
+            });
 
-          if (auth_event) {
-            headers['Authorization'] =
-              `Nostr ${btoa(JSON.stringify(auth_event))}`;
+            if (auth_event) {
+              headers['Authorization'] =
+                `Nostr ${btoa(JSON.stringify(auth_event))}`;
+              console.log('NIP-98 auth header added successfully');
+            } else {
+              console.warn('Failed to create auth event');
+            }
+          } catch (eventError) {
+            console.error('Error creating NIP-98 auth event:', eventError);
+            throw eventError; // Re-throw to be caught by outer catch
           }
+        } else {
+          console.warn('No auth state available:', {
+            hasSigner: !!authState?.currentSigner,
+            hasUser: !!authState?.activeUser,
+          });
         }
       } catch (error) {
-        console.warn('Failed to create NIP-98 authentication:', error);
+        console.error('Failed to create NIP-98 authentication:', error);
+        // In case of auth error, still try the request without auth
+        // This helps with debugging and might work for some endpoints
       }
     } else {
       // Only add Bearer token auth headers when Nostr auth is disabled

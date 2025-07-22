@@ -38,7 +38,10 @@ export default function LoginPageComponent() {
     if (activeUser) {
       console.log('User authenticated:', activeUser);
       toast.success('Successfully authenticated!');
-      router.push('/dashboard');
+      // Add a small delay to ensure auth state is fully propagated
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 500);
     }
   }, [activeUser, router]);
 

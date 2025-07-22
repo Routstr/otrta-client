@@ -192,6 +192,10 @@ const NostrifyProvider: React.FC<NostrifyProviderProps> = ({
         localStorage.setItem('nostr_nsec', nsec); // Store securely for session
         localStorage.setItem('nostr_key_generated', 'true');
 
+        // Ensure the global auth state is updated before returning
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        console.log('Generated key login completed:', { pubkey: user.pubkey });
         toast.success('Successfully logged in with generated key');
         return true;
       } catch (error) {
