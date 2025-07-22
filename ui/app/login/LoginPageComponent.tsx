@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Wallet, Loader2, Plus, Key, AlertCircle } from 'lucide-react';
+import { Wallet, Loader2, Plus, Key, AlertCircle, Zap } from 'lucide-react';
 import { useNostrifyAuth } from '@/lib/auth/NostrifyAuthProvider';
 import { Separator } from '@/components/ui/separator';
 import GenerateKeyModal from '@/components/auth/GenerateKeyModal';
@@ -200,6 +200,17 @@ export default function LoginPageComponent() {
               </AlertDescription>
             </Alert>
           )}
+
+          {/* Nostr Connect - Disabled for now */}
+          <Button
+            disabled={true}
+            className='w-full cursor-not-allowed opacity-50'
+            variant='outline'
+            title='Connect using Nostr Connect protocol (NIP-46) for remote signing'
+          >
+            <Zap className='mr-2 h-4 w-4' />
+            Nostr Connect (Coming Soon)
+          </Button>
 
           <Separator />
 

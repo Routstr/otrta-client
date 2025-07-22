@@ -3,6 +3,7 @@
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { HeaderLogoutButton } from '@/components/auth/HeaderLogoutButton';
 
 export function SiteHeader() {
   return (
@@ -15,7 +16,10 @@ export function SiteHeader() {
             className='mx-2 data-[orientation=vertical]:h-4'
           />
         </div>
-        <ThemeToggle />
+        <div className='flex items-center gap-2'>
+          <HeaderLogoutButton />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
