@@ -7,10 +7,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { MessageCircle, Search, Clock } from 'lucide-react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { MessageCircle, Search, Clock, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { getGroups } from '@/src/api/web-search';
+import { deleteConversation } from '@/src/api/conversation';
 import {
   Tooltip,
   TooltipContent,
@@ -19,6 +20,7 @@ import {
 import { useConverstationStore } from '@/src/stores/converstation';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { DeleteGroupDialog } from './deleteGroupCardDialog';
 
 interface Props {
   currentGroup: string;
@@ -31,12 +33,43 @@ export function GroupSheet(props: Props) {
   const updateConveration = useConverstationStore(
     (state) => state.updateConversation
   );
+  const clearConversation = useConverstationStore(
+    (state) => state.clearConversation
+  );
 
   const client = useQueryClient();
 
   const mutationGroup = useQuery({
     queryFn: () => getGroups({}),
     queryKey: ['search_groups'],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return deleteConversation({ id: id });
+    },
+    mutationKey: ['delete_group'],
+    onSuccess: async (_, deletedId) => {
+      if (deletedId === props.currentGroup) {
+        clearConversation();
+      }
+
+      await client.invalidateQueries({
+        queryKey: ['search_groups'],
+        exact: true,
+      });
+
+      if (deletedId === props.currentGroup) {
+        await client.invalidateQueries({
+          queryKey: ['user_searches'],
+          exact: true,
+          refetchType: 'active',
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('Failed to delete conversation:', error);
+    },
   });
 
   const filteredGroups =
@@ -57,6 +90,14 @@ export function GroupSheet(props: Props) {
       exact: true,
       refetchType: 'active',
     });
+  };
+
+  const onDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (error) {
+      console.error('Delete failed:', error);
+    }
   };
 
   const onClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -137,7 +178,6 @@ export function GroupSheet(props: Props) {
                 filteredGroups.map((group) => (
                   <div
                     key={group.id}
-                    onClick={() => onSelect(group.id)}
                     className={`group hover:bg-accent/50 relative cursor-pointer rounded-lg border p-3 transition-all ${
                       group.id === props.currentGroup
                         ? 'border-primary bg-primary/5'
@@ -145,7 +185,10 @@ export function GroupSheet(props: Props) {
                     }`}
                   >
                     <div className='flex items-start justify-between'>
-                      <div className='min-w-0 flex-1'>
+                      <div
+                        className='min-w-0 flex-1'
+                        onClick={() => onSelect(group.id)}
+                      >
                         <h4 className='truncate text-sm font-medium'>
                           {group.name}
                         </h4>
@@ -154,11 +197,28 @@ export function GroupSheet(props: Props) {
                           {formatTime(group.created_at)}
                         </div>
                       </div>
-                      {group.id === props.currentGroup && (
-                        <Badge variant='secondary' className='ml-2 text-xs'>
-                          Active
-                        </Badge>
-                      )}
+                      <div className='flex items-center gap-2'>
+                        {group.id === props.currentGroup && (
+                          <Badge variant='secondary' className='text-xs'>
+                            Active
+                          </Badge>
+                        )}
+                        <DeleteGroupDialog
+                          deleteCallback={() => onDelete(group.id)}
+                          description='This action cannot be undone. This will permanently delete this conversation.'
+                        >
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            className='hover:text-destructive h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100'
+                          >
+                            <Trash2 className='h-3 w-3' />
+                          </Button>
+                        </DeleteGroupDialog>
+                      </div>
                     </div>
                   </div>
                 ))

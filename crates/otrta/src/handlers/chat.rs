@@ -361,7 +361,32 @@ pub async fn delete_search_group_handler(
         }
     };
 
-    delete_search_group(&state.db, user_id, group_id).await;
-
-    Json(json!({"success": true})).into_response()
+    match delete_search_group(&state.db, user_id, group_id).await {
+        Ok(deleted) => {
+            if deleted {
+                Json(json!({"success": true})).into_response()
+            } else {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": "Conversation group not found or you don't have permission to delete it",
+                            "type": "not_found"
+                        }
+                    })),
+                )
+                    .into_response()
+            }
+        }
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": {
+                    "message": "Failed to delete conversation group",
+                    "type": "database_error"
+                }
+            })),
+        )
+            .into_response(),
+    }
 }

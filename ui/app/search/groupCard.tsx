@@ -40,7 +40,7 @@ export function GroupCard({
 
   const mutation = useMutation({
     mutationFn: async (id: string) => {
-      deleteConversation({ id: id });
+      return deleteConversation({ id: id });
     },
     mutationKey: ['delete_group'],
     onSuccess: async () => {
@@ -61,10 +61,17 @@ export function GroupCard({
         });
       }
     },
+    onError: (error) => {
+      console.error('Failed to delete conversation:', error);
+    },
   });
 
   const onDelete = async () => {
-    await mutation.mutateAsync(id);
+    try {
+      await mutation.mutateAsync(id);
+    } catch (error) {
+      console.error('Delete failed:', error);
+    }
   };
 
   return (
