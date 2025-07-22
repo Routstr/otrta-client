@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Wallet, Loader2, Plus, Key, AlertCircle } from 'lucide-react';
 import { useNostrifyAuth } from '@/lib/auth/NostrifyAuthProvider';
 import { Separator } from '@/components/ui/separator';
+import GenerateKeyModal from '@/components/auth/GenerateKeyModal';
 
 export default function LoginPageComponent() {
   const router = useRouter();
@@ -24,9 +25,14 @@ export default function LoginPageComponent() {
   const [nsec, setNsec] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMethod, setLoadingMethod] = useState<string>('');
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
-  const { loginWithExtension, activeUser, loginWithPrivateKey } =
-    useNostrifyAuth();
+  const {
+    loginWithExtension,
+    activeUser,
+    loginWithPrivateKey,
+    loginWithGeneratedKey,
+  } = useNostrifyAuth();
 
   useEffect(() => {
     if (activeUser) {
@@ -122,9 +128,26 @@ export default function LoginPageComponent() {
   };
 
   const handleCreateAccount = () => {
-    toast.info(
-      'Account creation is currently disabled. Please use an existing Nostr key or extension.'
-    );
+    setShowGenerateModal(true);
+  };
+
+  const handleKeyGenerated = async (nsec: string) => {
+    setIsLoading(true);
+    setLoadingMethod('generatedKey');
+    try {
+      const success = await loginWithGeneratedKey(nsec);
+      if (success) {
+        toast.success('Account created and logged in successfully!');
+      } else {
+        throw new Error('Failed to log in with generated key');
+      }
+    } catch (error) {
+      console.error('Generated key login error:', error);
+      toast.error('Failed to log in with generated key. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setLoadingMethod('');
+    }
   };
 
   return (
@@ -217,15 +240,19 @@ export default function LoginPageComponent() {
 
           <Separator />
 
-          {/* Create Account (Disabled) */}
+          {/* Create Account */}
           <Button
             onClick={handleCreateAccount}
-            disabled={true}
-            className='w-full cursor-not-allowed opacity-50'
+            disabled={isLoading}
+            className='w-full'
             variant='outline'
           >
-            <Plus className='mr-2 h-4 w-4' />
-            Create New Nostr Account (Coming Soon)
+            {isLoading && loadingMethod === 'generatedKey' ? (
+              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+            ) : (
+              <Plus className='mr-2 h-4 w-4' />
+            )}
+            Generate New Nostr Account
           </Button>
 
           <div className='text-muted-foreground text-center text-xs'>
@@ -243,6 +270,12 @@ export default function LoginPageComponent() {
           </div>
         </CardContent>
       </Card>
+
+      <GenerateKeyModal
+        open={showGenerateModal}
+        onOpenChange={setShowGenerateModal}
+        onKeyGenerated={handleKeyGenerated}
+      />
     </div>
   );
 }

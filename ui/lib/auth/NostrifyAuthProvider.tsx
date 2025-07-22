@@ -36,6 +36,7 @@ interface NostrifyAuthContextType {
   isLoading: boolean;
   loginWithExtension: () => Promise<boolean>;
   loginWithPrivateKey: (nsec: string) => Promise<boolean>;
+  loginWithGeneratedKey: (nsec: string) => Promise<boolean>;
   logout: () => void;
   signEvent: (
     event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>
@@ -158,6 +159,52 @@ const NostrifyProvider: React.FC<NostrifyProviderProps> = ({
     []
   );
 
+  // Generated Key Login
+  const loginWithGeneratedKey = useCallback(
+    async (nsec: string): Promise<boolean> => {
+      setIsLoading(true);
+      try {
+        if (!nsec.startsWith('nsec1')) {
+          toast.error('Invalid private key format. Must start with nsec1');
+          return false;
+        }
+
+        // Convert nsec to Uint8Array
+        const decoded = nip19.decode(nsec);
+        if (decoded.type !== 'nsec') {
+          toast.error('Invalid nsec format');
+          return false;
+        }
+
+        const privateKeyBytes = decoded.data as Uint8Array;
+        const signer = new NSecSigner(privateKeyBytes);
+
+        // Get public key from signer
+        const pubkey = await signer.getPublicKey();
+        const user: User = { pubkey };
+
+        setActiveUser(user);
+        setCurrentSigner(signer);
+
+        // Store in localStorage for persistence with generated key flag
+        localStorage.setItem('nostr_auth_method', 'generatedKey');
+        localStorage.setItem('nostr_user', JSON.stringify(user));
+        localStorage.setItem('nostr_nsec', nsec); // Store securely for session
+        localStorage.setItem('nostr_key_generated', 'true');
+
+        toast.success('Successfully logged in with generated key');
+        return true;
+      } catch (error) {
+        console.error('Generated key login error:', error);
+        toast.error('Failed to login with generated key');
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
   // Sign Event
   const signEvent = useCallback(
     async (
@@ -187,6 +234,7 @@ const NostrifyProvider: React.FC<NostrifyProviderProps> = ({
     localStorage.removeItem('nostr_auth_method');
     localStorage.removeItem('nostr_user');
     localStorage.removeItem('nostr_nsec');
+    localStorage.removeItem('nostr_key_generated');
     toast.success('Logged out successfully');
   }, []);
 
@@ -204,7 +252,10 @@ const NostrifyProvider: React.FC<NostrifyProviderProps> = ({
         if (authMethod === 'extension' && window.nostr) {
           setActiveUser(user);
           setCurrentSigner(window.nostr as NostrSigner);
-        } else if (authMethod === 'privateKey') {
+        } else if (
+          authMethod === 'privateKey' ||
+          authMethod === 'generatedKey'
+        ) {
           const storedNsec = localStorage.getItem('nostr_nsec');
           if (storedNsec) {
             // Restore private key signer
@@ -233,6 +284,7 @@ const NostrifyProvider: React.FC<NostrifyProviderProps> = ({
       isLoading,
       loginWithExtension,
       loginWithPrivateKey,
+      loginWithGeneratedKey,
       logout,
       signEvent,
       currentSigner,
@@ -242,6 +294,7 @@ const NostrifyProvider: React.FC<NostrifyProviderProps> = ({
       isLoading,
       loginWithExtension,
       loginWithPrivateKey,
+      loginWithGeneratedKey,
       logout,
       signEvent,
       currentSigner,
