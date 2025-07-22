@@ -329,7 +329,6 @@ pub async fn topup_mint_handler(
             if let Some(token) = payload.token {
                 let token_data = cdk::nuts::Token::from_str(&token).unwrap();
 
-
                 let mint_exists_in_wallet = {
                     let mints = wallet.list_mints().await;
                     mints.contains(&payload.mint_url)

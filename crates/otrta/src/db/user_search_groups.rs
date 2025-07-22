@@ -96,7 +96,11 @@ pub async fn update_search_group_name(pool: &PgPool, user_id: String, group_id: 
     .unwrap();
 }
 
-pub async fn delete_search_group(pool: &PgPool, user_id: String, group_id: Uuid) -> Result<bool, sqlx::Error> {
+pub async fn delete_search_group(
+    pool: &PgPool,
+    user_id: String,
+    group_id: Uuid,
+) -> Result<bool, sqlx::Error> {
     let result = sqlx::query!(
         r#"
         DELETE FROM user_search_groups

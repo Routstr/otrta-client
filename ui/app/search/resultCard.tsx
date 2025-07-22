@@ -1,4 +1,4 @@
-import { deleteSearch, SchemaResponseProps } from '@/src/api/web-search';
+import { SchemaResponseProps } from '@/src/api/web-search';
 import * as React from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,7 +7,6 @@ import highlight from 'rehype-highlight';
 import MessageSources from './messageSources';
 import { useEffect, useState } from 'react';
 import { ScrollText, SwatchBook } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LinkDropDown } from './linkDropDown';
 
 interface Props {
@@ -21,6 +20,18 @@ export function ResultCard(props: Props) {
   const [parsedMessage, setParsedMessage] = useState(
     props.data.response.message
   );
+
+  const isErrorResponse = props.data.response.message.includes('couldn\'t find any accessible content') ||
+    props.data.response.message.includes('unable to access or scrape') ||
+    props.data.response.message.includes('No search sources were provided');
+
+  const deleteQA = () => {
+    console.log('Delete function called for:', props.data.id);
+  };
+
+  const retryQA = () => {
+    console.log('Retry function called for:', props.data.id);
+  };
 
   useEffect(() => {
     const regex = /\[(\d+)\]/g;
@@ -37,67 +48,51 @@ export function ResultCard(props: Props) {
     setParsedMessage(props.data.response.message);
   }, [props.data.response.message, props.data.response.sources]);
 
-  const client = useQueryClient();
-  const mutation = useMutation({
-    mutationKey: ['user_searches'],
-    mutationFn: async (data: { id: string; group_id: string }) => {
-      await client.invalidateQueries({
-        queryKey: ['user_searches'],
-        exact: true,
-        refetchType: 'active',
-      });
-      return deleteSearch(data);
-    },
-    retry: 2,
-  });
-
-  const deleteQA = async () => {
-    await mutation.mutateAsync({
-      id: props.data.id,
-      group_id: props.currentGroup,
-    });
-  };
-
-  const retryQA = async () => {
-    await mutation.mutateAsync({
-      id: props.data.id,
-      group_id: props.currentGroup,
-    });
-  };
-
   return (
-    <Card className='m-2'>
-      <CardContent>
-        <div className='m-4 flex flex-col'>
-          <div className='flex w-full justify-between'>
-            <div className='text-2xl font-medium text-black lg:w-9/12 dark:text-white'>
+    <Card
+      className={`group relative mb-4 transition-all duration-200 hover:shadow-md ${
+        isErrorResponse 
+          ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20' 
+          : 'border-border bg-card'
+      }`}
+    >
+      <CardContent className='space-y-4 p-6'>
+        <div className='space-y-2'>
+          <div className='flex items-center gap-2'>
+            <SwatchBook className='h-4 w-4 text-muted-foreground' />
+            <span className='text-sm font-medium text-muted-foreground'>
               {props.data.query}
-            </div>
-            <div>
-              <LinkDropDown
-                sources={props.data.response.sources || []}
-                {...props}
-                deleteQA={deleteQA}
-                retryQA={retryQA}
-              />
-            </div>
+            </span>
+            <LinkDropDown
+              sources={props.data.response.sources || []}
+              sendMessage={props.sendMessage}
+              loading={props.loading}
+              currentGroup={props.currentGroup}
+              deleteQA={deleteQA}
+              retryQA={retryQA}
+            />
           </div>
-          <div className='flex items-center'>
-            <SwatchBook />
-            <div className='m-2 text-xl font-medium text-black dark:text-white'>
-              sources
+        </div>
+        
+        {props.data.response.sources && props.data.response.sources.length > 0 && (
+          <div>
+            <div className='flex items-center gap-2 mb-3'>
+              <SwatchBook className='h-4 w-4 text-muted-foreground' />
+              <span className='text-lg font-medium'>Sources</span>
             </div>
+            <MessageSources sources={props.data.response.sources} />
           </div>
-          <MessageSources sources={props.data.response.sources || []} />
-          <div className='flex items-center'>
-            <ScrollText />
-            <div className='m-2 text-xl font-medium text-black dark:text-white'>
-              answer
-            </div>
+        )}
+        
+        <div>
+          <div className='flex items-center gap-2 mb-3'>
+            <ScrollText className='h-4 w-4 text-muted-foreground' />
+            <span className='text-lg font-medium'>Answer</span>
           </div>
-          <article className='content mt-2'>
-            <Markdown
-              className='overflow-y-auto'
+          <div className={`prose prose-sm max-w-none dark:prose-invert ${
+            isErrorResponse ? 'prose-amber dark:prose-amber' : ''
+          }`}>
+            <Markdown 
               rehypePlugins={[[highlight, { detect: true }]]}
               components={{
                 a(props) {
@@ -113,7 +108,7 @@ export function ResultCard(props: Props) {
             >
               {parsedMessage}
             </Markdown>
-          </article>
+          </div>
         </div>
       </CardContent>
     </Card>

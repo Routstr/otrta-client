@@ -16,6 +16,12 @@ interface Props {
   currentGroup: string;
 }
 
+interface ApiError extends Error {
+  response?: {
+    status: number;
+  };
+}
+
 export function SearchPageComponent(props: Props) {
   const client = useQueryClient();
   const [urls, setUrls] = useState<string[]>([]);
@@ -39,7 +45,15 @@ export function SearchPageComponent(props: Props) {
         refetchType: 'active',
       });
     },
-    retry: 2,
+    onError: (error: ApiError) => {
+      console.error('Search failed:', error);
+    },
+    retry: (failureCount: number, error: ApiError) => {
+      if (error?.response?.status === 400 || error?.response?.status === 401) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   const onSubmit = async (message: string, modelId?: string) => {
@@ -108,6 +122,22 @@ export function SearchPageComponent(props: Props) {
                 <Skeleton className='h-4 w-5/6' />
                 <Skeleton className='h-4 w-2/3' />
               </div>
+            </div>
+          )}
+
+          {mutation.error && (
+            <div className='mb-8 rounded-xl border border-destructive/20 bg-destructive/5 p-6'>
+              <div className='mb-2 flex items-center gap-2'>
+                <div className='h-2 w-2 rounded-full bg-destructive'></div>
+                <span className='text-sm font-medium text-destructive'>
+                  Search Failed
+                </span>
+              </div>
+              <p className='text-sm text-destructive/80'>
+                {mutation.error instanceof Error 
+                  ? mutation.error.message 
+                  : 'An unexpected error occurred while searching. Please try again.'}
+              </p>
             </div>
           )}
 

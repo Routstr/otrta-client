@@ -109,11 +109,12 @@ pub async fn perform_web_search_with_llm(
                     >(&response_text)
                     {
                         // Map citations from the LLM response back to our sources
-                        let cited_sources = map_citations_to_sources(&completion_response, &sources);
-                        
+                        let cited_sources =
+                            map_citations_to_sources(&completion_response, &sources);
+
                         // Update sources to only include the ones that were cited
                         sources = cited_sources;
-                        
+
                         completion_response
                             .choices
                             .first()
@@ -156,8 +157,9 @@ pub async fn perform_web_search(
 ) -> Result<SearchResponse, Box<dyn std::error::Error>> {
     let client = Client::new();
     let mut sources = Vec::new();
+    let urls_provided = urls.is_some();
 
-    if let Some(url_list) = urls {
+    if let Some(ref url_list) = urls {
         for url in url_list {
             match scrape_url(&client, &url).await {
                 Ok(content) => {
@@ -177,22 +179,23 @@ pub async fn perform_web_search(
                 }
             }
         }
-    } else {
-        sources.push(SearchSource {
-            metadata: SearchSourceMetadata {
-                url: "https://example.com".to_string(),
-                title: Some("Example Search Result".to_string()),
-                description: Some("This is a mock search result".to_string()),
-            },
-            content: format!("Search results for: {}", query),
-        });
     }
 
-    let response_message = generate_search_response(query, &sources);
+    let response_message = if sources.is_empty() && urls_provided {
+        "I was unable to access or scrape any of the provided URLs. Please check that the URLs are accessible and try again.".to_string()
+    } else if sources.is_empty() {
+        "No search sources were provided. Please provide URLs to search or use the AI-enhanced search with a selected model.".to_string()
+    } else {
+        generate_search_response(query, &sources)
+    };
 
     Ok(SearchResponse {
         message: response_message,
-        sources: Some(sources),
+        sources: if sources.is_empty() {
+            None
+        } else {
+            Some(sources)
+        },
     })
 }
 
@@ -201,17 +204,17 @@ fn map_citations_to_sources(
     original_sources: &[SearchSource],
 ) -> Vec<SearchSource> {
     let mut cited_sources = Vec::new();
-    
+
     // Collect all cited URLs from the completion response
     let mut cited_urls = std::collections::HashSet::new();
-    
+
     // Add URLs from the top-level citations field
     if let Some(citations) = &completion_response.citations {
         for citation in citations {
             cited_urls.insert(citation.clone());
         }
     }
-    
+
     // Add URLs from annotations in the response message
     if let Some(choice) = completion_response.choices.first() {
         if let Some(annotations) = &choice.message.annotations {
@@ -222,20 +225,20 @@ fn map_citations_to_sources(
             }
         }
     }
-    
+
     // Map cited URLs back to original sources
     for source in original_sources {
         if cited_urls.contains(&source.metadata.url) {
             cited_sources.push(source.clone());
         }
     }
-    
+
     // If no citations were found, return all original sources as fallback
     if cited_sources.is_empty() {
         eprintln!("No citations found in LLM response, returning all original sources");
         return original_sources.to_vec();
     }
-    
+
     cited_sources
 }
 
@@ -264,15 +267,26 @@ fn extract_title_from_content(content: &str) -> String {
 
 fn generate_search_response(query: &str, sources: &[SearchSource]) -> String {
     if sources.is_empty() {
-        format!("I searched for '{}' but couldn't find any specific sources. Here's what I can tell you based on general knowledge.", query)
+        format!("I couldn't find any accessible content for your search query '{}'. This might be because:\n• The URLs provided are not accessible\n• The content couldn't be scraped\n• No URLs were provided\n\nPlease try:\n• Checking that your URLs are correct and accessible\n• Using AI-enhanced search by selecting a model\n• Providing different URLs", query)
     } else {
+        let source_summaries: Vec<String> = sources
+            .iter()
+            .map(|source| {
+                let title = source.metadata.title.as_deref().unwrap_or("Untitled");
+                let preview = source.content.chars().take(150).collect::<String>();
+                let preview = if source.content.len() > 150 {
+                    format!("{}...", preview)
+                } else {
+                    preview
+                };
+                format!("**{}** ({}): {}", title, source.metadata.url, preview)
+            })
+            .collect();
+
         format!(
-            "Here's what I found regarding '{}': {}. The search returned relevant information from various sources.",
+            "Based on my search for '{}', I found the following information:\n\n{}",
             query,
-            sources.iter()
-                .map(|s| format!("From {}: {}", s.metadata.url, s.content.chars().take(100).collect::<String>()))
-                .collect::<Vec<_>>()
-                .join("; ")
+            source_summaries.join("\n\n")
         )
     }
 }
