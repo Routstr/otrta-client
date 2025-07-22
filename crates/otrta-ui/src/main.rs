@@ -41,7 +41,7 @@ async fn main() {
         .await
         .unwrap();
 
-    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./multimint".to_string());
+    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "/multimint".to_string());
     std::fs::create_dir_all(&wallet_dir).unwrap();
 
     let multimint_manager = Arc::new(MultimintManager::new(wallet_dir, connection_pool.clone()));

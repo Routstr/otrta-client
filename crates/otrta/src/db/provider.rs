@@ -114,8 +114,8 @@ pub async fn create_custom_provider(
     request: CreateCustomProviderRequest,
 ) -> Result<Provider, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, updated_at)
-         VALUES ($1, $2, $3, $4, 0, 0, TRUE, NOW())
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, 0, 0, TRUE, NULL, NOW())
          RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
     )
     .bind(&request.name)
@@ -176,9 +176,9 @@ pub async fn upsert_provider(
     zaps: i32,
 ) -> Result<Provider, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, FALSE, NOW())
-         ON CONFLICT (url)
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, FALSE, NULL, NOW())
+         ON CONFLICT (url, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))
          DO UPDATE SET
             name = EXCLUDED.name,
             mints = EXCLUDED.mints,
@@ -309,6 +309,8 @@ pub async fn create_custom_provider_for_organization(
     request: CreateCustomProviderRequest,
     organization_id: &Uuid,
 ) -> Result<Provider, sqlx::Error> {
+    // The database constraint will handle uniqueness validation
+
     let provider = sqlx::query_as::<_, Provider>(
         "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
          VALUES ($1, $2, $3, $4, 0, 0, TRUE, $5, NOW())
@@ -566,4 +568,40 @@ pub async fn set_default_provider_for_organization_new(
 
     tx.commit().await?;
     Ok(())
+}
+
+pub async fn upsert_provider_for_organization(
+    db: &Pool,
+    name: &str,
+    url: &str,
+    mints: Vec<String>,
+    use_onion: bool,
+    followers: i32,
+    zaps: i32,
+    organization_id: Option<&Uuid>,
+) -> Result<Provider, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, FALSE, $7, NOW())
+         ON CONFLICT (url, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))
+         DO UPDATE SET
+            name = EXCLUDED.name,
+            mints = EXCLUDED.mints,
+            use_onion = EXCLUDED.use_onion,
+            followers = EXCLUDED.followers,
+            zaps = EXCLUDED.zaps,
+            updated_at = NOW()
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
+    )
+    .bind(name)
+    .bind(url)
+    .bind(&mints)
+    .bind(use_onion)
+    .bind(followers)
+    .bind(zaps)
+    .bind(organization_id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(provider)
 }

@@ -282,7 +282,7 @@ impl CdkWalletWrapper {
         // FIXME: Improve
         match self
             .inner
-            .mint(&quote_id, SplitTarget::default(), None)
+            .mint(quote_id, SplitTarget::default(), None)
             .await
         {
             Ok(resp) => {

@@ -119,9 +119,27 @@ pub async fn get_mint_by_url(db: &Pool, mint_url: &str) -> Result<Option<Mint>, 
     let mint = sqlx::query_as::<_, Mint>(
         "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
          FROM mints 
-         WHERE mint_url = $1",
+         WHERE mint_url = $1 AND organization_id IS NULL",
     )
     .bind(mint_url)
+    .fetch_optional(db)
+    .await?;
+
+    Ok(mint)
+}
+
+pub async fn get_mint_by_url_for_organization(
+    db: &Pool,
+    mint_url: &str,
+    organization_id: &Uuid,
+) -> Result<Option<Mint>, sqlx::Error> {
+    let mint = sqlx::query_as::<_, Mint>(
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at 
+         FROM mints 
+         WHERE mint_url = $1 AND organization_id = $2",
+    )
+    .bind(mint_url)
+    .bind(organization_id)
     .fetch_optional(db)
     .await?;
 
@@ -132,8 +150,8 @@ pub async fn create_mint(db: &Pool, request: CreateMintRequest) -> Result<Mint, 
     let currency_unit = request.currency_unit.unwrap_or_else(|| "Msat".to_string());
 
     let mint = sqlx::query_as::<_, Mint>(
-        "INSERT INTO mints (mint_url, currency_unit, is_active, name, updated_at)
-         VALUES ($1, $2, TRUE, $3, NOW())
+        "INSERT INTO mints (mint_url, currency_unit, is_active, name, organization_id, updated_at)
+         VALUES ($1, $2, TRUE, $3, NULL, NOW())
          RETURNING id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at",
     )
     .bind(&request.mint_url)

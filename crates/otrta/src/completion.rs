@@ -170,8 +170,7 @@ pub fn parse_completion_response(
 
     let annotations = sources.map(|s| {
         s.iter()
-            .enumerate()
-            .map(|(_i, source)| Annotation {
+            .map(|source| Annotation {
                 annotation_type: "url_citation".to_string(),
                 url_citation: Some(UrlCitation {
                     end_index: 0,
@@ -191,7 +190,7 @@ pub fn parse_completion_response(
         id: format!(
             "gen-{}-{}",
             created,
-            Uuid::new_v4().to_string().replace("-", "")[..12].to_string()
+            &Uuid::new_v4().to_string().replace("-", "")[..12]
         ),
         created,
         model: model.to_string(),

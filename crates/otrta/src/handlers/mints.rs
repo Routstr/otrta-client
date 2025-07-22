@@ -391,7 +391,7 @@ pub async fn topup_mint_handler(
                                 "Successfully topped up mint {} with {} {} from ecash token",
                                 payload.mint_url,
                                 amount,
-                                token_data.unit().unwrap().to_string(),
+                                token_data.unit().unwrap(),
                             ),
                             invoice: None,
                         })),
@@ -417,7 +417,7 @@ pub async fn topup_mint_handler(
                             message: format!(
                                 "Successfully topped up with {} {} from ecash token",
                                 amount,
-                                token_data.unit().unwrap().to_string(),
+                                token_data.unit().unwrap(),
                             ),
                             invoice: None,
                         })),

@@ -68,7 +68,7 @@ pub async fn insert_search(
         Err(_) => create_conversation(db_pool, user_id.clone()).await,
     };
     if group.name == "new Conversation" {
-        update_search_group_name(db_pool, user_id.clone(), group.id, &query).await;
+        update_search_group_name(db_pool, user_id.clone(), group.id, query).await;
     }
 
     let search_id = Uuid::new_v4();
@@ -122,7 +122,7 @@ pub async fn get_searches(
             let group = get_search_group_latest(db_pool, user_id.clone()).await;
             let group = match group {
                 Some(group) => group,
-                None => create_conversation(&db_pool, user_id.clone()).await,
+                None => create_conversation(db_pool, user_id.clone()).await,
             };
 
             let search = sqlx::query_as!(
