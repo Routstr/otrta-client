@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Wallet, Loader2, Plus, Key, AlertCircle } from 'lucide-react';
-import { useNostrHooks } from '@/lib/auth/NostrHooksProvider';
+import { useNostrifyAuth } from '@/lib/auth/NostrifyAuthProvider';
 import { Separator } from '@/components/ui/separator';
 
 export default function LoginPageComponent() {
@@ -25,11 +25,8 @@ export default function LoginPageComponent() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMethod, setLoadingMethod] = useState<string>('');
 
-  const {
-    loginWithExtension,
-    loginWithPrivateKey,
-    activeUser,
-  } = useNostrHooks();
+  const { loginWithExtension, activeUser, loginWithPrivateKey } =
+    useNostrifyAuth();
 
   useEffect(() => {
     if (activeUser) {
@@ -108,9 +105,13 @@ export default function LoginPageComponent() {
     setIsLoading(true);
     setLoadingMethod('privateKey');
     try {
-      loginWithPrivateKey({ privateKey: nsec });
-      setNsec('');
-      toast.success('Logged in with private key');
+      const success = await loginWithPrivateKey(nsec);
+      if (success) {
+        setNsec('');
+        toast.success('Logged in with private key');
+      } else {
+        throw new Error('Failed to set up private key signer');
+      }
     } catch (error) {
       console.error('Private key auth error:', error);
       toast.error('Invalid private key. Please check and try again.');

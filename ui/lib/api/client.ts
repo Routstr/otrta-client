@@ -1,5 +1,4 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosInstance } from 'axios';
-import { nostrAuthSimple as nostrAuth } from './services/nostr-auth-simple';
 import { authStateManager } from '../auth/auth-state';
 
 // Nostr window interface is defined in nostr-auth.ts
@@ -72,12 +71,18 @@ class ApiClient {
       console.log('401 Unauthorized - logging out and redirecting to login');
 
       // Clear auth since server rejected the authentication
-      if (nostrAuth.isAuthenticated()) {
-        await nostrAuth.logout();
-      }
+      try {
+        const { getGlobalAuthState } = await import(
+          '../auth/NostrifyAuthProvider'
+        );
+        const authState = getGlobalAuthState();
 
-      // Initialize nostr auth for fresh login
-      await nostrAuth.initialize();
+        if (authState?.activeUser) {
+          authState.logout();
+        }
+      } catch (error) {
+        console.warn('Failed to access auth state for logout:', error);
+      }
 
       // Redirect to login page
       window.location.href = '/login';
@@ -103,11 +108,17 @@ class ApiClient {
     const isAuthEnabled =
       process.env.NEXT_PUBLIC_ENABLE_AUTHENTICATION === 'true';
 
-    // Add NIP-98 authentication if enabled and nostr is available
+    // Add NIP-98 authentication if enabled and authenticated
     if (isAuthEnabled && typeof window !== 'undefined') {
       try {
-        if (window.nostr) {
-          const auth_event = await window.nostr.signEvent({
+        // Import auth state getter
+        const { getGlobalAuthState } = await import(
+          '../auth/NostrifyAuthProvider'
+        );
+        const authState = getGlobalAuthState();
+
+        if (authState?.currentSigner && authState?.activeUser) {
+          const auth_event = await authState.signEvent({
             kind: 27235,
             created_at: Math.floor(new Date().getTime() / 1000),
             content: 'application/json',
@@ -115,11 +126,12 @@ class ApiClient {
               ['u', `${this.getBaseUrl()}${path}`],
               ['method', method],
             ],
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any);
+          });
 
-          headers['Authorization'] =
-            `Nostr ${btoa(JSON.stringify(auth_event))}`;
+          if (auth_event) {
+            headers['Authorization'] =
+              `Nostr ${btoa(JSON.stringify(auth_event))}`;
+          }
         }
       } catch (error) {
         console.warn('Failed to create NIP-98 authentication:', error);

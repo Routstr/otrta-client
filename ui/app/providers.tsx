@@ -6,10 +6,10 @@ import { useState, type ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import dynamic from 'next/dynamic';
 
-const NostrHooksProvider = dynamic(
+const NostrifyProvider = dynamic(
   () =>
-    import('@/lib/auth/NostrHooksProvider').then((mod) => ({
-      default: mod.NostrHooksProvider,
+    import('@/lib/auth/NostrifyAuthProvider').then((mod) => ({
+      default: mod.NostrifyProvider,
     })),
   {
     ssr: false,
@@ -37,10 +37,12 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <NostrHooksProvider>
+      <NostrifyProvider
+        relays={['wss://relay.damus.io', 'wss://relay.nostr.band']}
+      >
         {children}
         <Toaster position='top-right' />
-      </NostrHooksProvider>
+      </NostrifyProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );

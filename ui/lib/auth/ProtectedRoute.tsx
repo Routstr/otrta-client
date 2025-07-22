@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { useNostrHooks } from '@/lib/auth/NostrHooksProvider';
+import { useNostrifyAuth } from '@/lib/auth/NostrifyAuthProvider';
 import { authStateManager } from './auth-state';
 import { Loader2 } from 'lucide-react';
 
@@ -15,7 +15,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const { isLoading } = useNostrHooks();
+  const { isLoading } = useNostrifyAuth();
   const pathname = usePathname();
 
   const publicRoutes = ['/', '/login', '/register'];
@@ -71,7 +71,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <>{children}</>;
   }
 
-  // For protected routes, show loading if still initializing nostr-hooks
+  // For protected routes, show loading if still initializing authentication
   // but don't redirect - let the API client handle 401 responses
   if (isLoading) {
     return (

@@ -24,7 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { useNostrHooks } from '@/lib/auth/NostrHooksProvider';
+import { useNostrifyAuth } from '@/lib/auth/NostrifyAuthProvider';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -55,7 +55,7 @@ function extractUserData(activeUser: unknown) {
 
 export function NavUser({ user: propUser }: NavUserProps) {
   const { isMobile } = useSidebar();
-  const { activeUser, logout } = useNostrHooks();
+  const { activeUser, logout } = useNostrifyAuth();
   const router = useRouter();
 
   // Use authenticated user if available, otherwise fall back to prop user or default
