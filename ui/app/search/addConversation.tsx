@@ -50,17 +50,15 @@ export default function AddConversation(props: Props) {
         <Button
           disabled={props.loading}
           onClick={(e) => onAdd(e)}
-          className='rounded-full bg-[#ececec21] p-3 text-black/50 text-white transition duration-100 hover:bg-[#24a0ed] disabled:bg-[#e0e0dc79] disabled:text-black/50 dark:text-white/50 dark:hover:bg-[#24a0ed] dark:disabled:bg-[#ececec21] dark:disabled:text-white/50'
           variant='outline'
+          size='sm'
+          className='hover:bg-accent h-8 w-8 rounded-full p-0 transition-colors'
         >
-          <PlusIcon
-            className='dar:text-white/50 text-black/50 hover:bg-[#24a0ed] dark:bg-[#ececec21] dark:text-white/50'
-            size={15}
-          />
+          <PlusIcon className='h-4 w-4' />
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        <p>Add Conversation</p>
+        <p>New Conversation</p>
       </TooltipContent>
     </Tooltip>
   );

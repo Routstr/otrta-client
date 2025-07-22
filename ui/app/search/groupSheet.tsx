@@ -8,8 +8,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { GroupIcon } from 'lucide-react';
-import { GroupCard } from './groupCard';
+import { MessageCircle, Search, Clock } from 'lucide-react';
 import { useState } from 'react';
 import { getGroups } from '@/src/api/web-search';
 import {
@@ -18,6 +17,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useConverstationStore } from '@/src/stores/converstation';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   currentGroup: string;
@@ -26,6 +27,7 @@ interface Props {
 
 export function GroupSheet(props: Props) {
   const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const updateConveration = useConverstationStore(
     (state) => state.updateConversation
   );
@@ -36,6 +38,11 @@ export function GroupSheet(props: Props) {
     queryFn: () => getGroups({}),
     queryKey: ['search_groups'],
   });
+
+  const filteredGroups =
+    mutationGroup.data?.filter((group) =>
+      group.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || [];
 
   const onSelect = async (id: string) => {
     setOpen(false);
@@ -57,6 +64,19 @@ export function GroupSheet(props: Props) {
     setOpen(true);
   };
 
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffInDays = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    return date.toLocaleDateString();
+  };
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -65,13 +85,11 @@ export function GroupSheet(props: Props) {
             <Button
               disabled={props.loading}
               onClick={onClick}
-              className='rounded-full bg-[#ececec21] p-3 text-black/50 text-white transition duration-100 hover:bg-[#24a0ed] disabled:bg-[#e0e0dc79] dark:text-white/50 dark:hover:bg-[#24a0ed] dark:disabled:bg-[#ececec21] dark:disabled:text-white/50'
               variant='outline'
+              size='sm'
+              className='hover:bg-accent h-8 w-8 rounded-full p-0 transition-colors'
             >
-              <GroupIcon
-                className='dar:text-white/50 text-black/50 hover:bg-[#24a0ed] dark:bg-[#ececec21] dark:text-white/50'
-                size={15}
-              />
+              <MessageCircle className='h-4 w-4' />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -79,26 +97,74 @@ export function GroupSheet(props: Props) {
           </TooltipContent>
         </Tooltip>
       </SheetTrigger>
-      <SheetContent className='h-full max-h-screen overflow-y-auto'>
-        <SheetHeader>
-          <SheetTitle>Search Groups</SheetTitle>
-          <SheetDescription>List of all Search Groups</SheetDescription>
+      <SheetContent className='flex h-full w-80 flex-col p-0'>
+        <SheetHeader className='border-b p-6'>
+          <SheetTitle className='flex items-center gap-2 text-lg'>
+            <MessageCircle className='h-5 w-5' />
+            Search History
+          </SheetTitle>
+          <SheetDescription>
+            Your previous conversations and searches
+          </SheetDescription>
         </SheetHeader>
-        <div className='flex h-screen flex-col gap-4 py-4'>
-          {mutationGroup.data?.map((f, index) => (
-            <button
-              key={index}
-              className='h-[100px] items-center gap-4 lg:h-[100px]'
-              onClick={() => onSelect(f.id)}
-            >
-              <GroupCard
-                name={f.name}
-                created_at={f.created_at}
-                is_current={f.id === props.currentGroup}
-                id={f.id}
+
+        <div className='flex-1 overflow-hidden'>
+          <div className='border-b p-4'>
+            <div className='relative'>
+              <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
+              <Input
+                placeholder='Search conversations...'
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className='pl-9'
               />
-            </button>
-          ))}
+            </div>
+          </div>
+
+          <div className='flex-1 overflow-y-auto p-4'>
+            <div className='space-y-2'>
+              {filteredGroups.length === 0 ? (
+                <div className='flex flex-col items-center justify-center py-12 text-center'>
+                  <MessageCircle className='text-muted-foreground/50 h-12 w-12' />
+                  <h3 className='mt-4 text-sm font-medium'>
+                    No conversations yet
+                  </h3>
+                  <p className='text-muted-foreground mt-1 text-xs'>
+                    Start a new search to begin
+                  </p>
+                </div>
+              ) : (
+                filteredGroups.map((group) => (
+                  <div
+                    key={group.id}
+                    onClick={() => onSelect(group.id)}
+                    className={`group hover:bg-accent/50 relative cursor-pointer rounded-lg border p-3 transition-all ${
+                      group.id === props.currentGroup
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border/50'
+                    }`}
+                  >
+                    <div className='flex items-start justify-between'>
+                      <div className='min-w-0 flex-1'>
+                        <h4 className='truncate text-sm font-medium'>
+                          {group.name}
+                        </h4>
+                        <div className='text-muted-foreground mt-1 flex items-center gap-1 text-xs'>
+                          <Clock className='h-3 w-3' />
+                          {formatTime(group.created_at)}
+                        </div>
+                      </div>
+                      {group.id === props.currentGroup && (
+                        <Badge variant='secondary' className='ml-2 text-xs'>
+                          Active
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

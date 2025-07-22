@@ -7,6 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import MessageInput from './messageInput';
 import { ResultCard } from './resultCard';
 import { ModelService } from '@/lib/api/services/models';
+import { useModelSelectionStore } from '@/src/stores/model-selection';
+import { Badge } from '@/components/ui/badge';
+import { Brain, Sparkles } from 'lucide-react';
 
 interface Props {
   searches: SchemaResponseProps[];
@@ -16,7 +19,7 @@ interface Props {
 export function SearchPageComponent(props: Props) {
   const client = useQueryClient();
   const [urls, setUrls] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>('none');
+  const { selectedModel } = useModelSelectionStore();
 
   const { data: proxyModels, isLoading: isLoadingProxyModels } = useQuery({
     queryKey: ['proxy-models'],
@@ -58,45 +61,84 @@ export function SearchPageComponent(props: Props) {
     });
   };
 
+  const getSelectedModelInfo = () => {
+    if (selectedModel === 'none') return null;
+    return proxyModels?.find((model) => model.name === selectedModel);
+  };
+
+  const selectedModelInfo = getSelectedModelInfo();
+
   return (
-    <main
-      className='relative flex-1 items-center gap-4 overflow-auto p-4 pb-32'
-      style={{ minHeight: '90vh' }}
-    >
-      {mutation.isPending && (
-        <div className='bg-muted/50 relative flex max-h-[70vh] flex-1 flex-col items-center rounded-xl bg-zinc-100 p-4 dark:bg-zinc-800'>
-          <div className='flex h-full items-center space-x-4'>
-            <div className='space-y-2'>
-              <div className='grid h-full grid-cols-3 items-center space-x-4'>
-                <Skeleton className='h-4 bg-zinc-200 dark:bg-zinc-700' />
-                <Skeleton className='h-4 bg-zinc-200 dark:bg-zinc-700' />
-                <Skeleton className='h-4 bg-zinc-200 dark:bg-zinc-700' />
-              </div>
-              <Skeleton className='h-4 w-[250px] lg:w-[700px]' />
-              <Skeleton className='h-4 w-[250px] bg-zinc-200 lg:w-[700px] dark:bg-zinc-700' />
-              <Skeleton className='h-4 w-[200px] bg-zinc-200 lg:w-[500px] dark:bg-zinc-700' />
-              <Skeleton className='h-4 w-[200px] bg-zinc-200 lg:w-[650px] dark:bg-zinc-700' />
-              <Skeleton className='h-4 w-[200px] bg-zinc-200 lg:w-[400px] dark:bg-zinc-700' />
-            </div>
+    <div className='relative flex h-screen flex-col'>
+      <main className='flex-1 overflow-auto pb-32'>
+        <div className='mx-auto max-w-4xl px-4 py-8'>
+          <div className='mb-6 flex items-center justify-end'>
+            {selectedModelInfo ? (
+              <Badge
+                variant='secondary'
+                className='flex items-center gap-1.5 px-3 py-1'
+              >
+                <Brain className='h-3.5 w-3.5' />
+                <span className='font-medium'>{selectedModelInfo.name}</span>
+                <span className='text-muted-foreground text-xs'>
+                  {selectedModelInfo.provider}
+                </span>
+              </Badge>
+            ) : (
+              <Badge
+                variant='outline'
+                className='flex items-center gap-1.5 px-3 py-1'
+              >
+                <span className='text-xs font-medium'>Basic Search</span>
+              </Badge>
+            )}
           </div>
-        </div>
-      )}
 
-      {props.searches.map((value, index) => (
-        <div
-          className='mb-6 flex-1 md:ml-40 md:w-[60rem] lg:ml-40 lg:w-[60rem]'
-          key={index}
-        >
-          <ResultCard
-            data={value}
-            sendMessage={onSubmit}
-            loading={mutation.isPending}
-            currentGroup={props.currentGroup}
-          />
-        </div>
-      ))}
+          {mutation.isPending && (
+            <div className='bg-muted/30 mb-8 rounded-xl border p-6'>
+              <div className='mb-4 flex items-center gap-3'>
+                <div className='bg-primary h-2 w-2 animate-pulse rounded-full'></div>
+                <span className='text-muted-foreground text-sm font-medium'>
+                  Searching...
+                </span>
+              </div>
+              <div className='space-y-3'>
+                <Skeleton className='h-4 w-full' />
+                <Skeleton className='h-4 w-3/4' />
+                <Skeleton className='h-4 w-5/6' />
+                <Skeleton className='h-4 w-2/3' />
+              </div>
+            </div>
+          )}
 
-      <div className='from-background via-background/95 to-background/50 border-border/40 absolute right-0 bottom-0 left-0 z-50 border-t bg-gradient-to-t backdrop-blur-md'>
+          {props.searches.map((value, index) => (
+            <div key={index} className='mb-8'>
+              <ResultCard
+                data={value}
+                sendMessage={onSubmit}
+                loading={mutation.isPending}
+                currentGroup={props.currentGroup}
+              />
+            </div>
+          ))}
+
+          {props.searches.length === 0 && !mutation.isPending && (
+            <div className='flex min-h-[60vh] items-center justify-center'>
+              <div className='text-center'>
+                <Sparkles className='text-muted-foreground/50 mx-auto h-12 w-12' />
+                <h2 className='mt-4 text-xl font-semibold'>
+                  Start your search
+                </h2>
+                <p className='text-muted-foreground mt-2'>
+                  Ask any question or search for information
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <div className='bg-background/95 supports-[backdrop-filter]:bg-background/60 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur md:left-16 md:rounded-t-3xl lg:left-64 lg:rounded-t-3xl'>
         <div className='mx-auto max-w-4xl p-4'>
           <MessageInput
             sendMessage={onSubmit}
@@ -104,13 +146,11 @@ export function SearchPageComponent(props: Props) {
             currentGroup={props.currentGroup}
             urls={urls}
             setUrls={setUrls}
-            selectedModel={selectedModel}
-            setSelectedModel={setSelectedModel}
             proxyModels={proxyModels}
             isLoadingProxyModels={isLoadingProxyModels}
           />
         </div>
       </div>
-    </main>
+    </div>
   );
 }

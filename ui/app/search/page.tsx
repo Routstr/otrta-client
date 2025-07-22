@@ -15,17 +15,15 @@ export default function SearchPage() {
       <SidebarInset>
         <SiteHeader />
         <div className='flex flex-1 flex-col'>
-          <div className='@container/main flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8'>
-            <TooltipProvider>
-              <SearchPageClient />
-              <ScrollNavigator
-                alwaysShow={false}
-                upTriggerOffset={200}
-                downTriggerOffset={200}
-                rightOffset={8}
-              />
-            </TooltipProvider>
-          </div>
+          <TooltipProvider>
+            <SearchPageClient />
+            <ScrollNavigator
+              alwaysShow={false}
+              upTriggerOffset={200}
+              downTriggerOffset={200}
+              rightOffset={8}
+            />
+          </TooltipProvider>
         </div>
       </SidebarInset>
     </SidebarProvider>

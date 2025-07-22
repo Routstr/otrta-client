@@ -31,6 +31,7 @@ pub async fn perform_web_search_with_llm(
     urls: Option<Vec<String>>,
     conversation: Option<&[ConversationEntry]>,
     model_id: Option<&str>,
+    organization_id: &uuid::Uuid,
 ) -> Result<SearchResponse, Box<dyn std::error::Error>> {
     let client = Client::new();
     let mut sources = Vec::new();
@@ -78,7 +79,8 @@ pub async fn perform_web_search_with_llm(
             "v1/chat/completions",
             Some(completion_request),
             false,
-            None,
+            None,                  // api_key_id
+            Some(organization_id), // organization_id
         )
         .await;
 
@@ -106,7 +108,12 @@ pub async fn perform_web_search_with_llm(
                         crate::completion::ChatCompletionResponse,
                     >(&response_text)
                     {
-                        println!("{:?}", completion_response);
+                        // Map citations from the LLM response back to our sources
+                        let cited_sources = map_citations_to_sources(&completion_response, &sources);
+                        
+                        // Update sources to only include the ones that were cited
+                        sources = cited_sources;
+                        
                         completion_response
                             .choices
                             .first()
@@ -187,6 +194,49 @@ pub async fn perform_web_search(
         message: response_message,
         sources: Some(sources),
     })
+}
+
+fn map_citations_to_sources(
+    completion_response: &crate::completion::ChatCompletionResponse,
+    original_sources: &[SearchSource],
+) -> Vec<SearchSource> {
+    let mut cited_sources = Vec::new();
+    
+    // Collect all cited URLs from the completion response
+    let mut cited_urls = std::collections::HashSet::new();
+    
+    // Add URLs from the top-level citations field
+    if let Some(citations) = &completion_response.citations {
+        for citation in citations {
+            cited_urls.insert(citation.clone());
+        }
+    }
+    
+    // Add URLs from annotations in the response message
+    if let Some(choice) = completion_response.choices.first() {
+        if let Some(annotations) = &choice.message.annotations {
+            for annotation in annotations {
+                if let Some(url_citation) = &annotation.url_citation {
+                    cited_urls.insert(url_citation.url.clone());
+                }
+            }
+        }
+    }
+    
+    // Map cited URLs back to original sources
+    for source in original_sources {
+        if cited_urls.contains(&source.metadata.url) {
+            cited_sources.push(source.clone());
+        }
+    }
+    
+    // If no citations were found, return all original sources as fallback
+    if cited_sources.is_empty() {
+        eprintln!("No citations found in LLM response, returning all original sources");
+        return original_sources.to_vec();
+    }
+    
+    cited_sources
 }
 
 async fn scrape_url(client: &Client, url: &str) -> Result<String, Box<dyn std::error::Error>> {

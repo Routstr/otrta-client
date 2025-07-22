@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Clock, XCircleIcon } from 'lucide-react';
+import { Clock, XCircleIcon, MessageCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -12,6 +11,7 @@ import { DeleteGroupDialog } from './deleteGroupCardDialog';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deleteConversation } from '@/src/api/conversation';
 import { useConverstationStore } from '@/src/stores/converstation';
+import { Badge } from '@/components/ui/badge';
 
 export function GroupCard({
   name,
@@ -70,51 +70,63 @@ export function GroupCard({
   return (
     <Card
       className={cn(
-        'w-[250px] w-full transition duration-200 hover:bg-zinc-200 lg:w-350 dark:bg-zinc-900 dark:hover:bg-zinc-800',
-        is_current ? 'bg-green-100 dark:bg-green-800' : ''
+        'group relative overflow-hidden border transition-all duration-200 hover:shadow-md',
+        is_current
+          ? 'border-primary bg-primary/5 shadow-sm'
+          : 'border-border/50 bg-background hover:border-border/80 hover:bg-accent/30'
       )}
     >
-      <CardContent className='m-2 cursor-pointer p-2'>
-        <div className='grid grid-rows-3'>
-          <div className='flex flex-row items-center justify-between overflow-hidden'>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className='m-0 flex-1 truncate p-0 text-left'>{name}</div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{name}</p>
-              </TooltipContent>
-            </Tooltip>
-            <DeleteGroupDialog
-              deleteCallback={onDelete}
-              description='This action cannot be undone. This will permanently delete this conversation.'
-            >
-              <XCircleIcon
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                className='h-5 w-5'
-              />
-            </DeleteGroupDialog>
-          </div>
-          <div />
-          <div className='hidden flex-row space-x-2 lg:flex'>
-            <Clock size={17} />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <p className='text-xs'>{formatDays}</p>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className='text-xs'>{formattedDateTime}</p>
-              </TooltipContent>
-            </Tooltip>
-            <TooltipProvider>
+      <CardContent className='p-4'>
+        <div className='flex items-start justify-between'>
+          <div className='min-w-0 flex-1 space-y-2'>
+            <div className='flex items-center gap-2'>
+              <MessageCircle className='text-muted-foreground h-4 w-4' />
               <Tooltip>
-                <TooltipTrigger asChild></TooltipTrigger>
-                <TooltipContent></TooltipContent>
+                <TooltipTrigger asChild>
+                  <h3 className='truncate text-sm leading-tight font-medium'>
+                    {name}
+                  </h3>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{name}</p>
+                </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </div>
+
+            <div className='flex items-center gap-2'>
+              <Clock className='text-muted-foreground h-3 w-3' />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className='text-muted-foreground text-xs'>
+                    {formatDays}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className='text-xs'>{formattedDateTime}</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {is_current && (
+                <Badge variant='secondary' className='ml-auto text-xs'>
+                  Active
+                </Badge>
+              )}
+            </div>
           </div>
+
+          <DeleteGroupDialog
+            deleteCallback={onDelete}
+            description='This action cannot be undone. This will permanently delete this conversation.'
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              className='hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100'
+            >
+              <XCircleIcon className='h-4 w-4' />
+            </button>
+          </DeleteGroupDialog>
         </div>
       </CardContent>
     </Card>
