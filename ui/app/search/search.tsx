@@ -187,6 +187,13 @@ export function SearchPageComponent(props: Props) {
     }
   }, [allResults.length, isUserScrolling, isNearBottom, scrollToBottom]);
 
+  // Auto-scroll when pending search appears
+  useEffect(() => {
+    if (pendingSearch) {
+      scrollToBottom();
+    }
+  }, [pendingSearch, scrollToBottom]);
+
   // Initial scroll to bottom
   useEffect(() => {
     scrollToBottom(false);
