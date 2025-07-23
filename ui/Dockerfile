@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
-RUN npm ci --only=production --platform=linux --arch=x64
+RUN npm ci --platform=linux --arch=x64
 
 FROM base AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
