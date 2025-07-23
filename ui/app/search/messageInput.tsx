@@ -160,8 +160,6 @@ const MessageInput = ({
         </div>
 
         <div className='flex items-center gap-2'>
-          <AddUrlDialog urls={urls} setUrls={setUrls} isLoading={loading} />
-
           <Dialog open={isModelDialogOpen} onOpenChange={setIsModelDialogOpen}>
             <DialogTrigger asChild>
               <Button
