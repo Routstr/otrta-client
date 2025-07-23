@@ -10,6 +10,7 @@ import { ModelService } from '@/lib/api/services/models';
 import { useModelSelectionStore } from '@/src/stores/model-selection';
 import { Badge } from '@/components/ui/badge';
 import { Brain, Sparkles } from 'lucide-react';
+import { extractModelName } from '@/lib/utils';
 
 interface Props {
   searchData: GetSearchesResponse;
@@ -344,7 +345,9 @@ export function SearchPageComponent(props: Props) {
                   className='flex items-center gap-1.5 px-3 py-1'
                 >
                   <Brain className='h-3.5 w-3.5' />
-                  <span className='font-medium'>{selectedModelInfo.name}</span>
+                  <span className='font-medium'>
+                    {extractModelName(selectedModelInfo.name)}
+                  </span>
                   <span className='text-muted-foreground text-xs'>
                     {selectedModelInfo.provider}
                   </span>
@@ -546,7 +549,7 @@ function PendingSearchCard({
             className='flex items-center gap-1.5 px-2 py-1 text-xs'
           >
             <Brain className='h-3 w-3' />
-            {selectedModelInfo.name}
+            {extractModelName(selectedModelInfo.name)}
           </Badge>
         )}
       </div>

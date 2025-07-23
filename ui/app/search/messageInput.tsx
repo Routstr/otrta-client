@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn, extractModelName } from '@/lib/utils';
 import { ArrowUp, Brain, Zap, Search, Link } from 'lucide-react';
 import {
   Dispatch,
@@ -87,20 +87,30 @@ const MessageInput = ({
     );
   }, [proxyModels, modelSearchTerm]);
 
-  const formatPrice = (price: number) => {
-    if (price === 0) return 'Free';
-    if (price < 1000) return `${price} sats`;
-    if (price < 1000000) return `${(price / 1000).toFixed(1)}k sats`;
-    return `${(price / 1000000).toFixed(1)}M sats`;
-  };
+  const getCostValues = (msats: number) => {
+    if (msats === 0) return { primary: 'Free', secondary: null };
 
-  const getModelPrice = (model: {
-    min_cost_per_request?: number | null;
-    min_cash_per_request?: number;
-  }) => {
-    const minCost =
-      model.min_cost_per_request || model.min_cash_per_request || 0;
-    return minCost;
+    const roundedMsats = Math.round(msats);
+    const sats = roundedMsats / 1000;
+
+    if (roundedMsats % 1000 === 0) {
+      return {
+        primary: `${sats.toLocaleString('en-US')} sat`,
+        secondary: `${roundedMsats.toLocaleString('en-US')} msat`,
+      };
+    }
+
+    if (sats < 1) {
+      return {
+        primary: `${roundedMsats.toLocaleString('en-US')} msat`,
+        secondary: `${sats.toFixed(3)} sat`,
+      };
+    }
+
+    return {
+      primary: `${sats.toFixed(3)} sat`,
+      secondary: `${roundedMsats.toLocaleString('en-US')} msat`,
+    };
   };
 
   const handleModelSelect = (value: string) => {
@@ -166,11 +176,13 @@ const MessageInput = ({
               >
                 <Brain className='h-3.5 w-3.5' />
                 <span className='text-xs font-medium'>
-                  {selectedModelInfo ? selectedModelInfo.name : 'Select Model'}
+                  {selectedModelInfo
+                    ? extractModelName(selectedModelInfo.name)
+                    : 'Select Model'}
                 </span>
               </Button>
             </DialogTrigger>
-            <DialogContent className='max-w-2xl'>
+            <DialogContent className='mx-4 max-w-[95vw] sm:max-w-2xl lg:max-w-4xl'>
               <DialogHeader>
                 <DialogTitle className='flex items-center gap-2'>
                   <Brain className='h-5 w-5' />
@@ -187,7 +199,10 @@ const MessageInput = ({
                   <SelectTrigger className='w-full'>
                     <SelectValue placeholder='Select a model for enhanced AI search (optional)' />
                   </SelectTrigger>
-                  <SelectContent onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <SelectContent
+                    className='max-h-[60vh] w-full max-w-full overflow-auto'
+                    onCloseAutoFocus={(e) => e.preventDefault()}
+                  >
                     <div className='p-2' onClick={(e) => e.stopPropagation()}>
                       <div className='relative'>
                         <Search className='text-muted-foreground absolute top-2.5 left-2 h-4 w-4' />
@@ -223,12 +238,12 @@ const MessageInput = ({
                     ) : (
                       filteredModels?.map((model) => (
                         <SelectItem key={model.name} value={model.name}>
-                          <div className='flex w-full min-w-0 items-center justify-between'>
+                          <div className='flex w-full min-w-0 items-center justify-between gap-2'>
                             <div className='flex min-w-0 flex-1 items-center gap-2'>
                               <Zap className='h-4 w-4 flex-shrink-0' />
                               <div className='min-w-0 flex-1'>
                                 <div className='truncate font-medium'>
-                                  {model.name}
+                                  {extractModelName(model.name)}
                                 </div>
                                 {model.provider && (
                                   <div className='text-muted-foreground truncate text-xs'>
@@ -237,20 +252,80 @@ const MessageInput = ({
                                 )}
                               </div>
                             </div>
-                            <Badge
-                              variant={
-                                getModelPrice(model) === 0
-                                  ? 'secondary'
-                                  : 'outline'
-                              }
-                              className={
-                                getModelPrice(model) === 0
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                  : ''
-                              }
-                            >
-                              {formatPrice(getModelPrice(model))}
-                            </Badge>
+                            <div className='flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2'>
+                              {!model.is_free && (
+                                <>
+                                  {/* Desktop pricing - full format */}
+                                  <div className='text-muted-foreground hidden items-center gap-1 text-xs whitespace-nowrap sm:flex'>
+                                    <span className='font-medium'>
+                                      {(() => {
+                                        const cost = getCostValues(
+                                          model.input_cost
+                                        );
+                                        return cost.primary;
+                                      })()}
+                                    </span>
+                                    <span>/</span>
+                                    <span className='font-medium'>
+                                      {(() => {
+                                        const cost = getCostValues(
+                                          model.output_cost
+                                        );
+                                        return cost.primary;
+                                      })()}
+                                    </span>
+                                    <span>/</span>
+                                    <span className='font-medium'>
+                                      {(() => {
+                                        const cost = getCostValues(
+                                          model.min_cost_per_request ??
+                                            model.min_cash_per_request ??
+                                            0
+                                        );
+                                        return cost.primary;
+                                      })()}
+                                    </span>
+                                  </div>
+                                  {/* Mobile pricing - compact format */}
+                                  <div className='text-muted-foreground flex flex-col items-end text-xs sm:hidden'>
+                                    <div className='font-medium'>
+                                      {(() => {
+                                        const inputCost = getCostValues(
+                                          model.input_cost
+                                        );
+                                        return inputCost.primary;
+                                      })()}{' '}
+                                      /{' '}
+                                      {(() => {
+                                        const outputCost = getCostValues(
+                                          model.output_cost
+                                        );
+                                        return outputCost.primary;
+                                      })()}
+                                    </div>
+                                    <div className='opacity-75'>
+                                      Min:{' '}
+                                      {(() => {
+                                        const minCost = getCostValues(
+                                          model.min_cost_per_request ??
+                                            model.min_cash_per_request ??
+                                            0
+                                        );
+                                        return minCost.primary;
+                                      })()}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                              {model.is_free && (
+                                <Badge
+                                  variant='secondary'
+                                  className='flex-shrink-0 bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-200'
+                                >
+                                  FREE
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </SelectItem>
                       ))
@@ -263,7 +338,7 @@ const MessageInput = ({
                     <div className='flex items-start justify-between'>
                       <div className='flex-1'>
                         <h4 className='font-semibold'>
-                          {selectedModelInfo.name}
+                          {extractModelName(selectedModelInfo.name)}
                         </h4>
                         {selectedModelInfo.provider && (
                           <p className='text-muted-foreground text-sm'>
@@ -276,21 +351,72 @@ const MessageInput = ({
                           </p>
                         )}
                       </div>
-                      <Badge
-                        variant={
-                          getModelPrice(selectedModelInfo) === 0
-                            ? 'secondary'
-                            : 'outline'
-                        }
-                        className={
-                          getModelPrice(selectedModelInfo) === 0
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : ''
-                        }
-                      >
-                        {formatPrice(getModelPrice(selectedModelInfo))}
-                      </Badge>
+                      {selectedModelInfo.is_free && (
+                        <Badge
+                          variant='secondary'
+                          className='bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        >
+                          FREE
+                        </Badge>
+                      )}
                     </div>
+
+                    {/* Detailed pricing information */}
+                    {!selectedModelInfo.is_free && (
+                      <div className='bg-muted/30 mt-4 grid grid-cols-3 gap-4 rounded-lg p-3'>
+                        <div className='text-center'>
+                          <div className='text-muted-foreground text-xs font-medium'>
+                            Input Cost
+                          </div>
+                          <div className='mt-1 text-sm font-semibold'>
+                            {(() => {
+                              const cost = getCostValues(
+                                selectedModelInfo.input_cost
+                              );
+                              return cost.primary;
+                            })()}
+                          </div>
+                          <div className='text-muted-foreground text-xs'>
+                            /1M tokens
+                          </div>
+                        </div>
+                        <div className='text-center'>
+                          <div className='text-muted-foreground text-xs font-medium'>
+                            Output Cost
+                          </div>
+                          <div className='mt-1 text-sm font-semibold'>
+                            {(() => {
+                              const cost = getCostValues(
+                                selectedModelInfo.output_cost
+                              );
+                              return cost.primary;
+                            })()}
+                          </div>
+                          <div className='text-muted-foreground text-xs'>
+                            /1M tokens
+                          </div>
+                        </div>
+                        <div className='text-center'>
+                          <div className='text-muted-foreground text-xs font-medium'>
+                            Min Charge
+                          </div>
+                          <div className='mt-1 text-sm font-semibold'>
+                            {(() => {
+                              const cost = getCostValues(
+                                selectedModelInfo.min_cost_per_request ??
+                                  selectedModelInfo.min_cash_per_request ??
+                                  0
+                              );
+                              return cost.primary;
+                            })()}
+                          </div>
+                          <div className='text-muted-foreground text-xs'>
+                            per request
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {selectedModelInfo.context_length && (
                       <div className='text-muted-foreground mt-3 flex gap-4 text-xs'>
                         <span>
