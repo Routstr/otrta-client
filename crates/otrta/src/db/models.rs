@@ -338,7 +338,7 @@ pub async fn upsert_model(
         model_record.input_cost,
         model_record.output_cost,
         model_record.min_cash_per_request,
-        model_record.min_cost_per_request,
+        model_record.min_cash_per_request,
         model_record.provider,
         model_record.soft_deleted,
         model_record.model_type,

@@ -1,5 +1,5 @@
 use crate::db::mint::CurrencyUnit;
-use crate::db::transaction::{add_transaction, TransactionDirection};
+use crate::db::transaction::{add_transaction, TransactionDirection, TransactionType};
 use crate::db::Pool;
 use cdk::amount::SplitTarget;
 use cdk::nuts::nut23::QuoteState;
@@ -125,6 +125,7 @@ impl MultimintWalletWrapper {
         options: LocalMultimintSendOptions,
         db: &Pool,
         api_key_id: Option<&str>,
+        user_id: Option<&str>,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let send_options = MultimintSendOptions {
             preferred_mint: options.preferred_mint,
@@ -139,6 +140,12 @@ impl MultimintWalletWrapper {
             &amount.to_string(),
             TransactionDirection::Outgoing,
             api_key_id,
+            user_id,
+            if user_id.is_some() {
+                TransactionType::Chat
+            } else {
+                TransactionType::Api
+            },
         )
         .await?;
 
@@ -185,7 +192,7 @@ impl MultimintWalletWrapper {
         amount: u64,
         db: &Pool,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        self.send(amount, LocalMultimintSendOptions::default(), db, None)
+        self.send(amount, LocalMultimintSendOptions::default(), db, None, None)
             .await
     }
 

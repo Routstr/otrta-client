@@ -29,6 +29,7 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.6", features = ["v4", "serde"] }
+url = "2.5"
 dashmap = "6.1"
 
 # otrta-wallet = { path = "../otrta-wallet" }

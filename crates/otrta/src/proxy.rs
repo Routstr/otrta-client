@@ -2,8 +2,8 @@ use crate::{
     db::{
         api_keys::get_api_key_by_id,
         models::get_model,
-        provider::get_default_provider,
-        transaction::{add_transaction, TransactionDirection},
+        provider::{get_default_provider, get_default_provider_for_organization_new},
+        transaction::{add_transaction, TransactionDirection, TransactionType},
         Pool,
     },
     models::*,
@@ -44,6 +44,7 @@ pub async fn forward_any_request(
 ) -> Response<Body> {
     let (parts, body) = request.into_parts();
     let api_key_id = parts.extensions.get::<String>().map(|s| s.as_str());
+    let user_context = parts.extensions.get::<UserContext>();
     let headers = parts.headers;
 
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
@@ -56,6 +57,12 @@ pub async fn forward_any_request(
         Err(_) => serde_json::Value::Null,
     };
 
+    let (user_id, transaction_type) = if let Some(user_ctx) = user_context {
+        (Some(user_ctx.npub.as_str()), TransactionType::Chat)
+    } else {
+        (None, TransactionType::Api)
+    };
+
     forward_request_with_payment_with_body(
         headers,
         &state,
@@ -64,6 +71,8 @@ pub async fn forward_any_request(
         false,
         api_key_id,
         None, // organization_id - will be derived from api_key_id
+        user_id,
+        transaction_type,
     )
     .await
 }
@@ -76,6 +85,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     is_streaming: bool,
     api_key_id: Option<&str>,
     organization_id: Option<&Uuid>,
+    user_id: Option<&str>,
+    transaction_type: TransactionType,
 ) -> Response<Body> {
     let org_id = if let Some(org_id) = organization_id {
         *org_id
@@ -138,25 +149,41 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             .into_response();
     };
 
-    // Get the default provider for the organization
-    let server_config = match crate::db::provider::get_default_provider_for_organization_new(
-        &state.db, &org_id,
-    )
-    .await
-    {
+    // Get the default provider for the organization, with fallback to global default
+    let server_config = match get_default_provider_for_organization_new(&state.db, &org_id).await {
         Ok(Some(config)) => config,
         Ok(None) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": {
-                        "message": "No default provider configured for this organization. Please configure a provider first.",
-                        "type": "server_error",
-                        "param": null,
-                        "code": "default_provider_missing"
-                    }
-                })),
-            ).into_response();
+            // Fallback to global default provider if organization doesn't have one configured
+            match get_default_provider(&state.db).await {
+                Ok(Some(config)) => config,
+                Ok(None) => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({
+                            "error": {
+                                "message": "No default provider configured. Please configure a provider first.",
+                                "type": "server_error",
+                                "param": null,
+                                "code": "default_provider_missing"
+                            }
+                        })),
+                    ).into_response();
+                }
+                Err(e) => {
+                    eprintln!("Failed to get global default provider: {}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "error": {
+                                "message": "Failed to retrieve provider configuration",
+                                "type": "server_error",
+                                "code": "provider_lookup_failed"
+                            }
+                        })),
+                    )
+                        .into_response();
+                }
+            }
         }
         Err(e) => {
             eprintln!(
@@ -241,6 +268,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.json(&body_data);
     }
 
+    println!("{:?}", model);
     let cost = match model {
         Some(model) => model
             .min_cost_per_request
@@ -297,6 +325,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             Some(3),
             &state.db,
             api_key_id,
+            user_id,
         )
         .await;
 
@@ -368,6 +397,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         &res.to_string(),
                         TransactionDirection::Incoming,
                         api_key_id,
+                        user_id,
+                        transaction_type.clone(),
                     )
                     .await
                     .unwrap();
@@ -381,7 +412,9 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             response = response.header(header::CONTENT_TYPE, "text/event-stream");
         }
 
+        println!("{:?}", headers);
         if let Some(change_sats) = headers.get("X-Cashu") {
+            println!("{:?}", change_sats);
             if let Ok(in_token) = change_sats.to_str() {
                 let wallet = match state
                     .multimint_manager
@@ -401,6 +434,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     &res.to_string(),
                     TransactionDirection::Incoming,
                     api_key_id,
+                    user_id,
+                    transaction_type.clone(),
                 )
                 .await
                 .unwrap();
@@ -459,6 +494,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             &res.to_string(),
             TransactionDirection::Incoming,
             api_key_id,
+            user_id,
+            transaction_type,
         )
         .await
         .unwrap();

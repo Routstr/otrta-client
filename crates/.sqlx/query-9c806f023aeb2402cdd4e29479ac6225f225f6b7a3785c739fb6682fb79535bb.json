@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM user_searches\n        WHERE id = $1 AND user_search_group_id = $2 AND user_id = $3\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9c806f023aeb2402cdd4e29479ac6225f225f6b7a3785c739fb6682fb79535bb"
+}

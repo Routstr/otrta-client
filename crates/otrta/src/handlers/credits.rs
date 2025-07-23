@@ -2,7 +2,7 @@ use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
         transaction::{
-            get_api_key_statistics_for_user, get_transactions_for_user, ApiKeyStatistics,
+            get_api_key_statistics_for_user, get_all_transactions_for_user, ApiKeyStatistics,
             TransactionListResponse,
         },
     },
@@ -45,8 +45,9 @@ pub async fn get_all_transactions(
     Extension(user_ctx): Extension<UserContext>,
     params: Query<PaginationParams>,
 ) -> Result<Json<TransactionListResponse>, StatusCode> {
-    match get_transactions_for_user(
+    match get_all_transactions_for_user(
         &state.db,
+        &user_ctx.npub,
         &user_ctx.organization_id.to_string(),
         params.page,
         params.page_size,

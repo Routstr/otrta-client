@@ -97,6 +97,7 @@ pub async fn search_handler(
             request.conversation.as_deref(),
             request.model_id.as_deref(),
             &user_context.organization_id,
+            Some(&user_id),
         )
         .await
         {

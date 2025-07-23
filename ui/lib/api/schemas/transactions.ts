@@ -6,6 +6,9 @@ export const TransactionSchema = z.object({
   token: z.string(),
   amount: z.string(),
   direction: z.enum(['Incoming', 'Outgoing']),
+  api_key_id: z.string().nullable(),
+  user_id: z.string().nullable(),
+  type: z.enum(['Chat', 'Api']),
 });
 
 export const TransactionListParamsSchema = z.object({

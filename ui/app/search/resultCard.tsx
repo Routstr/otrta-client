@@ -21,7 +21,10 @@ export function ResultCard(props: Props) {
     props.data.response.message
   );
 
-  const isErrorResponse = props.data.response.message.includes('couldn\'t find any accessible content') ||
+  const isErrorResponse =
+    props.data.response.message.includes(
+      "couldn't find any accessible content"
+    ) ||
     props.data.response.message.includes('unable to access or scrape') ||
     props.data.response.message.includes('No search sources were provided');
 
@@ -51,16 +54,16 @@ export function ResultCard(props: Props) {
   return (
     <Card
       className={`group relative mb-4 transition-all duration-200 hover:shadow-md ${
-        isErrorResponse 
-          ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20' 
+        isErrorResponse
+          ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20'
           : 'border-border bg-card'
       }`}
     >
       <CardContent className='space-y-4 p-6'>
         <div className='space-y-2'>
           <div className='flex items-center gap-2'>
-            <SwatchBook className='h-4 w-4 text-muted-foreground' />
-            <span className='text-sm font-medium text-muted-foreground'>
+            <SwatchBook className='text-muted-foreground h-4 w-4' />
+            <span className='text-muted-foreground text-sm font-medium'>
               {props.data.query}
             </span>
             <LinkDropDown
@@ -73,26 +76,29 @@ export function ResultCard(props: Props) {
             />
           </div>
         </div>
-        
-        {props.data.response.sources && props.data.response.sources.length > 0 && (
-          <div>
-            <div className='flex items-center gap-2 mb-3'>
-              <SwatchBook className='h-4 w-4 text-muted-foreground' />
-              <span className='text-lg font-medium'>Sources</span>
+
+        {props.data.response.sources &&
+          props.data.response.sources.length > 0 && (
+            <div>
+              <div className='mb-3 flex items-center gap-2'>
+                <SwatchBook className='text-muted-foreground h-4 w-4' />
+                <span className='text-lg font-medium'>Sources</span>
+              </div>
+              <MessageSources sources={props.data.response.sources} />
             </div>
-            <MessageSources sources={props.data.response.sources} />
-          </div>
-        )}
-        
+          )}
+
         <div>
-          <div className='flex items-center gap-2 mb-3'>
-            <ScrollText className='h-4 w-4 text-muted-foreground' />
+          <div className='mb-3 flex items-center gap-2'>
+            <ScrollText className='text-muted-foreground h-4 w-4' />
             <span className='text-lg font-medium'>Answer</span>
           </div>
-          <div className={`prose prose-sm max-w-none dark:prose-invert ${
-            isErrorResponse ? 'prose-amber dark:prose-amber' : ''
-          }`}>
-            <Markdown 
+          <div
+            className={`prose prose-sm dark:prose-invert max-w-none ${
+              isErrorResponse ? 'prose-amber dark:prose-amber' : ''
+            }`}
+          >
+            <Markdown
               rehypePlugins={[[highlight, { detect: true }]]}
               components={{
                 a(props) {

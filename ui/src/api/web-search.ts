@@ -5,8 +5,8 @@ import { apiClient } from '@/lib/api/client';
 export const SchemaResponseSourcePropsSchema = z.object({
   metadata: z.object({
     url: z.string(),
-    title: z.string().optional(),
-    description: z.string().optional(),
+    title: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
   }),
   content: z.string(),
 });
@@ -89,11 +89,25 @@ export const search = async (
 export const getUserSearches = async (params: {
   group_id?: string;
 }): Promise<GetSearchesResponse> => {
+  console.log('📡 Making API call to /api/search with params:', params);
   const response = await apiClient.get<GetSearchesResponse>(
     '/api/search',
     params
   );
-  return GetSearchesResponseSchema.parse(response);
+  console.log('📥 Raw API response received:', response);
+
+  try {
+    const validatedResponse = GetSearchesResponseSchema.parse(response);
+    console.log('✅ Response validation successful:', validatedResponse);
+    return validatedResponse;
+  } catch (validationError) {
+    console.error('❌ Response validation failed:', validationError);
+    console.error(
+      '📄 Raw response that failed validation:',
+      JSON.stringify(response, null, 2)
+    );
+    throw validationError;
+  }
 };
 
 export const deleteSearch = async (data: {

@@ -188,6 +188,7 @@ pub async fn send_token(
             },
             &state.db,
             None,
+            None,
         )
         .await
     {

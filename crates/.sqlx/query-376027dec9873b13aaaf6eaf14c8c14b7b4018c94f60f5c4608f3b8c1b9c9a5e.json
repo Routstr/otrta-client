@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO transactions (id, created_at, token, amount, direction, api_key_id)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        RETURNING id\n        ",
+  "query": "\n        INSERT INTO transactions (id, created_at, token, amount, direction, api_key_id, user_id, type)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n        RETURNING id\n        ",
   "describe": {
     "columns": [
       {
@@ -26,12 +26,24 @@
             }
           }
         },
-        "Uuid"
+        "Uuid",
+        "Varchar",
+        {
+          "Custom": {
+            "name": "transaction_type",
+            "kind": {
+              "Enum": [
+                "chat",
+                "api"
+              ]
+            }
+          }
+        }
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "f07fc9afc88d3a747786ba78f3f849431ffe6845261deb85c4ba7fba83ace199"
+  "hash": "376027dec9873b13aaaf6eaf14c8c14b7b4018c94f60f5c4608f3b8c1b9c9a5e"
 }

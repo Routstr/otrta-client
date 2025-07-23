@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SchemaProps, SchemaResponseProps, search } from '@/src/api/web-search';
+import { SchemaProps, search, GetSearchesResponse } from '@/src/api/web-search';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import MessageInput from './messageInput';
@@ -12,8 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Brain, Sparkles } from 'lucide-react';
 
 interface Props {
-  searches: SchemaResponseProps[];
-  currentGroup: string;
+  searchData: GetSearchesResponse;
 }
 
 interface ApiError extends Error {
@@ -60,14 +59,14 @@ export function SearchPageComponent(props: Props) {
     const effectiveModel = modelId || selectedModel;
     await mutation.mutateAsync({
       message: message,
-      group_id: props.currentGroup,
+      group_id: props.searchData.group_id,
       conversation:
-        props.searches.length === 0
+        props.searchData.searches.length === 0
           ? undefined
           : [
               {
-                human: props.searches[0].query,
-                assistant: props.searches[0].response.message,
+                human: props.searchData.searches[0].query,
+                assistant: props.searchData.searches[0].response.message,
               },
             ],
       urls: urls.length === 0 ? undefined : urls,
@@ -126,33 +125,33 @@ export function SearchPageComponent(props: Props) {
           )}
 
           {mutation.error && (
-            <div className='mb-8 rounded-xl border border-destructive/20 bg-destructive/5 p-6'>
+            <div className='border-destructive/20 bg-destructive/5 mb-8 rounded-xl border p-6'>
               <div className='mb-2 flex items-center gap-2'>
-                <div className='h-2 w-2 rounded-full bg-destructive'></div>
-                <span className='text-sm font-medium text-destructive'>
+                <div className='bg-destructive h-2 w-2 rounded-full'></div>
+                <span className='text-destructive text-sm font-medium'>
                   Search Failed
                 </span>
               </div>
-              <p className='text-sm text-destructive/80'>
-                {mutation.error instanceof Error 
-                  ? mutation.error.message 
+              <p className='text-destructive/80 text-sm'>
+                {mutation.error instanceof Error
+                  ? mutation.error.message
                   : 'An unexpected error occurred while searching. Please try again.'}
               </p>
             </div>
           )}
 
-          {props.searches.map((value, index) => (
+          {props.searchData.searches.map((value, index) => (
             <div key={index} className='mb-8'>
               <ResultCard
                 data={value}
                 sendMessage={onSubmit}
                 loading={mutation.isPending}
-                currentGroup={props.currentGroup}
+                currentGroup={props.searchData.group_id}
               />
             </div>
           ))}
 
-          {props.searches.length === 0 && !mutation.isPending && (
+          {props.searchData.searches.length === 0 && !mutation.isPending && (
             <div className='flex min-h-[60vh] items-center justify-center'>
               <div className='text-center'>
                 <Sparkles className='text-muted-foreground/50 mx-auto h-12 w-12' />
@@ -173,7 +172,7 @@ export function SearchPageComponent(props: Props) {
           <MessageInput
             sendMessage={onSubmit}
             loading={mutation.isPending}
-            currentGroup={props.currentGroup}
+            currentGroup={props.searchData.group_id}
             urls={urls}
             setUrls={setUrls}
             proxyModels={proxyModels}
