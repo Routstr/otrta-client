@@ -4,7 +4,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState, type ReactNode } from 'react';
 import { Toaster } from 'sonner';
-import { AuthProvider } from '@/lib/auth/AuthContext';
+import dynamic from 'next/dynamic';
+
+const NostrifyProvider = dynamic(
+  () =>
+    import('@/lib/auth/NostrifyAuthProvider').then((mod) => ({
+      default: mod.NostrifyProvider,
+    })),
+  {
+    ssr: false,
+    loading: () => <div>Loading...</div>,
+  }
+);
 
 interface ProvidersProps {
   children: ReactNode;
@@ -26,10 +37,12 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      <NostrifyProvider
+        relays={['wss://relay.damus.io', 'wss://relay.nostr.band']}
+      >
         {children}
         <Toaster position='top-right' />
-      </AuthProvider>
+      </NostrifyProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );

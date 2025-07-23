@@ -8,7 +8,7 @@ export const RedeemTokenRequestSchema = z.object({
 
 export const RedeemTokenResponseSchema = z.object({
   success: z.boolean(),
-  amount: z.number().optional(),
+  amount: z.string().nullable(),
   message: z.string().nullable(),
 });
 // Schema for sending tokens
@@ -42,6 +42,7 @@ export class WalletService {
       console.error('Error redeeming token:', error);
       return {
         success: false,
+        amount: null,
         message: 'Failed to redeem token. Please try again.',
       };
     }
@@ -60,7 +61,11 @@ export class WalletService {
     }
   }
 
-  static async sendToken(amount: number, mint_url: string, unit?: 'sat' | 'msat'): Promise<SendTokenResponse> {
+  static async sendToken(
+    amount: number,
+    mint_url: string,
+    unit?: 'sat' | 'msat'
+  ): Promise<SendTokenResponse> {
     try {
       const request = SendTokenRequestSchema.parse({ amount, mint_url, unit });
       const response = await apiClient.post<SendTokenResponse>(

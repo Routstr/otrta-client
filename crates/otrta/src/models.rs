@@ -1,9 +1,12 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use crate::db::mint::CurrencyUnit;
-use crate::multimint::MultimintWalletWrapper;
+use crate::multimint_manager::MultimintManager;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Token {
@@ -25,7 +28,8 @@ pub struct TokenRedeemResponse {
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_msats_per_request: u32,
-    pub wallet: Arc<MultimintWalletWrapper>,
+    pub multimint_manager: Arc<MultimintManager>,
+    pub search_cache: Arc<Mutex<HashMap<String, Instant>>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -197,14 +201,14 @@ impl ProxyModelFromApi {
                 self.id.clone()
             },
             input_cost: (self.sats_pricing.as_ref().map(|p| p.prompt).unwrap_or(0.0)
-                * 1000_000.0
+                * 1_000_000.0
                 * 1000.0) as i64, // Convert to msats
             output_cost: (self
                 .sats_pricing
                 .as_ref()
                 .map(|p| p.completion)
                 .unwrap_or(0.0)
-                * 1000_000.0
+                * 1_000_000.0
                 * 1000.0) as i64,
             min_cash_per_request: (self
                 .sats_pricing
@@ -263,7 +267,6 @@ impl ProxyModelFromApi {
 pub struct MultimintSendTokenRequest {
     pub amount: u64,
     pub preferred_mint: Option<String>,
-    pub unit: Option<String>,
     pub split_across_mints: Option<bool>,
 }
 
@@ -327,4 +330,82 @@ pub struct PendingProof {
     pub amount: String,
     pub key: String,
     pub key_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct User {
+    pub npub: String,
+    pub display_name: Option<String>,
+    pub email: Option<String>,
+    pub organization_id: uuid::Uuid,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub last_login_at: Option<DateTime<Utc>>,
+    pub is_active: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Organization {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub is_active: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateUserRequest {
+    pub npub: String,
+    pub display_name: Option<String>,
+    pub email: Option<String>,
+    pub organization_id: uuid::Uuid,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateOrganizationRequest {
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SignupRequest {
+    pub npub: String,
+    pub display_name: Option<String>,
+    pub email: Option<String>,
+    pub organization_name: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SignupResponse {
+    pub success: bool,
+    pub user: User,
+    pub organization: Organization,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UserContext {
+    pub npub: String,
+    pub organization_id: Uuid,
+    pub organization: Organization,
+    pub is_admin: bool,
+}
+
+impl UserContext {
+    pub fn new(npub: String, organization: Organization) -> Self {
+        Self {
+            npub,
+            organization_id: organization.id,
+            organization,
+            is_admin: false,
+        }
+    }
+
+    pub fn new_with_admin_status(npub: String, organization: Organization, is_admin: bool) -> Self {
+        Self {
+            npub,
+            organization_id: organization.id,
+            organization,
+            is_admin,
+        }
+    }
 }

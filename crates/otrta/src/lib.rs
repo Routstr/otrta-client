@@ -1,8 +1,11 @@
 pub mod auth;
+pub mod completion;
 pub mod db;
 pub mod error;
 pub mod handlers;
 pub mod models;
 pub mod multimint;
+pub mod multimint_manager;
 pub mod proxy;
+pub mod search;
 pub mod wallet;

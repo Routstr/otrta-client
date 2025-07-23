@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
-import { NostrLogin } from '@/components/auth/NostrLogin';
-import { ConfigurationService } from '@/lib/api/services/configuration';
+import { usePathname } from 'next/navigation';
+import { useNostrifyAuth } from '@/lib/auth/NostrifyAuthProvider';
 import { authStateManager } from './auth-state';
 import { Loader2 } from 'lucide-react';
 
@@ -15,53 +14,46 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isAuthEnabled, setIsAuthEnabled] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const { isAuthenticated, isLoading } = useNostrAuth();
+  const [isMounted, setIsMounted] = useState(false);
+  const { isLoading } = useNostrifyAuth();
+  const pathname = usePathname();
+
+  const publicRoutes = ['/', '/login', '/register'];
+  const isPublicRoute = publicRoutes.includes(pathname);
 
   useEffect(() => {
-    // Check if authentication is enabled
-    const authEnabled = ConfigurationService.isAuthenticationEnabled();
-    setIsAuthEnabled(authEnabled);
-    setIsCheckingAuth(false);
+    setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    // Subscribe to redirecting state changes
+    if (!isMounted) return;
+
+    // Check if authentication is enabled
+    const authEnabled =
+      process.env.NEXT_PUBLIC_ENABLE_AUTHENTICATION === 'true';
+    setIsAuthEnabled(authEnabled);
+    setIsCheckingAuth(false);
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
     const unsubscribe = authStateManager.onRedirectingChange(() => {
       setIsRedirecting(authStateManager.getIsRedirecting());
     });
 
-    // Set initial state
     setIsRedirecting(authStateManager.getIsRedirecting());
 
     return unsubscribe;
-  }, []);
+  }, [isMounted]);
 
-  // Remove client-side validation - only show login on 401 server responses
-  // useEffect(() => {
-  //   // Client-side validation removed to prevent false logouts
-  // }, []);
-
-  // Show loading screen while checking authentication settings
-  if (isCheckingAuth) {
+  // Show loading while checking auth or during redirects
+  if (!isMounted || isCheckingAuth || isRedirecting) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
-    );
-  }
-
-  // If authentication is disabled, show children directly
-  if (!isAuthEnabled) {
-    return <>{children}</>;
-  }
-
-  // Show loading screen while checking authentication status or redirecting
-  if (isLoading || isRedirecting) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">
+      <div className='flex min-h-screen items-center justify-center'>
+        <div className='text-center'>
+          <Loader2 className='mx-auto mb-4 h-8 w-8 animate-spin' />
+          <p className='text-muted-foreground'>
             {isRedirecting ? 'Redirecting to authentication...' : 'Loading...'}
           </p>
         </div>
@@ -69,11 +61,30 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // If authentication is enabled but user is not authenticated, show login
-  if (!isAuthenticated) {
-    return <NostrLogin />;
+  // If auth is disabled, always allow access
+  if (!isAuthEnabled) {
+    return <>{children}</>;
   }
 
-  // User is authenticated, show the protected content
+  // Always allow access to public routes
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
+  // For protected routes, show loading if still initializing authentication
+  // but don't redirect - let the API client handle 401 responses
+  if (isLoading) {
+    return (
+      <div className='flex min-h-screen items-center justify-center'>
+        <div className='text-center'>
+          <Loader2 className='mx-auto mb-4 h-8 w-8 animate-spin' />
+          <p className='text-muted-foreground'>Initializing...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Allow access to protected routes even if not authenticated
+  // The API client will handle 401 responses and redirect when necessary
   return <>{children}</>;
 }

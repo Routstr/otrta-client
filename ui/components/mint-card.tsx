@@ -2,13 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Trash2,
-  Power,
-  PowerOff,
-  Edit3,
-  AlertCircle,
-} from 'lucide-react';
+import { Trash2, Power, PowerOff, Edit3, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   MintService,
@@ -139,9 +133,10 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
 
   const displayName =
     mint.name || MultimintService.getMintDisplayName(mint.mint_url);
-  const formattedBalance = balance
-    ? MultimintService.formatBalance(balance, mint.currency_unit)
-    : null;
+  const formattedBalance =
+    balance !== undefined
+      ? MultimintService.formatBalance(balance, mint.currency_unit)
+      : null;
 
   return (
     <Card
@@ -296,7 +291,16 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
           <div className='space-y-1'>
             <p className='text-muted-foreground text-sm'>Balance</p>
             {formattedBalance ? (
-              <p className='text-lg font-semibold'>{formattedBalance}</p>
+              <>
+                <p className='text-lg font-semibold'>
+                  {formattedBalance.primary}
+                </p>
+                {formattedBalance.secondary && (
+                  <p className='text-muted-foreground text-sm'>
+                    {formattedBalance.secondary}
+                  </p>
+                )}
+              </>
             ) : (
               <p className='text-muted-foreground text-sm'>Loading...</p>
             )}

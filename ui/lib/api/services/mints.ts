@@ -58,7 +58,8 @@ export class MintService {
   // Get active mints only
   static async getActiveMints(): Promise<MintListResponse> {
     try {
-      const response = await apiClient.get<MintListResponse>('/api/mints/active');
+      const response =
+        await apiClient.get<MintListResponse>('/api/mints/active');
       return MintListResponseSchema.parse(response);
     } catch (error) {
       console.error('Error fetching active mints:', error);
@@ -81,42 +82,62 @@ export class MintService {
   static async createMint(request: CreateMintRequest): Promise<Mint> {
     try {
       const validatedRequest = CreateMintRequestSchema.parse(request);
-      const response = await apiClient.post<Mint>('/api/mints', validatedRequest);
+      const response = await apiClient.post<Mint>(
+        '/api/mints',
+        validatedRequest
+      );
       return MintSchema.parse(response);
     } catch (error) {
       console.error('Error creating mint:', error);
       if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${error.issues.map(i => i.message).join(', ')}`);
+        throw new Error(
+          `Validation error: ${error.issues.map((i) => i.message).join(', ')}`
+        );
       }
-      throw new Error('Failed to create mint. Please check the URL and try again.');
+      throw new Error(
+        'Failed to create mint. Please check the URL and try again.'
+      );
     }
   }
 
   // Update a mint
-  static async updateMint(id: number, request: UpdateMintRequest): Promise<Mint> {
+  static async updateMint(
+    id: number,
+    request: UpdateMintRequest
+  ): Promise<Mint> {
     try {
       const validatedRequest = UpdateMintRequestSchema.parse(request);
-      const response = await apiClient.put<Mint>(`/api/mints/${id}`, validatedRequest);
+      const response = await apiClient.put<Mint>(
+        `/api/mints/${id}`,
+        validatedRequest
+      );
       return MintSchema.parse(response);
     } catch (error) {
       console.error(`Error updating mint ${id}:`, error);
       if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${error.issues.map(i => i.message).join(', ')}`);
+        throw new Error(
+          `Validation error: ${error.issues.map((i) => i.message).join(', ')}`
+        );
       }
       throw new Error('Failed to update mint. Please try again.');
     }
   }
 
   // Delete a mint
-  static async deleteMint(id: number): Promise<{ success: boolean; message: string }> {
+  static async deleteMint(
+    id: number
+  ): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await apiClient.delete<{ success: boolean; message: string }>(
-        `/api/mints/${id}`
-      );
+      const response = await apiClient.delete<{
+        success: boolean;
+        message: string;
+      }>(`/api/mints/${id}`);
       return response;
     } catch (error) {
       console.error(`Error deleting mint ${id}:`, error);
-      throw new Error('Failed to delete mint. Make sure the mint has zero balance.');
+      throw new Error(
+        'Failed to delete mint. Make sure the mint has zero balance.'
+      );
     }
   }
 
@@ -127,14 +148,14 @@ export class MintService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       const request = SetMintActiveRequestSchema.parse({ is_active: isActive });
-      const response = await apiClient.post<{ success: boolean; message: string }>(
-        `/api/mints/${id}/set-active`,
-        request
-      );
+      const response = await apiClient.post<{
+        success: boolean;
+        message: string;
+      }>(`/api/mints/${id}/set-active`, request);
       return response;
     } catch (error) {
       console.error(`Error setting mint ${id} active status:`, error);
       throw new Error('Failed to update mint status. Please try again.');
     }
   }
-} 
+}

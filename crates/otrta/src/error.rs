@@ -12,6 +12,7 @@ pub enum AppError {
     Unauthorized,
     InternalServerError,
     ValidationError(String),
+    DatabaseError(String),
 }
 
 impl fmt::Display for AppError {
@@ -21,6 +22,7 @@ impl fmt::Display for AppError {
             AppError::Unauthorized => write!(f, "Unauthorized"),
             AppError::InternalServerError => write!(f, "Internal server error"),
             AppError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
+            AppError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
         }
     }
 }
@@ -34,6 +36,7 @@ impl IntoResponse for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
             }
             AppError::ValidationError(msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
+            AppError::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error"),
         };
 
         let body = Json(json!({

@@ -15,7 +15,6 @@ import {
   LightningService,
   type TopupRequest,
   type CreateInvoiceResponse,
-  type PaymentStatus,
 } from '@/lib/api/services/lightning';
 import { MintService } from '@/lib/api/services/mints';
 import {
@@ -126,10 +125,8 @@ export function MintManagementPage() {
     }
   };
 
-  const handlePaymentComplete = (paymentStatus: PaymentStatus) => {
-    toast.success(
-      `Lightning topup completed! Received ${paymentStatus.amount} sats`
-    );
+  const handlePaymentComplete = () => {
+    toast.success(`Lightning topup completed!`);
     queryClient.invalidateQueries({ queryKey: ['active-mints'] });
     queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
     setCurrentInvoice(null);
@@ -285,6 +282,12 @@ export function MintManagementPage() {
                           }))
                         }
                         placeholder='Paste ecash token here'
+                        className='max-h-32 min-h-20 resize-none overflow-y-auto'
+                        style={{
+                          wordBreak: 'break-all',
+                          overflowWrap: 'anywhere',
+                          whiteSpace: 'pre-wrap',
+                        }}
                         rows={4}
                       />
                     </div>

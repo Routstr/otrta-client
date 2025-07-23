@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { nostrAuthSimple as nostrAuth, NostrUser } from '@/lib/api/services/nostr-auth-simple';
+import {
+  nostrAuthSimple as nostrAuth,
+  NostrUser,
+} from '@/lib/api/services/nostr-auth-simple';
 
 export interface UseNostrAuthReturn {
   user: NostrUser | null;
@@ -25,13 +28,10 @@ export function useNostrAuth(): UseNostrAuthReturn {
       try {
         setIsLoading(true);
         setError(null);
-        
+
         // Initialize nostr-auth
-        await nostrAuth.initialize({
-          theme: 'default',
-          darkMode: document.documentElement.classList.contains('dark'),
-        });
-        
+        await nostrAuth.initialize();
+
         // Set initial user state
         setUser(nostrAuth.getCurrentUser());
       } catch (err) {
@@ -61,11 +61,8 @@ export function useNostrAuth(): UseNostrAuthReturn {
     try {
       setIsLoading(true);
       setError(null);
-      
-      await nostrAuth.initialize({
-        theme: 'default',
-        darkMode: document.documentElement.classList.contains('dark'),
-      });
+
+      await nostrAuth.initialize();
       setUser(nostrAuth.getCurrentUser());
     } catch (err) {
       console.error('Failed to initialize auth:', err);
@@ -79,7 +76,7 @@ export function useNostrAuth(): UseNostrAuthReturn {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // Redirect to login page since we no longer have modal auth
       window.location.href = '/login';
     } catch (err) {
@@ -94,7 +91,7 @@ export function useNostrAuth(): UseNostrAuthReturn {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       await nostrAuth.loginWithNsec(nsec);
       setUser(nostrAuth.getCurrentUser());
     } catch (err) {
@@ -109,7 +106,7 @@ export function useNostrAuth(): UseNostrAuthReturn {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       await nostrAuth.logout();
       setUser(null);
     } catch (err) {

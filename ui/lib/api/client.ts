@@ -1,6 +1,4 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosInstance } from 'axios';
-import { ConfigurationService } from './services/configuration';
-import { nostrAuthSimple as nostrAuth } from './services/nostr-auth-simple';
 import { authStateManager } from '../auth/auth-state';
 
 // Nostr window interface is defined in nostr-auth.ts
@@ -11,7 +9,6 @@ class ApiClient {
 
   constructor() {
     this.axiosInstance = axios.create({
-      baseURL: this.getBaseUrl(),
       withCredentials: false,
       headers: {
         Accept: 'application/json',
@@ -20,9 +17,20 @@ class ApiClient {
       timeout: 30000,
     });
 
+    // Set up request interceptor to dynamically set baseURL
+    this.axiosInstance.interceptors.request.use((config) => {
+      if (!config.baseURL) {
+        config.baseURL = this.getBaseUrl();
+      }
+      return config;
+    });
+
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
+        const { ConfigurationService } = await import(
+          './services/configuration'
+        );
         if (
           error.response?.status === 401 &&
           ConfigurationService.isAuthenticationEnabled()
@@ -35,7 +43,22 @@ class ApiClient {
   }
 
   private getBaseUrl(): string {
-    return ConfigurationService.getBaseUrl();
+    // Dynamic import to avoid circular dependency
+    try {
+      if (typeof window !== 'undefined') {
+        // Client-side: check localStorage first
+        const endpoint = localStorage.getItem('server_endpoint');
+        const enabled = localStorage.getItem('server_enabled') === 'true';
+        if (enabled && endpoint) {
+          return endpoint;
+        }
+      }
+      // Fallback to environment variable or default
+      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    } catch (error) {
+      console.warn('Error getting base URL:', error);
+      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    }
   }
 
   private async handle401Error(): Promise<void> {
@@ -48,15 +71,18 @@ class ApiClient {
       console.log('401 Unauthorized - logging out and redirecting to login');
 
       // Clear auth since server rejected the authentication
-      if (nostrAuth.isAuthenticated()) {
-        await nostrAuth.logout();
-      }
+      try {
+        const { getGlobalAuthState } = await import(
+          '../auth/NostrifyAuthProvider'
+        );
+        const authState = getGlobalAuthState();
 
-      // Initialize nostr auth for fresh login
-      await nostrAuth.initialize({
-        theme: 'default',
-        darkMode: document.documentElement.classList.contains('dark'),
-      });
+        if (authState?.activeUser) {
+          authState.logout();
+        }
+      } catch (error) {
+        console.warn('Failed to access auth state for logout:', error);
+      }
 
       // Redirect to login page
       window.location.href = '/login';
@@ -78,33 +104,76 @@ class ApiClient {
       'Content-Type': 'application/json',
     };
 
-    // Add any additional auth headers from configuration
-    const configHeaders = ConfigurationService.getAuthHeaders();
-    Object.assign(headers, configHeaders);
+    // Check if authentication is enabled
+    const isAuthEnabled =
+      process.env.NEXT_PUBLIC_ENABLE_AUTHENTICATION === 'true';
 
-    // Add NIP-98 authentication if enabled and nostr is available
-    if (
-      ConfigurationService.isAuthenticationEnabled() &&
-      typeof window !== 'undefined'
-    ) {
+    // Add NIP-98 authentication if enabled and authenticated
+    if (isAuthEnabled && typeof window !== 'undefined') {
       try {
-        if (window.nostr) {
-          const auth_event = await window.nostr.signEvent({
-            kind: 27235,
-            created_at: Math.floor(new Date().getTime() / 1000),
-            content: 'application/json',
-            tags: [
-              ['u', `${this.getBaseUrl()}${path}`],
-              ['method', method],
-            ],
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any);
+        // Import auth state getter
+        const { getGlobalAuthState } = await import(
+          '../auth/NostrifyAuthProvider'
+        );
+        const authState = getGlobalAuthState();
 
-          headers['Authorization'] =
-            `Nostr ${btoa(JSON.stringify(auth_event))}`;
+        if (authState?.currentSigner && authState?.activeUser) {
+          console.log('Creating NIP-98 auth event for:', method, path);
+          try {
+            const auth_event = await authState.signEvent({
+              kind: 27235,
+              created_at: Math.floor(new Date().getTime() / 1000),
+              content: 'application/json',
+              tags: [
+                ['u', `${this.getBaseUrl()}${path}`],
+                ['method', method],
+              ],
+            });
+
+            if (auth_event) {
+              headers['Authorization'] =
+                `Nostr ${btoa(JSON.stringify(auth_event))}`;
+              console.log('NIP-98 auth header added successfully');
+            } else {
+              console.warn('Failed to create auth event');
+            }
+          } catch (eventError) {
+            console.error('Error creating NIP-98 auth event:', eventError);
+            throw eventError; // Re-throw to be caught by outer catch
+          }
+        } else {
+          console.warn('No auth state available:', {
+            hasSigner: !!authState?.currentSigner,
+            hasUser: !!authState?.activeUser,
+          });
         }
       } catch (error) {
-        console.warn('Failed to create NIP-98 authentication:', error);
+        console.error('Failed to create NIP-98 authentication:', error);
+        // In case of auth error, still try the request without auth
+        // This helps with debugging and might work for some endpoints
+      }
+    } else {
+      // Only add Bearer token auth headers when Nostr auth is disabled
+      try {
+        // Check for API key first (bearer token authentication)
+        const apiKey =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('api_key')
+            : null;
+        if (apiKey) {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        } else {
+          // Fallback to legacy auth_user token
+          const authUser =
+            typeof window !== 'undefined'
+              ? localStorage.getItem('auth_user')
+              : null;
+          if (authUser) {
+            headers['Authorization'] = `Bearer ${authUser}`;
+          }
+        }
+      } catch (error) {
+        console.warn('Error accessing localStorage:', error);
       }
     }
 

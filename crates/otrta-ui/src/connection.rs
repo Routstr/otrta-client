@@ -15,6 +15,7 @@ pub struct ApplicationSettings {
     pub port: u16,
     pub host: String,
     pub default_msats_per_request: u32,
+    #[allow(dead_code)]
     pub mint_url: String,
     pub enable_authentication: bool,
     pub whitelisted_npubs: Vec<String>,
@@ -43,7 +44,7 @@ impl DatabaseSettings {
         PgConnectOptions::new()
             .host(&self.host)
             .username(&self.username)
-            .password(&self.password.expose_secret())
+            .password(self.password.expose_secret())
             .port(self.port)
             .ssl_mode(ssl_mode)
     }
@@ -55,7 +56,6 @@ impl DatabaseSettings {
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-    println!("{:?}", std::env::current_dir());
     let configuration_directory = base_path.join("configuration");
 
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
@@ -68,7 +68,6 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 
     let base_config_path = configuration_directory.join("base.yaml");
     if base_config_path.exists() {
-        println!("Loading base configuration from: {:?}", base_config_path);
         config_builder = config_builder.add_source(config::File::from(base_config_path));
     } else {
         println!("Base configuration file not found, using environment variables and defaults");

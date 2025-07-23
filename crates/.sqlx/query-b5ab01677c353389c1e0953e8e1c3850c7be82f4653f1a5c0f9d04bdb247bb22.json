@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            id,\n            created_at,\n            token,\n            amount,\n            direction as \"direction: TransactionDirection\",\n            api_key_id::text,\n            user_id::text,\n            type as \"type: TransactionType\"\n        FROM transactions\n        WHERE user_id = $1\n        ORDER BY created_at DESC\n        LIMIT $2 OFFSET $3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "amount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "direction: TransactionDirection",
+        "type_info": {
+          "Custom": {
+            "name": "transaction_direction",
+            "kind": {
+              "Enum": [
+                "Incoming",
+                "Outgoing"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "api_key_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "user_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "type: TransactionType",
+        "type_info": {
+          "Custom": {
+            "name": "transaction_type",
+            "kind": {
+              "Enum": [
+                "chat",
+                "api"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "b5ab01677c353389c1e0953e8e1c3850c7be82f4653f1a5c0f9d04bdb247bb22"
+}

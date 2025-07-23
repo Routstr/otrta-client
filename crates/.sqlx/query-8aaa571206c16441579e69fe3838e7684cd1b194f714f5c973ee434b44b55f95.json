@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE user_search_groups\n        SET name = $3, updated_at = NOW()\n        WHERE user_id = $1 AND id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8aaa571206c16441579e69fe3838e7684cd1b194f714f5c973ee434b44b55f95"
+}

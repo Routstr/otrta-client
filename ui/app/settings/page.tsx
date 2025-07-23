@@ -20,11 +20,11 @@ export default function SettingsPage() {
               <h1 className='text-2xl font-bold tracking-tight'>Settings</h1>
             </div>
             <div className='w-full'>
-              <Tabs defaultValue="api-keys" className="w-full">
-                <TabsList className="grid w-full grid-cols-1">
-                  <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+              <Tabs defaultValue='api-keys' className='w-full'>
+                <TabsList className='grid w-full grid-cols-1'>
+                  <TabsTrigger value='api-keys'>API Keys</TabsTrigger>
                 </TabsList>
-                <TabsContent value="api-keys" className="mt-6">
+                <TabsContent value='api-keys' className='mt-6'>
                   <ApiKeySettings />
                 </TabsContent>
               </Tabs>

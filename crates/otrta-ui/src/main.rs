@@ -5,14 +5,12 @@ use axum::{
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{DatabaseSettings, Settings, get_configuration};
-use ecash_402_wallet::wallet::CashuWalletClient;
+use connection::{DatabaseSettings, get_configuration};
 use otrta::{
-    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware},
-    db::server_config::create_with_seed,
-    handlers::{self, get_server_config},
+    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware_with_context},
+    handlers,
     models::AppState,
-    multimint::MultimintWalletWrapper,
+    multimint_manager::MultimintManager,
     proxy::{forward_any_request, forward_any_request_get},
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
@@ -43,14 +41,16 @@ async fn main() {
         .await
         .unwrap();
 
-    let wallet = initialize_wallet(&connection_pool, &configuration, "ecash_402")
-        .await
-        .unwrap();
+    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "/multimint".to_string());
+    std::fs::create_dir_all(&wallet_dir).unwrap();
+
+    let multimint_manager = Arc::new(MultimintManager::new(wallet_dir, connection_pool.clone()));
 
     let app_state = Arc::new(AppState {
         db: connection_pool.clone(),
         default_msats_per_request: configuration.application.default_msats_per_request,
-        wallet: Arc::new(wallet),
+        multimint_manager,
+        search_cache: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
     });
 
     let job_runner = BackgroundJobRunner::new(Arc::clone(&app_state));
@@ -83,6 +83,15 @@ async fn main() {
             "/api/providers/{id}/set-default",
             post(handlers::set_provider_default),
         )
+        .route(
+            "/api/providers/{id}/activate",
+            post(handlers::activate_provider),
+        )
+        .route(
+            "/api/providers/{id}/deactivate",
+            post(handlers::deactivate_provider),
+        )
+        .route("/api/providers/active", get(handlers::get_active_providers))
         .route("/api/providers/refresh", post(handlers::refresh_providers))
         .route(
             "/api/proxy/models/refresh",
@@ -133,6 +142,7 @@ async fn main() {
             post(handlers::transfer_between_mints_handler),
         )
         .route("/api/multimint/topup", post(handlers::topup_mint_handler))
+        .route("/api/multimint/redeem", post(handlers::redeem_token))
         .route("/api/api-keys", get(handlers::get_all_api_keys_handler))
         .route("/api/api-keys", post(handlers::create_api_key_handler))
         .route("/api/api-keys/{id}", get(handlers::get_api_key_handler))
@@ -162,6 +172,21 @@ async fn main() {
             post(handlers::complete_lightning_topup_handler),
         )
         .route("/api/debug/wallet", get(handlers::get_wallet_debug_info))
+        .route("/api/search", get(handlers::get_searches_handler))
+        .route("/api/search", post(handlers::search_handler))
+        .route("/api/search/delete", post(handlers::delete_search_handler))
+        .route(
+            "/api/search/groups",
+            get(handlers::get_search_groups_handler),
+        )
+        .route(
+            "/api/search/groups",
+            post(handlers::create_search_group_handler),
+        )
+        .route(
+            "/api/search/groups/delete",
+            post(handlers::delete_search_group_handler),
+        )
         .with_state(app_state.clone());
 
     let mut unprotected_routes = Router::new()
@@ -184,7 +209,7 @@ async fn main() {
 
         protected_routes = protected_routes.layer(middleware::from_fn_with_state(
             auth_state,
-            nostr_auth_middleware,
+            nostr_auth_middleware_with_context,
         ));
     }
 
@@ -218,77 +243,4 @@ pub async fn get_connection_pool(configuration: &DatabaseSettings) -> Result<PgP
         .max_connections(configuration.connections)
         .connect_with(configuration.with_db())
         .await
-}
-
-async fn initialize_wallet(
-    connection_pool: &PgPool,
-    configuration: &Settings,
-    db_name: &str,
-) -> Result<MultimintWalletWrapper, Box<dyn std::error::Error>> {
-    let wallet_dir = dotenv::var("WALLET_DATA_DIR").unwrap_or_else(|_| "./wallet_data".to_string());
-    std::fs::create_dir_all(&wallet_dir)?;
-
-    let unique_db_name = format!("{}/{}", wallet_dir, db_name);
-    let multimint_db_name = format!("{}/multimint", wallet_dir);
-    std::fs::create_dir_all(&multimint_db_name)?;
-
-    let config = get_server_config(connection_pool).await;
-    match config {
-        Some(config) => {
-            let seed = config.seed.clone().unwrap();
-            let single_wallet = CashuWalletClient::from_seed(
-                &configuration.application.mint_url,
-                &seed,
-                &unique_db_name,
-            )
-            .await
-            .unwrap();
-
-            let multimint_wallet = MultimintWalletWrapper::from_existing_wallet(
-                &single_wallet,
-                &configuration.application.mint_url,
-                &seed,
-                &multimint_db_name,
-            )
-            .await?;
-
-            use otrta::db::mint::get_active_mints;
-            if let Ok(active_mints) = get_active_mints(connection_pool).await {
-                for mint in active_mints {
-                    if mint.mint_url != configuration.application.mint_url {
-                        if let Err(e) = multimint_wallet
-                            .add_mint(&mint.mint_url, otrta::db::mint::CurrencyUnit::Sat)
-                            .await
-                        {
-                            eprintln!("Failed to add mint {}: {:?}", mint.mint_url, e);
-                        }
-                    }
-                }
-            }
-
-            Ok(multimint_wallet)
-        }
-        None => {
-            let mut seed = String::new();
-            let wallet = CashuWalletClient::new(
-                &configuration.application.mint_url,
-                &mut seed,
-                &unique_db_name,
-            )
-            .await
-            .unwrap();
-
-            create_with_seed(connection_pool, &seed).await?;
-
-            let multimint_wallet = MultimintWalletWrapper::from_existing_wallet(
-                &wallet,
-                &configuration.application.mint_url,
-                &seed,
-                &multimint_db_name,
-            )
-            .await?;
-
-            Ok(multimint_wallet)
-        }
-    }
 }

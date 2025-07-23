@@ -10,8 +10,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 
 use crate::db::api_keys::{get_api_key_by_key, update_last_used_at};
+use crate::db::{organizations, users};
 use crate::error::AppError;
-use crate::models::AppState;
+use crate::models::{AppState, CreateOrganizationRequest, UserContext};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
@@ -57,8 +58,7 @@ pub async fn bearer_auth_middleware(
         Err(_) => return AppError::Unauthorized.into_response(),
     };
 
-    if auth_str.starts_with("Bearer ") {
-        let token = &auth_str[7..];
+    if let Some(token) = auth_str.strip_prefix("Bearer ") {
         match validate_bearer_token(&auth_state.app_state.db, token).await {
             Ok(api_key_id) => {
                 let mut request = request;
@@ -100,8 +100,7 @@ pub async fn nostr_auth_middleware(
         Err(_) => return AppError::Unauthorized.into_response(),
     };
 
-    if auth_str.starts_with("Nostr ") {
-        let encoded_event = &auth_str[6..];
+    if let Some(encoded_event) = auth_str.strip_prefix("Nostr ") {
         let decoded_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded_event) {
             Ok(bytes) => bytes,
             Err(_) => return AppError::Unauthorized.into_response(),
@@ -120,7 +119,13 @@ pub async fn nostr_auth_middleware(
         if let Err(err) = validate_auth_event(&event, &request, &auth_state.config) {
             return err.into_response();
         }
-        info!("Nostr authentication successful");
+
+        // Extract user ID (public key) from the event and add it as an extension
+        let user_id = event.pubkey.to_hex();
+        info!("Nostr authentication successful for user: {}", user_id);
+
+        let mut request = request;
+        request.extensions_mut().insert(user_id);
         return next.run(request).await;
     }
 
@@ -133,6 +138,86 @@ pub async fn nostr_auth_middleware(
         }
     );
     AppError::Unauthorized.into_response()
+}
+
+pub async fn nostr_auth_middleware_with_context(
+    State(auth_state): State<AuthState>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    if !auth_state.config.enabled {
+        return next.run(request).await;
+    }
+
+    let auth_header = match request.headers().get(AUTHORIZATION) {
+        Some(header) => header,
+        None => return AppError::Unauthorized.into_response(),
+    };
+
+    let auth_str = match auth_header.to_str() {
+        Ok(str) => str,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
+    if !auth_str.starts_with("Nostr ") {
+        warn!(
+            "Nostr token required but {} provided",
+            if auth_str.starts_with("Bearer ") {
+                "Bearer token"
+            } else {
+                "invalid format"
+            }
+        );
+        return AppError::Unauthorized.into_response();
+    }
+
+    let encoded_event = &auth_str[6..];
+    let decoded_bytes = match base64::engine::general_purpose::STANDARD.decode(encoded_event) {
+        Ok(bytes) => bytes,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
+    let event_json = match std::str::from_utf8(&decoded_bytes) {
+        Ok(json) => json,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
+    let event: Event = match serde_json::from_str(event_json) {
+        Ok(event) => event,
+        Err(_) => return AppError::Unauthorized.into_response(),
+    };
+
+    if let Err(err) = validate_auth_event(&event, &request, &auth_state.config) {
+        return err.into_response();
+    }
+
+    let npub = event.pubkey.to_bech32().unwrap_or_default();
+
+    let user_context = match create_or_get_user_context(
+        &auth_state.app_state,
+        &npub,
+        &auth_state.config.whitelisted_npubs,
+    )
+    .await
+    {
+        Ok(ctx) => ctx,
+        Err(e) => {
+            warn!("Failed to create user context: {}", e);
+            return e.into_response();
+        }
+    };
+
+    if let Err(e) =
+        ensure_organization_multimint(&auth_state.app_state, &user_context.organization_id).await
+    {
+        warn!("Failed to ensure organization multimint: {}", e);
+        return e.into_response();
+    }
+
+    request.extensions_mut().insert(user_context);
+
+    info!("Nostr authentication successful with user context");
+    next.run(request).await
 }
 
 fn validate_auth_event(
@@ -156,18 +241,13 @@ fn validate_auth_event(
         return Err(AppError::Unauthorized);
     }
 
-    if !event.verify().is_ok() {
+    if event.verify().is_err() {
         warn!("Invalid event signature");
         return Err(AppError::Unauthorized);
     }
 
-    if !config.whitelisted_npubs.is_empty() {
-        let user_npub = event.pubkey.to_bech32().unwrap_or_default();
-        if !config.whitelisted_npubs.contains(&user_npub) {
-            warn!("User {} not in whitelist", user_npub);
-            return Err(AppError::Unauthorized);
-        }
-    }
+    // Admin validation is now handled in create_or_get_user_context function
+    // This allows non-admin users to authenticate but admin status is tracked separately
 
     let mut url_found = false;
     let mut method_found = false;
@@ -266,4 +346,81 @@ async fn validate_bearer_token(db: &sqlx::PgPool, token: &str) -> Result<String,
     }
 
     Ok(api_key.id)
+}
+
+pub fn is_user_admin(npub: &str, whitelisted_npubs: &[String]) -> bool {
+    !whitelisted_npubs.is_empty() && whitelisted_npubs.contains(&npub.to_string())
+}
+
+async fn create_or_get_user_context(
+    app_state: &Arc<AppState>,
+    npub: &str,
+    whitelisted_npubs: &[String],
+) -> Result<UserContext, AppError> {
+    if let Some(user) = users::get_user_by_npub(&app_state.db, npub).await? {
+        let organization =
+            organizations::get_organization_by_id(&app_state.db, &user.organization_id)
+                .await?
+                .ok_or_else(|| {
+                    warn!(
+                        "User {} has invalid organization_id: {}",
+                        npub, user.organization_id
+                    );
+                    AppError::InternalServerError
+                })?;
+        let is_admin = is_user_admin(npub, whitelisted_npubs);
+        return Ok(UserContext::new_with_admin_status(
+            npub.to_string(),
+            organization,
+            is_admin,
+        ));
+    }
+
+    // User doesn't exist, assign them to default organization and create user
+    info!(
+        "User {} not found, creating user and assigning to default organization",
+        npub
+    );
+    let organization = ensure_default_organization_exists(app_state).await?;
+
+    let create_user_request = crate::models::CreateUserRequest {
+        npub: npub.to_string(),
+        display_name: None,
+        email: None,
+        organization_id: organization.id,
+    };
+    users::create_user(&app_state.db, &create_user_request).await?;
+
+    let is_admin = is_user_admin(npub, whitelisted_npubs);
+    Ok(UserContext::new_with_admin_status(
+        npub.to_string(),
+        organization,
+        is_admin,
+    ))
+}
+
+pub async fn ensure_default_organization_exists(
+    app_state: &Arc<AppState>,
+) -> Result<crate::models::Organization, AppError> {
+    let create_org_request = CreateOrganizationRequest {
+        name: "Organization".to_string(),
+    };
+
+    let organization =
+        organizations::create_organization(&app_state.db, &create_org_request).await?;
+    info!("Created default organization: {}", organization.id);
+
+    Ok(organization)
+}
+
+async fn ensure_organization_multimint(
+    app_state: &Arc<AppState>,
+    org_id: &uuid::Uuid,
+) -> Result<(), AppError> {
+    app_state
+        .multimint_manager
+        .preload_multimint(org_id)
+        .await?;
+    info!("Ensured multimint exists for organization: {}", org_id);
+    Ok(())
 }

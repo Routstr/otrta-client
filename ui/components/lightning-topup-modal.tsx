@@ -27,7 +27,7 @@ interface LightningTopupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   invoice: CreateInvoiceResponse | null;
-  onPaymentComplete?: (paymentStatus: PaymentStatus) => void;
+  onPaymentComplete?: () => void;
 }
 
 export function LightningTopupModal({
@@ -94,36 +94,36 @@ export function LightningTopupModal({
 
     setIsPolling(true);
 
-          const checkStatus = async () => {
-        try {
-          // Use enhanced payment status checking with mint_url from invoice response
-          const status = await LightningService.checkPaymentStatusWithMint({
-            quote_id: invoice.quote_id,
-            mint_url: invoice.mint_url
-          });
-          setPaymentStatus(status);
+    const checkStatus = async () => {
+      try {
+        // Use enhanced payment status checking with mint_url from invoice response
+        const status = await LightningService.checkPaymentStatusWithMint({
+          quote_id: invoice.quote_id,
+          mint_url: invoice.mint_url,
+        });
+        setPaymentStatus(status);
 
-          const state = status.state.toLowerCase();
-          if (state === 'paid') {
-            toast.success(`Payment received! ${status.amount} sats`);
-            stopPolling();
-            if (onPaymentComplete) {
-              onPaymentComplete(status);
-            }
-            return;
-          } else if (state === 'failed') {
-            toast.error('Payment failed');
-            stopPolling();
-            return;
-          } else if (state === 'expired') {
-            toast.warning('Invoice expired');
-            stopPolling();
-            return;
+        const state = status.state.toLowerCase();
+        if (state === 'paid') {
+          toast.success(`Payment received!`);
+          stopPolling();
+          if (onPaymentComplete) {
+            onPaymentComplete();
           }
-        } catch (error) {
-          console.error('Error checking payment status:', error);
+          return;
+        } else if (state === 'failed') {
+          toast.error('Payment failed');
+          stopPolling();
+          return;
+        } else if (state === 'expired') {
+          toast.warning('Invoice expired');
+          stopPolling();
+          return;
         }
-      };
+      } catch (error) {
+        console.error('Error checking payment status:', error);
+      }
+    };
 
     // Initial check
     await checkStatus();
@@ -209,7 +209,7 @@ export function LightningTopupModal({
           </DialogTitle>
           <DialogDescription>
             {isPaid
-              ? `Successfully received ${paymentStatus?.amount} sats!`
+              ? `Successfully received ${invoice?.amount} sats!`
               : `Share this invoice or QR code for others to pay you ${invoice.amount} sats`}
           </DialogDescription>
         </DialogHeader>
@@ -226,11 +226,12 @@ export function LightningTopupModal({
                 {paymentStatus.state.charAt(0).toUpperCase() +
                   paymentStatus.state.slice(1)}
               </span>
-                             {isPolling && paymentStatus.state?.toLowerCase() === 'pending' && (
-                 <span className='ml-2 text-sm text-gray-500'>
-                   (Checking for payment...)
-                 </span>
-               )}
+              {isPolling &&
+                paymentStatus.state?.toLowerCase() === 'pending' && (
+                  <span className='ml-2 text-sm text-gray-500'>
+                    (Checking for payment...)
+                  </span>
+                )}
             </div>
           )}
 
@@ -292,7 +293,12 @@ export function LightningTopupModal({
                     <Textarea
                       value={invoice.payment_request}
                       readOnly
-                      className='font-mono text-xs'
+                      className='max-h-32 min-h-20 resize-none overflow-y-auto font-mono text-xs'
+                      style={{
+                        wordBreak: 'break-all',
+                        overflowWrap: 'anywhere',
+                        whiteSpace: 'pre-wrap',
+                      }}
                       rows={4}
                     />
                     <Button
@@ -329,11 +335,6 @@ export function LightningTopupModal({
                 The invoice has been paid and your wallet balance will be
                 updated shortly.
               </p>
-              {paymentStatus?.fee_paid && (
-                <p className='mt-2 text-sm text-green-600'>
-                  Fee paid: {paymentStatus.fee_paid} sats
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -342,7 +343,7 @@ export function LightningTopupModal({
           <Button variant='outline' onClick={handleClose}>
             {isPaid ? 'Done' : 'Close'}
           </Button>
-                     {!isPaid && paymentStatus?.state?.toLowerCase() === 'pending' && (
+          {!isPaid && paymentStatus?.state?.toLowerCase() === 'pending' && (
             <Button onClick={togglePolling} variant='secondary'>
               {isPolling ? (
                 <>

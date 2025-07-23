@@ -1,0 +1,87 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            t.id,\n            t.created_at,\n            t.token,\n            t.amount,\n            t.direction as \"direction: TransactionDirection\",\n            t.api_key_id::text,\n            t.user_id::text,\n            t.type as \"type: TransactionType\"\n        FROM transactions t\n        LEFT JOIN api_keys ak ON t.api_key_id = ak.id\n        WHERE t.user_id = $1 OR ak.organization_id = $2\n        ORDER BY t.created_at DESC\n        LIMIT $3 OFFSET $4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "amount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "direction: TransactionDirection",
+        "type_info": {
+          "Custom": {
+            "name": "transaction_direction",
+            "kind": {
+              "Enum": [
+                "Incoming",
+                "Outgoing"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "api_key_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "user_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "type: TransactionType",
+        "type_info": {
+          "Custom": {
+            "name": "transaction_type",
+            "kind": {
+              "Enum": [
+                "chat",
+                "api"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "fa9b3971ad5101cad9b380fba85f9d84fba20037a5cd42529827b385ee8ea656"
+}

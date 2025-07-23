@@ -19,13 +19,26 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useNostrifyAuth } from '@/lib/auth/NostrifyAuthProvider';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { logoutUser } from '@/lib/auth/auth-utils';
+import { useState } from 'react';
 
 type NavUserProps = {
   user?: {
@@ -35,27 +48,58 @@ type NavUserProps = {
   };
 };
 
+function extractUserData(activeUser: unknown) {
+  if (!activeUser || typeof activeUser !== 'object') return null;
+
+  const user = activeUser as Record<string, unknown>;
+  const profile = (user.profile as Record<string, unknown>) || {};
+  const npub = user.npub as string;
+
+  return {
+    name:
+      (profile.displayName as string) ||
+      (profile.name as string) ||
+      (npub ? npub.slice(0, 12) + '...' : 'User'),
+    email: (profile.nip05 as string) || '',
+    avatar: (profile.image as string) || '/avatars/default.jpg',
+  };
+}
+
 export function NavUser({ user: propUser }: NavUserProps) {
   const { isMobile } = useSidebar();
-  const { user: authUser, signout } = useAuth();
+  const { activeUser, logout } = useNostrifyAuth();
   const router = useRouter();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   // Use authenticated user if available, otherwise fall back to prop user or default
-  const userData = authUser
-    ? {
-        name: authUser.name,
-        email: authUser.email,
-        avatar: authUser.avatar_url || '/avatars/default.jpg',
-      }
-    : propUser || {
-        name: 'Guest User',
-        email: 'guest@example.com',
-        avatar: '/avatars/default.jpg',
-      };
+  const userData = extractUserData(activeUser) ||
+    propUser || {
+      name: 'Guest User',
+      email: 'guest@example.com',
+      avatar: '/avatars/default.jpg',
+    };
 
-  const handleLogout = () => {
-    signout();
-    router.push('/');
+  const confirmLogout = async () => {
+    try {
+      setShowLogoutDialog(false);
+      // Use the enhanced logout utility for comprehensive cleanup
+      const success = await logoutUser('/login');
+      if (!success) {
+        // Fallback to regular logout if utility fails
+        logout();
+        router.push('/login');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to logout');
+      // Fallback logout
+      logout();
+      router.push('/login');
+    }
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutDialog(true);
   };
 
   return (
@@ -130,13 +174,31 @@ export function NavUser({ user: propUser }: NavUserProps) {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
+            <DropdownMenuItem onClick={handleLogoutClick}>
               <LogOutIcon className='mr-2 h-4 w-4' />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out? This will clear all your
+              authentication data and you&apos;ll need to log in again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLogout}>
+              Log out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarMenu>
   );
 }

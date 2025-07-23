@@ -8,6 +8,7 @@ import {
   DatabaseIcon,
   CoinsIcon,
   SettingsIcon,
+  SearchIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -26,7 +27,7 @@ const data = {
   navMain: [
     {
       title: 'Dashboard',
-      url: '/',
+      url: '/dashboard',
       icon: LayoutDashboardIcon,
     },
   ],
@@ -34,8 +35,13 @@ const data = {
   navSecondary: [
     {
       title: 'Dashboard',
-      url: '/',
+      url: '/dashboard',
       icon: LayoutDashboardIcon,
+    },
+    {
+      title: 'Search',
+      url: '/search',
+      icon: SearchIcon,
     },
     {
       title: 'Transactions',
@@ -76,7 +82,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className='data-[slot=sidebar-menu-button]:!p-1.5'
             >
-              <Link href='/' className='flex items-center gap-2'>
+              <Link href='/dashboard' className='flex items-center gap-2'>
                 <Image
                   src='/routstr.svg'
                   alt='OTRTA Logo'

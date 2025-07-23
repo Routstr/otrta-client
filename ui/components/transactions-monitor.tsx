@@ -170,6 +170,7 @@ export function TransactionsMonitor({
           <TableHeader>
             <TableRow>
               <TableHead>Token</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Direction</TableHead>
               <TableHead>Amount (msats)</TableHead>
               <TableHead>Created At</TableHead>
@@ -191,6 +192,20 @@ export function TransactionsMonitor({
                       </div>
                     </HoverCardContent>
                   </HoverCard>
+                </TableCell>
+                <TableCell>
+                  <div className='flex items-center gap-1'>
+                    <span
+                      className={cn(
+                        'rounded-full px-2 py-1 text-xs font-medium',
+                        transaction.type === 'Chat'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                      )}
+                    >
+                      {transaction.type}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className='flex items-center gap-1'>

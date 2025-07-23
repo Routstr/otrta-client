@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import axios from 'axios';
-// import { apiClient } from '../client';
 
 // Schema for server configuration
 export const ServerConfigSchema = z.object({
@@ -92,7 +91,8 @@ export class ConfigurationService {
 
     try {
       // Check for API key first (bearer token authentication)
-      const apiKey = typeof window !== 'undefined' ? localStorage.getItem('api_key') : null;
+      const apiKey =
+        typeof window !== 'undefined' ? localStorage.getItem('api_key') : null;
       if (apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
         return headers;
@@ -181,19 +181,18 @@ export class ConfigurationService {
       // Save to localStorage first
       this.saveServerConfig(config);
 
-      // Always use the local server URL for saving configuration
-      const localBaseUrl = this.getLocalBaseUrl();
-
       // Convert from camelCase to snake_case for the backend
       const backendConfig = {
         endpoint: config.endpoint,
         api_key: config.apiKey,
       };
 
-      // Then save to the backend server using the local URL
+      // Use direct axios call to avoid circular dependency with apiClient
+      const localBaseUrl = this.getLocalBaseUrl();
       await axios.post(`${localBaseUrl}/api/server-config`, backendConfig, {
         headers: {
           'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
         },
       });
 

@@ -1,6 +1,6 @@
 use crate::{
     db::{
-        transaction::{add_transaction, TransactionDirection},
+        transaction::{add_transaction, TransactionDirection, TransactionType},
         Pool,
     },
     multimint::{LocalMultimintSendOptions, MultimintWalletWrapper},
@@ -18,6 +18,7 @@ pub async fn send_with_retry(
     retries: Option<i32>,
     db: &Pool,
     api_key_id: Option<&str>,
+    user_id: Option<&str>,
 ) -> Result<String, SendAmoundResponse> {
     let retry_count = retries.unwrap_or(3);
 
@@ -27,7 +28,10 @@ pub async fn send_with_retry(
             ..Default::default()
         };
 
-        if let Ok(token_result) = wallet.send(amount as u64, option, db, api_key_id).await {
+        if let Ok(token_result) = wallet
+            .send(amount as u64, option, db, api_key_id, user_id)
+            .await
+        {
             return Ok(token_result);
         }
     }
@@ -46,21 +50,25 @@ pub async fn finalize_request(
 ) {
     if let Ok(res) = wallet.receive(token_received).await {
         add_transaction(
-            &db,
+            db,
             token_send,
             &sats_send.to_string(),
             TransactionDirection::Outgoing,
             None,
+            None,
+            TransactionType::Api,
         )
         .await
         .unwrap();
 
         add_transaction(
-            &db,
+            db,
             token_received,
             &res.to_string(),
             TransactionDirection::Incoming,
             None,
+            None,
+            TransactionType::Api,
         )
         .await
         .unwrap();

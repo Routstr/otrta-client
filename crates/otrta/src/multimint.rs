@@ -1,16 +1,11 @@
 use crate::db::mint::CurrencyUnit;
-use crate::db::transaction::{add_transaction, TransactionDirection};
+use crate::db::transaction::{add_transaction, TransactionDirection, TransactionType};
 use crate::db::Pool;
+use cdk::amount::SplitTarget;
+use cdk::nuts::nut23::QuoteState;
 use cdk::{wallet::SendOptions, Amount};
 use ecash_402_wallet::multimint::{MultimintSendOptions, MultimintWallet};
 use serde::{Deserialize, Serialize};
-
-fn convert_currency_unit(unit: CurrencyUnit) -> cdk::nuts::CurrencyUnit {
-    match unit {
-        CurrencyUnit::Sat => cdk::nuts::CurrencyUnit::Sat,
-        CurrencyUnit::Msat => cdk::nuts::CurrencyUnit::Msat,
-    }
-}
 
 fn convert_currency_unit_from_cdk(unit: cdk::nuts::CurrencyUnit) -> CurrencyUnit {
     match unit {
@@ -53,13 +48,13 @@ impl MultimintWalletWrapper {
     }
 
     pub async fn from_existing_wallet(
-        _wallet: &ecash_402_wallet::wallet::CashuWalletClient,
+        wallet: &ecash_402_wallet::wallet::CashuWalletClient,
         mint_url: &str,
         seed: &str,
         base_db_path: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let wallet =
-            MultimintWallet::from_existing_wallet(_wallet, mint_url, seed, base_db_path).await?;
+            MultimintWallet::from_existing_wallet(wallet, mint_url, seed, base_db_path).await?;
         Ok(Self { inner: wallet })
     }
 
@@ -70,11 +65,9 @@ impl MultimintWalletWrapper {
     pub async fn add_mint(
         &self,
         mint_url: &str,
-        unit: CurrencyUnit,
+        unit: cdk::nuts::CurrencyUnit,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.inner
-            .add_mint(mint_url, Some(convert_currency_unit(unit)))
-            .await?;
+        self.inner.add_mint(mint_url, Some(unit)).await?;
         Ok(())
     }
 
@@ -103,8 +96,8 @@ impl MultimintWalletWrapper {
 
         let balances_by_mint: Vec<LocalMintBalance> = balance
             .balances_by_mint
-            .into_iter()
-            .map(|(_, mint_balance)| LocalMintBalance {
+            .into_values()
+            .map(|mint_balance| LocalMintBalance {
                 mint_url: mint_balance.mint_url,
                 balance: mint_balance.balance,
                 unit: convert_currency_unit_from_cdk(mint_balance.unit),
@@ -132,11 +125,11 @@ impl MultimintWalletWrapper {
         options: LocalMultimintSendOptions,
         db: &Pool,
         api_key_id: Option<&str>,
+        user_id: Option<&str>,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let send_options = MultimintSendOptions {
             preferred_mint: options.preferred_mint,
-            unit: options.unit.map(convert_currency_unit),
-            split_across_mints: options.split_across_mints,
+            ..Default::default()
         };
 
         let token = self.inner.send(amount, send_options).await?;
@@ -147,6 +140,12 @@ impl MultimintWalletWrapper {
             &amount.to_string(),
             TransactionDirection::Outgoing,
             api_key_id,
+            user_id,
+            if user_id.is_some() {
+                TransactionType::Chat
+            } else {
+                TransactionType::Api
+            },
         )
         .await?;
 
@@ -172,11 +171,10 @@ impl MultimintWalletWrapper {
     }
 
     pub async fn get_wallet_for_mint(&self, mint_url: &str) -> Option<CdkWalletWrapper> {
-        if let Some(cdk_wallet) = self.inner.get_wallet_for_mint(mint_url).await {
-            Some(CdkWalletWrapper::new(cdk_wallet))
-        } else {
-            None
-        }
+        self.inner
+            .get_wallet_for_mint(mint_url)
+            .await
+            .map(CdkWalletWrapper::new)
     }
 
     pub async fn redeem_pendings(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -194,7 +192,7 @@ impl MultimintWalletWrapper {
         amount: u64,
         db: &Pool,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        self.send(amount, LocalMultimintSendOptions::default(), db, None)
+        self.send(amount, LocalMultimintSendOptions::default(), db, None, None)
             .await
     }
 
@@ -287,26 +285,20 @@ impl CdkWalletWrapper {
         self.inner.melt_quote(invoice, options).await
     }
 
-    pub async fn check_melt_quote(&self, quote_id: &str) -> Result<(), cdk::Error> {
-        match self.inner.melt_quote(quote_id.to_string(), None).await {
-            Ok(m) => println!("{:?}", m),
-            Err(e) => println!("{:?}", e),
-        };
-
-        match self.inner.melt_quote_status(quote_id).await {
+    pub async fn check_mint_quote(&self, quote_id: &str) -> Result<QuoteState, cdk::Error> {
+        // FIXME: Improve
+        match self
+            .inner
+            .mint(quote_id, SplitTarget::default(), None)
+            .await
+        {
             Ok(resp) => {
                 println!("{:?}", resp);
-                if let Some(paid) = resp.paid {
-                    if paid {
-                        let a = self.inner.melt_quote(quote_id.to_string(), None).await;
-                        println!("{:?}", a);
-                    }
-                }
-                Ok(())
+                Ok(QuoteState::Paid)
             }
             Err(e) => {
                 println!("{:?}", e);
-                Ok(())
+                Ok(QuoteState::Pending)
             }
         }
     }

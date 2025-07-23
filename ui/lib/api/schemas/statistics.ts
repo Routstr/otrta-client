@@ -22,4 +22,4 @@ export const StatisticsParamsSchema = z.object({
 
 export type DailyStats = z.infer<typeof DailyStatsSchema>;
 export type ApiKeyStatistics = z.infer<typeof ApiKeyStatisticsSchema>;
-export type StatisticsParams = z.infer<typeof StatisticsParamsSchema>; 
+export type StatisticsParams = z.infer<typeof StatisticsParamsSchema>;

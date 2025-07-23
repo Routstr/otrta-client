@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO organization_providers (organization_id, provider_id, is_default, is_active, updated_at)\n        VALUES ($1, $2, true, true, NOW())\n        ON CONFLICT (organization_id, provider_id)\n        DO UPDATE SET\n            is_default = true,\n            is_active = true,\n            updated_at = NOW()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cf20b82ee84a7e4cd6d439664845c3d0a8d04cdcba18d801fff7f77a470188e1"
+}

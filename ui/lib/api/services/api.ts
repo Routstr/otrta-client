@@ -34,7 +34,10 @@ export default function api<Request, Response>({
         created_at: Math.floor(new Date().getTime() / 1000),
         content: 'application/json',
         tags: [
-          ['u', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}${path}`],
+          [
+            'u',
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}${path}`,
+          ],
           ['method', method],
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

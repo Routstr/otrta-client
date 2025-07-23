@@ -43,7 +43,7 @@ export function ChartLine({
         {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
       <CardContent>
-        <ChartContainer config={config} className="h-full">
+        <ChartContainer config={config} className='h-full'>
           <LineChart
             accessibilityLayer
             data={data}
@@ -58,7 +58,9 @@ export function ChartLine({
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={formatXAxis || ((value) => value?.toString().slice(0, 3))}
+              tickFormatter={
+                formatXAxis || ((value) => value?.toString().slice(0, 3))
+              }
             />
             <ChartTooltip
               cursor={false}
@@ -66,7 +68,7 @@ export function ChartLine({
             />
             <Line
               dataKey={dataKey}
-              type="natural"
+              type='natural'
               stroke={`var(--color-${dataKey})`}
               strokeWidth={2}
               dot={false}
@@ -76,4 +78,4 @@ export function ChartLine({
       </CardContent>
     </Card>
   );
-} 
+}

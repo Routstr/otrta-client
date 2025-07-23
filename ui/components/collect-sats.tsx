@@ -37,10 +37,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { WalletService } from '@/lib/api/services/wallet';
+import { MultimintService } from '@/lib/api/services/multimint';
 import { MintService } from '@/lib/api/services/mints';
 
-const formSchema = z.object({
+// Basic form schema without balance validation (for initial form setup)
+const basicFormSchema = z.object({
   amount: z
     .string()
     .min(1, { message: 'Amount is required' })
@@ -51,10 +52,35 @@ const formSchema = z.object({
       message: 'Amount must be greater than 0',
     }),
   mint_url: z.string().min(1, { message: 'Please select a mint' }),
-  unit: z.enum(['sat', 'msat'], { message: 'Please select a unit' }),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+// Schema with balance validation (for submit validation)
+const createFormSchema = (selectedMintBalance?: number) =>
+  z.object({
+    amount: z
+      .string()
+      .min(1, { message: 'Amount is required' })
+      .refine((val) => !isNaN(Number(val)), {
+        message: 'Amount must be a valid number',
+      })
+      .refine((val) => Number(val) > 0, {
+        message: 'Amount must be greater than 0',
+      })
+      .refine(
+        (val) =>
+          selectedMintBalance === undefined ||
+          Number(val) <= selectedMintBalance,
+        {
+          message: `Amount cannot exceed available balance ${selectedMintBalance ? `(${selectedMintBalance.toLocaleString()} sats)` : ''}`,
+        }
+      ),
+    mint_url: z.string().min(1, { message: 'Please select a mint' }),
+  });
+
+type FormValues = {
+  amount: string;
+  mint_url: string;
+};
 
 export function CollectSats() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,19 +89,16 @@ export function CollectSats() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const queryClient = useQueryClient();
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      amount: '',
-      mint_url: '',
-      unit: 'msat',
-    },
-  });
-
   // Fetch active mints for selection
   const { data: activeMints, isLoading: isLoadingMints } = useQuery({
     queryKey: ['active-mints'],
     queryFn: () => MintService.getActiveMints(),
+  });
+
+  // Fetch multimint balance to show selected mint balance
+  const { data: multimintBalance } = useQuery({
+    queryKey: ['multimint-balance'],
+    queryFn: () => MultimintService.getMultimintBalance(),
   });
 
   // Generate QR code when token is generated
@@ -98,20 +121,37 @@ export function CollectSats() {
   }, [generatedToken]);
 
   async function onSubmit(values: FormValues) {
+    // Validate with current balance before submitting
+    const currentSchema = createFormSchema(selectedMintBalance?.balance);
+    const validation = currentSchema.safeParse(values);
+
+    if (!validation.success) {
+      // Set validation errors manually
+      validation.error.errors.forEach((error) => {
+        if (error.path.length > 0) {
+          form.setError(error.path[0] as keyof FormValues, {
+            message: error.message,
+          });
+        }
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const result = await WalletService.sendToken(
-        Number(values.amount),
-        values.mint_url,
-        values.unit
-      );
+      const result = await MultimintService.sendMultimintToken({
+        amount: Number(values.amount),
+        preferred_mint: values.mint_url,
+      });
 
-      if (result.success && result.token) {
-        setGeneratedToken(result.token);
+      if (result.success && result.tokens) {
+        setGeneratedToken(result.tokens);
         queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
         toast.success(result.message || 'Token generated successfully!');
       } else {
-        toast.error(result.message || 'Failed to generate token. Please try again.');
+        toast.error(
+          result.message || 'Failed to generate token. Please try again.'
+        );
       }
     } catch (error) {
       console.error('Error generating token:', error);
@@ -149,8 +189,23 @@ export function CollectSats() {
       label: mint.name || new URL(mint.mint_url).hostname,
     })) || [];
 
+  const form = useForm<FormValues>({
+    resolver: zodResolver(basicFormSchema),
+    mode: 'onSubmit', // Only validate on submit
+    defaultValues: {
+      amount: '',
+      mint_url: '',
+    },
+  });
+
+  // Get selected mint balance
+  const selectedMintUrl = form.watch('mint_url');
+  const selectedMintBalance = multimintBalance?.balances_by_mint?.find(
+    (balance) => balance.mint_url === selectedMintUrl
+  );
+
   return (
-    <Card className='w-full max-w-2xl mx-auto'>
+    <Card className='mx-auto w-full max-w-2xl'>
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>
           <SendIcon className='h-5 w-5' />
@@ -193,6 +248,37 @@ export function CollectSats() {
                 )}
               />
 
+              {/* Display selected mint balance and URL */}
+              {selectedMintUrl && (
+                <div className='bg-muted/30 rounded-lg border p-4'>
+                  <div className='flex items-center justify-between'>
+                    <div className='space-y-1'>
+                      <p className='text-sm font-medium'>Selected Mint</p>
+                      <p className='text-muted-foreground font-mono text-xs break-all'>
+                        {selectedMintUrl}
+                      </p>
+                    </div>
+                    <div className='text-right'>
+                      <p className='text-sm font-medium'>Balance</p>
+                      <p className='text-lg font-bold'>
+                        {selectedMintBalance ? (
+                          <>
+                            {selectedMintBalance.balance.toLocaleString()}{' '}
+                            <span className='text-muted-foreground text-sm font-normal'>
+                              {selectedMintBalance.unit || 'sats'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className='text-muted-foreground'>
+                            Loading...
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className='grid grid-cols-3 gap-4'>
                 <div className='col-span-2'>
                   <FormField
@@ -213,36 +299,7 @@ export function CollectSats() {
                     )}
                   />
                 </div>
-                <div className='col-span-1'>
-                  <FormField
-                    control={form.control}
-                    name='unit'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Unit</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value='msat'>msat</SelectItem>
-                            <SelectItem value='sat'>sat</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
-
-              <FormDescription>
-                {form.watch('unit') === 'sat' 
-                  ? 'Amount in satoshis (1 sat = 1000 msat)'
-                  : 'Amount in millisatoshis (1000 msat = 1 sat)'}
-              </FormDescription>
 
               <Button
                 type='submit'
@@ -265,15 +322,15 @@ export function CollectSats() {
           </Form>
         ) : (
           <div className='space-y-4'>
-            <div className='p-4 bg-green-50 border border-green-200 rounded-lg'>
+            <div className='rounded-lg border border-green-200 bg-green-50 p-4'>
               <p className='text-sm font-medium text-green-800'>
                 Token generated successfully!
               </p>
-              <p className='text-xs text-green-600 mt-1'>
+              <p className='mt-1 text-xs text-green-600'>
                 You can now share this token or QR code with the recipient.
               </p>
             </div>
-            
+
             <Tabs defaultValue='text' className='w-full'>
               <TabsList className='grid w-full grid-cols-2'>
                 <TabsTrigger value='text'>Text Token</TabsTrigger>
@@ -282,7 +339,9 @@ export function CollectSats() {
 
               <TabsContent value='text' className='space-y-4'>
                 <div className='space-y-2'>
-                  <label className='text-sm font-medium'>Generated Token:</label>
+                  <label className='text-sm font-medium'>
+                    Generated Token:
+                  </label>
                   <Textarea
                     value={generatedToken || ''}
                     readOnly
@@ -312,24 +371,26 @@ export function CollectSats() {
               <TabsContent value='qr' className='space-y-4'>
                 <div className='flex flex-col items-center space-y-4'>
                   {qrCodeDataUrl ? (
-                    <div className='p-4 bg-white rounded-lg border shadow-sm'>
+                    <div className='rounded-lg border bg-white p-4 shadow-sm'>
                       <Image
                         src={qrCodeDataUrl}
                         alt='Token QR Code'
                         width={300}
                         height={300}
-                        className='max-w-full h-auto'
+                        className='h-auto max-w-full'
                       />
                     </div>
                   ) : (
-                    <div className='flex items-center justify-center w-64 h-64 border-2 border-dashed border-gray-300 rounded-lg'>
+                    <div className='flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-gray-300'>
                       <div className='text-center'>
-                        <QrCode className='h-8 w-8 text-gray-400 mx-auto mb-2' />
-                        <p className='text-sm text-gray-500'>Generating QR code...</p>
+                        <QrCode className='mx-auto mb-2 h-8 w-8 text-gray-400' />
+                        <p className='text-sm text-gray-500'>
+                          Generating QR code...
+                        </p>
                       </div>
                     </div>
                   )}
-                  <p className='text-sm text-muted-foreground text-center'>
+                  <p className='text-muted-foreground text-center text-sm'>
                     Scan this QR code to receive the ecash token
                   </p>
                 </div>

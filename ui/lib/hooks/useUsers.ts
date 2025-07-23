@@ -50,12 +50,10 @@ export function useCreateUser() {
     mutationFn: (userData: CreateUser) => {
       return UserService.createUser(userData);
     },
-    onSuccess: (user) => {
+    onSuccess: () => {
       toast.success('User created successfully');
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: userKeys.list({ organizationId: user.organization_id }),
-      });
+      // Note: In Nostr-based system, organization invalidation is handled differently
     },
     onError: (error) => {
       toast.error(`Failed to create user: ${error.message}`);
@@ -83,14 +81,10 @@ export function useUpdateUser() {
       if (updatedUser) {
         toast.success('User updated successfully');
         queryClient.invalidateQueries({
-          queryKey: userKeys.detail(updatedUser.id),
+          queryKey: userKeys.detail(updatedUser.npub),
         });
         queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-        queryClient.invalidateQueries({
-          queryKey: userKeys.list({
-            organizationId: updatedUser.organization_id,
-          }),
-        });
+        // Note: In Nostr-based system, organization invalidation is handled differently
       }
     },
     onError: (error) => {

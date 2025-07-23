@@ -43,7 +43,7 @@ export function ChartBar({
         {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
       <CardContent>
-        <ChartContainer config={config} className="h-full">
+        <ChartContainer config={config} className='h-full'>
           <BarChart accessibilityLayer data={data}>
             <CartesianGrid vertical={false} />
             <XAxis
@@ -51,20 +51,22 @@ export function ChartBar({
               tickLine={false}
               tickMargin={10}
               axisLine={false}
-              tickFormatter={formatXAxis || ((value) => value?.toString().slice(0, 3))}
+              tickFormatter={
+                formatXAxis || ((value) => value?.toString().slice(0, 3))
+              }
             />
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent hideLabel />}
             />
-            <Bar 
-              dataKey={dataKey} 
-              fill={`var(--color-${dataKey})`} 
-              radius={8} 
+            <Bar
+              dataKey={dataKey}
+              fill={`var(--color-${dataKey})`}
+              radius={8}
             />
           </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
   );
-} 
+}
