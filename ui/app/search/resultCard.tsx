@@ -3,14 +3,6 @@ import * as React from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { marked } from 'marked';
-import Prism from 'prismjs';
-import 'prismjs/themes/prism.css';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-typescript';
-import 'prismjs/components/prism-json';
-import 'prismjs/components/prism-bash';
-import 'prismjs/components/prism-css';
-import 'prismjs/components/prism-markup';
 import MessageSources from './messageSources';
 import { useEffect, useState } from 'react';
 import { ScrollText, SwatchBook } from 'lucide-react';
@@ -23,7 +15,7 @@ interface Props {
   isStreaming?: boolean;
 }
 
-// Simple markdown component using marked
+// Simple markdown component using marked (no syntax highlighting)
 function MarkdownRenderer({ content }: { content: string }) {
   const [html, setHtml] = useState('');
 
@@ -38,19 +30,14 @@ function MarkdownRenderer({ content }: { content: string }) {
       // Convert markdown to HTML
       const htmlContent = await marked(content);
       setHtml(htmlContent);
-
-      // Highlight code blocks after content is set
-      setTimeout(() => {
-        Prism.highlightAll();
-      }, 0);
     };
 
     renderMarkdown();
   }, [content]);
 
   return (
-    <div
-      className='prose prose-sm dark:prose-invert max-w-none'
+    <div 
+      className="prose prose-sm dark:prose-invert max-w-none"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
