@@ -301,6 +301,20 @@ export function SearchPageComponent(props: Props) {
     });
   };
 
+  // Force scroll to bottom when search completes (after query invalidation)
+  useEffect(() => {
+    if (!mutation.isPending && allResults.length > 0) {
+      // Small delay to ensure DOM has updated after query invalidation
+      const timeoutId = setTimeout(() => {
+        scrollToBottom();
+        // Reset user scrolling state so auto-scroll works normally again
+        setIsUserScrolling(false);
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [mutation.isPending, allResults.length, scrollToBottom]);
+
   const getSelectedModelInfo = () => {
     if (selectedModel === 'none') return null;
     return proxyModels?.find((model) => model.name === selectedModel);

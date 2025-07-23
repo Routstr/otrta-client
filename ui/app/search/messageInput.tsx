@@ -1,11 +1,17 @@
 import { cn } from '@/lib/utils';
 import { ArrowUp, Brain, Zap, Search, Link } from 'lucide-react';
-import { Dispatch, useEffect, useRef, useState, useMemo } from 'react';
+import {
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { GroupSheet } from './groupSheet';
 import AddConversation from './addConversation';
 import { AddUrlDialog } from './addUrlDialog';
-import { SetStateAction } from 'jotai';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

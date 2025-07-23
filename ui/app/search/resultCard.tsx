@@ -2,8 +2,15 @@ import { SchemaResponseProps } from '@/src/api/web-search';
 import * as React from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
-import Markdown from 'react-markdown';
-import highlight from 'rehype-highlight';
+import { marked } from 'marked';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism.css';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-markup';
 import MessageSources from './messageSources';
 import { useEffect, useState } from 'react';
 import { ScrollText, SwatchBook } from 'lucide-react';
@@ -14,6 +21,39 @@ interface Props {
   loading: boolean;
   currentGroup: string;
   isStreaming?: boolean;
+}
+
+// Simple markdown component using marked
+function MarkdownRenderer({ content }: { content: string }) {
+  const [html, setHtml] = useState('');
+
+  useEffect(() => {
+    const renderMarkdown = async () => {
+      // Configure marked
+      marked.setOptions({
+        breaks: true,
+        gfm: true,
+      });
+
+      // Convert markdown to HTML
+      const htmlContent = await marked(content);
+      setHtml(htmlContent);
+
+      // Highlight code blocks after content is set
+      setTimeout(() => {
+        Prism.highlightAll();
+      }, 0);
+    };
+
+    renderMarkdown();
+  }, [content]);
+
+  return (
+    <div
+      className='prose prose-sm dark:prose-invert max-w-none'
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 }
 
 export function ResultCard(props: Props) {
@@ -94,26 +134,11 @@ export function ResultCard(props: Props) {
             )}
           </div>
           <div
-            className={`prose prose-sm dark:prose-invert max-w-none ${
+            className={`${
               isErrorResponse ? 'prose-amber dark:prose-amber' : ''
             }`}
           >
-            <Markdown
-              rehypePlugins={[[highlight, { detect: true }]]}
-              components={{
-                a(props) {
-                  return (
-                    <a
-                      {...props}
-                      target='_blank'
-                      className='bg-light-secondary dark:bg-dark-secondary relative ml-1 rounded px-1 text-xs text-black/70 no-underline dark:text-white/70'
-                    />
-                  );
-                },
-              }}
-            >
-              {parsedMessage}
-            </Markdown>
+            <MarkdownRenderer content={parsedMessage} />
             {props.isStreaming && (
               <span className='bg-primary ml-1 inline-block h-4 w-1 animate-pulse align-text-bottom'></span>
             )}

@@ -1,8 +1,36 @@
 import { SchemaResponseSourceProps } from '@/src/api/web-search';
-import * as React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ExternalLink } from 'lucide-react';
+import { marked } from 'marked';
+import { useEffect, useState } from 'react';
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import ReactMarkdown from 'react-markdown';
+// Simple markdown component using marked
+function MarkdownRenderer({ content }: { content: string }) {
+  const [html, setHtml] = useState('');
+
+  useEffect(() => {
+    const renderMarkdown = async () => {
+      // Configure marked for simple rendering
+      marked.setOptions({
+        breaks: true,
+        gfm: true,
+      });
+
+      // Convert markdown to HTML
+      const htmlContent = await marked(content);
+      setHtml(htmlContent);
+    };
+
+    renderMarkdown();
+  }, [content]);
+
+  return (
+    <div
+      className='prose prose-sm dark:prose-invert max-w-none'
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
 interface Props {
   source: SchemaResponseSourceProps;
@@ -10,14 +38,22 @@ interface Props {
 
 export function LinkCard(props: Props) {
   return (
-    <Card className='m-2'>
-      <CardHeader>{props.source.metadata.title}</CardHeader>
+    <Card className='mb-4'>
+      <CardHeader>
+        <CardTitle className='flex items-center gap-2'>
+          <ExternalLink className='h-4 w-4' />
+          <a
+            href={props.source.metadata.url}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='text-primary hover:underline'
+          >
+            {props.source.metadata.title || props.source.metadata.url}
+          </a>
+        </CardTitle>
+      </CardHeader>
       <CardContent>
-        <div className='m-4 grid w-full items-center gap-4'>
-          <article className='content'>
-            <ReactMarkdown>{props.source.content}</ReactMarkdown>
-          </article>
-        </div>
+        <MarkdownRenderer content={props.source.content} />
       </CardContent>
     </Card>
   );
