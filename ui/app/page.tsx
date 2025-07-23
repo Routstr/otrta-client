@@ -150,9 +150,8 @@ export default function LandingPage() {
               OTRTA is the Routstr client that implements the Routstr protocol.
               Access language models without revealing your identity using Cashu
               e-cash notes with NUT-24 X-Cashu payment standard. Our focus is to
-              bring AI not only for private users but also for institutions with
-              larger teams. Pay exactly what you consume with millisatoshi
-              precision.
+              bring AI not only for private users but also for larger teams. Pay
+              exactly what you consume with millisatoshi precision.
             </motion.p>
 
             <motion.div
@@ -337,13 +336,10 @@ export default function LandingPage() {
                     <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/20'>
                       <Heart className='h-10 w-10 text-indigo-600 dark:text-indigo-400' />
                     </div>
-                    <CardTitle className='mb-3 text-xl'>
-                      Enterprise-Ready
-                    </CardTitle>
+                    <CardTitle className='mb-3 text-xl'>Team-Ready</CardTitle>
                     <CardDescription className='text-center text-base leading-relaxed'>
-                      Built for both individual users and institutions with
-                      larger teams. Scalable budget management and
-                      organizational controls.
+                      Built for both individual users and larger teams. Scalable
+                      budget management and organizational controls.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -589,14 +585,6 @@ export default function LandingPage() {
         </section>
 
         <section className='container px-4 py-16'>
-          <div className='mb-8 text-center'>
-            <h3 className='mb-2 text-2xl font-bold'>Enterprise Features</h3>
-            <p className='text-muted-foreground'>
-              Built for teams and institutions with advanced organizational
-              controls
-            </p>
-          </div>
-
           <motion.div
             variants={staggerContainer}
             initial='initial'
@@ -640,7 +628,7 @@ export default function LandingPage() {
                   </CardTitle>
                   <CardDescription className='text-center text-base leading-relaxed'>
                     Smart budget management, automatic wallet top-ups, and
-                    organizational spending limits with alerts.
+                    spending limits with alerts.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -683,8 +671,7 @@ export default function LandingPage() {
                   </motion.div>
                   <CardTitle className='mb-3 text-xl'>Integration</CardTitle>
                   <CardDescription className='text-center text-base leading-relaxed'>
-                    OpenAI API compatibility, RESTful API endpoints, and webhook
-                    notifications for seamless integration.
+                    OpenAI API compatibility, RESTful API endpoints.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -714,10 +701,6 @@ export default function LandingPage() {
                           3. <strong>Setup Wallet:</strong> Add Cashu mints and
                           fund with Lightning
                         </li>
-                        <li>
-                          4. <strong>Start Using AI:</strong> Access models
-                          through the dashboard
-                        </li>
                       </ol>
                     </div>
                     <div>
@@ -734,8 +717,8 @@ export default function LandingPage() {
                           marketplace endpoints
                         </li>
                         <li>
-                          • <strong>Budget Management:</strong> Set
-                          organizational spending limits
+                          • <strong>Budget Management:</strong> Set spending
+                          limits
                         </li>
                         <li>
                           • <strong>Analytics:</strong> Monitor usage with
@@ -1067,10 +1050,10 @@ export default function LandingPage() {
                     />
                   </motion.div>
                   <CardTitle className='mb-2 text-lg text-purple-900 dark:text-purple-100'>
-                    Enterprise Support
+                    Support
                   </CardTitle>
                   <CardDescription className='text-sm text-purple-700 dark:text-purple-300'>
-                    Need custom deployment or enterprise features?
+                    Need custom deployment or new features?
                   </CardDescription>
                 </CardHeader>
                 <CardContent className='pt-0 pb-6'>
@@ -1089,7 +1072,7 @@ export default function LandingPage() {
                           className='w-full rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700'
                           onClick={() => {
                             navigator.clipboard.writeText(
-                              'npub1enterprise7contact8here9abc123def456ghi789jkl012mno345pqr678stu901vwx234yz'
+                              'npub1ygjd597hdwu8larprmhj893d5p832j5mhejpx40ukezgudvayg9qeklajc'
                             );
                           }}
                         >

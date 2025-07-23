@@ -85,9 +85,11 @@ export function ResultCard(props: Props) {
             <ScrollText className='text-muted-foreground h-4 w-4' />
             <span className='text-lg font-medium'>Answer</span>
             {props.isStreaming && (
-              <div className='flex items-center gap-2 ml-auto'>
+              <div className='ml-auto flex items-center gap-2'>
                 <div className='bg-primary h-2 w-2 animate-pulse rounded-full'></div>
-                <span className='text-muted-foreground text-xs'>Streaming...</span>
+                <span className='text-muted-foreground text-xs'>
+                  Streaming...
+                </span>
               </div>
             )}
           </div>
@@ -113,7 +115,7 @@ export function ResultCard(props: Props) {
               {parsedMessage}
             </Markdown>
             {props.isStreaming && (
-              <span className='inline-block h-4 w-1 bg-primary animate-pulse ml-1 align-text-bottom'></span>
+              <span className='bg-primary ml-1 inline-block h-4 w-1 animate-pulse align-text-bottom'></span>
             )}
           </div>
         </div>

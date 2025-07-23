@@ -49,7 +49,7 @@ export function SearchPageComponent(props: Props) {
   const client = useQueryClient();
   const [urls, setUrls] = useState<string[]>([]);
   const { selectedModel } = useModelSelectionStore();
-  
+
   // Auto-scroll state management
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
@@ -58,8 +58,12 @@ export function SearchPageComponent(props: Props) {
   const lastScrollTop = useRef(0);
 
   // Streaming state management
-  const [pendingSearch, setPendingSearch] = useState<PendingSearch | null>(null);
-  const [streamingResults, setStreamingResults] = useState<Map<string, StreamingResult>>(new Map());
+  const [pendingSearch, setPendingSearch] = useState<PendingSearch | null>(
+    null
+  );
+  const [streamingResults, setStreamingResults] = useState<
+    Map<string, StreamingResult>
+  >(new Map());
   const [searchToStream, setSearchToStream] = useState<string | null>(null);
 
   const { data: proxyModels, isLoading: isLoadingProxyModels } = useQuery({
@@ -69,73 +73,80 @@ export function SearchPageComponent(props: Props) {
 
   // Sort searches by creation date (oldest first for chat-like interface)
   const sortedSearches = [...props.searchData.searches].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
 
   // Combine real searches with streaming results
   const allResults = React.useMemo(() => {
     const results = [...sortedSearches];
-    
+
     // Add streaming results that aren't in the real searches yet
     streamingResults.forEach((streamingResult) => {
-      const existsInReal = results.find(r => r.id === streamingResult.id);
+      const existsInReal = results.find((r) => r.id === streamingResult.id);
       if (!existsInReal) {
         results.push(streamingResult);
       } else {
         // Update existing result with streaming state
-        const index = results.findIndex(r => r.id === streamingResult.id);
+        const index = results.findIndex((r) => r.id === streamingResult.id);
         if (index !== -1) {
           results[index] = { ...results[index], ...streamingResult };
         }
       }
     });
 
-    return results.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return results.sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
   }, [sortedSearches, streamingResults]);
 
   // Stream text effect - made much faster
-  const streamText = useCallback((text: string, resultId: string, speed = 4) => {
-    let index = 0;
-    const streamInterval = setInterval(() => {
-      if (index <= text.length) {
-        setStreamingResults(prev => {
-          const newMap = new Map(prev);
-          const existing = newMap.get(resultId);
-          if (existing) {
-            newMap.set(resultId, {
-              ...existing,
-              streamedText: text.slice(0, index),
-              isStreaming: index < text.length
-            });
-          }
-          return newMap;
-        });
-        index++;
-      } else {
-        clearInterval(streamInterval);
-        setStreamingResults(prev => {
-          const newMap = new Map(prev);
-          const existing = newMap.get(resultId);
-          if (existing) {
-            newMap.set(resultId, {
-              ...existing,
-              isStreaming: false,
-              streamedText: text
-            });
-          }
-          return newMap;
-        });
-      }
-    }, speed);
+  const streamText = useCallback(
+    (text: string, resultId: string, speed = 4) => {
+      let index = 0;
+      const streamInterval = setInterval(() => {
+        if (index <= text.length) {
+          setStreamingResults((prev) => {
+            const newMap = new Map(prev);
+            const existing = newMap.get(resultId);
+            if (existing) {
+              newMap.set(resultId, {
+                ...existing,
+                streamedText: text.slice(0, index),
+                isStreaming: index < text.length,
+              });
+            }
+            return newMap;
+          });
+          index++;
+        } else {
+          clearInterval(streamInterval);
+          setStreamingResults((prev) => {
+            const newMap = new Map(prev);
+            const existing = newMap.get(resultId);
+            if (existing) {
+              newMap.set(resultId, {
+                ...existing,
+                isStreaming: false,
+                streamedText: text,
+              });
+            }
+            return newMap;
+          });
+        }
+      }, speed);
 
-    return () => clearInterval(streamInterval);
-  }, []);
+      return () => clearInterval(streamInterval);
+    },
+    []
+  );
 
   // Check if user is near bottom of scroll container
   const checkIfNearBottom = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return false;
-    
+
     const { scrollTop, scrollHeight, clientHeight } = container;
     const threshold = 100; // 100px from bottom
     return scrollHeight - scrollTop - clientHeight < threshold;
@@ -148,24 +159,24 @@ export function SearchPageComponent(props: Props) {
 
     const currentScrollTop = container.scrollTop;
     const nearBottom = checkIfNearBottom();
-    
+
     setIsNearBottom(nearBottom);
-    
+
     // Detect if this is user-initiated scrolling
     if (Math.abs(currentScrollTop - lastScrollTop.current) > 5) {
       setIsUserScrolling(true);
-      
+
       // Clear existing timeout
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
-      
+
       // Reset user scrolling flag after a delay
       scrollTimeoutRef.current = setTimeout(() => {
         setIsUserScrolling(false);
       }, 1000);
     }
-    
+
     lastScrollTop.current = currentScrollTop;
   }, [checkIfNearBottom]);
 
@@ -173,10 +184,10 @@ export function SearchPageComponent(props: Props) {
   const scrollToBottom = useCallback((smooth = true) => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    
+
     container.scrollTo({
       top: container.scrollHeight,
-      behavior: smooth ? 'smooth' : 'instant'
+      behavior: smooth ? 'smooth' : 'instant',
     });
   }, []);
 
@@ -202,20 +213,20 @@ export function SearchPageComponent(props: Props) {
   // Handle new search results and start streaming - only when we should stream
   useEffect(() => {
     if (searchToStream && sortedSearches.length > 0) {
-      const latestSearch = sortedSearches.find(s => s.id === searchToStream);
-      
+      const latestSearch = sortedSearches.find((s) => s.id === searchToStream);
+
       if (latestSearch && latestSearch.response.message) {
         const existingStreaming = streamingResults.get(latestSearch.id);
-        
+
         if (!existingStreaming) {
           // Start streaming this result
           const streamingResult: StreamingResult = {
             ...latestSearch,
             isStreaming: true,
-            streamedText: ''
+            streamedText: '',
           };
-          
-          setStreamingResults(prev => {
+
+          setStreamingResults((prev) => {
             const newMap = new Map(prev);
             newMap.set(latestSearch.id, streamingResult);
             return newMap;
@@ -223,10 +234,10 @@ export function SearchPageComponent(props: Props) {
 
           // Start the streaming effect
           streamText(latestSearch.response.message, latestSearch.id);
-          
+
           // Clear pending search since we got a result
           setPendingSearch(null);
-          
+
           // Clear the should stream flag
           setSearchToStream(null);
         }
@@ -243,15 +254,15 @@ export function SearchPageComponent(props: Props) {
       // Immediately show the pending search
       setPendingSearch({
         query: variables.message,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     },
     onSuccess: async (data) => {
       console.log(data);
-      
+
       // Set the specific search ID to stream
       setSearchToStream(data.id);
-      
+
       await client.invalidateQueries({
         queryKey: ['user_searches'],
         exact: true,
@@ -302,32 +313,43 @@ export function SearchPageComponent(props: Props) {
       {/* Header with model info */}
       <div className='bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b backdrop-blur'>
         <div className='mx-auto max-w-4xl px-4 py-3'>
-          <div className='flex items-center justify-end'>
-            {selectedModelInfo ? (
-              <Badge
-                variant='secondary'
-                className='flex items-center gap-1.5 px-3 py-1'
-              >
-                <Brain className='h-3.5 w-3.5' />
-                <span className='font-medium'>{selectedModelInfo.name}</span>
-                <span className='text-muted-foreground text-xs'>
-                  {selectedModelInfo.provider}
+          <div className='flex items-center justify-between'>
+            <div className='flex items-center gap-2'>
+              <div className='text-muted-foreground flex items-center gap-2 text-xs'>
+                <span>💡</span>
+                <span>
+                  Select a web search model like <strong>Sonar</strong> for
+                  internet searches
                 </span>
-              </Badge>
-            ) : (
-              <Badge
-                variant='outline'
-                className='flex items-center gap-1.5 px-3 py-1'
-              >
-                <span className='text-xs font-medium'>Basic Search</span>
-              </Badge>
-            )}
+              </div>
+            </div>
+            <div className='flex items-center gap-2'>
+              {selectedModelInfo ? (
+                <Badge
+                  variant='secondary'
+                  className='flex items-center gap-1.5 px-3 py-1'
+                >
+                  <Brain className='h-3.5 w-3.5' />
+                  <span className='font-medium'>{selectedModelInfo.name}</span>
+                  <span className='text-muted-foreground text-xs'>
+                    {selectedModelInfo.provider}
+                  </span>
+                </Badge>
+              ) : (
+                <Badge
+                  variant='outline'
+                  className='flex items-center gap-1.5 px-3 py-1'
+                >
+                  <span className='text-xs font-medium'>Basic Search</span>
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Scrollable content area */}
-      <main 
+      <main
         ref={scrollContainerRef}
         onScroll={handleScroll}
         className='flex-1 overflow-auto pb-32'
@@ -335,16 +357,16 @@ export function SearchPageComponent(props: Props) {
         <div className='mx-auto max-w-4xl px-4 py-8'>
           {/* Error state */}
           {mutation.error && (
-            <div className='mb-8 rounded-xl border border-destructive/20 bg-destructive/5 p-6 animate-in slide-in-from-bottom-4'>
+            <div className='border-destructive/20 bg-destructive/5 animate-in slide-in-from-bottom-4 mb-8 rounded-xl border p-6'>
               <div className='mb-2 flex items-center gap-2'>
-                <div className='h-2 w-2 rounded-full bg-destructive'></div>
-                <span className='text-sm font-medium text-destructive'>
+                <div className='bg-destructive h-2 w-2 rounded-full'></div>
+                <span className='text-destructive text-sm font-medium'>
                   Search Failed
                 </span>
               </div>
-              <p className='text-sm text-destructive/80'>
-                {mutation.error instanceof Error 
-                  ? mutation.error.message 
+              <p className='text-destructive/80 text-sm'>
+                {mutation.error instanceof Error
+                  ? mutation.error.message
                   : 'An unexpected error occurred while searching. Please try again.'}
               </p>
             </div>
@@ -354,21 +376,24 @@ export function SearchPageComponent(props: Props) {
           <div className='space-y-8'>
             {allResults.map((value, index) => {
               const streamingData = streamingResults.get(value.id);
-              const displayValue = streamingData ? {
-                ...value,
-                response: {
-                  ...value.response,
-                  message: streamingData.streamedText || value.response.message
-                }
-              } : value;
+              const displayValue = streamingData
+                ? {
+                    ...value,
+                    response: {
+                      ...value.response,
+                      message:
+                        streamingData.streamedText || value.response.message,
+                    },
+                  }
+                : value;
 
               return (
-                <div 
-                  key={value.id} 
+                <div
+                  key={value.id}
                   className='animate-in slide-in-from-bottom-4 fade-in-50'
                   style={{
                     animationDelay: `${index * 100}ms`,
-                    animationDuration: '500ms'
+                    animationDuration: '500ms',
                   }}
                 >
                   <ResultCard
@@ -396,14 +421,42 @@ export function SearchPageComponent(props: Props) {
           {/* Empty state */}
           {allResults.length === 0 && !pendingSearch && (
             <div className='flex min-h-[60vh] items-center justify-center'>
-              <div className='text-center'>
+              <div className='max-w-md text-center'>
                 <Sparkles className='text-muted-foreground/50 mx-auto h-12 w-12' />
                 <h2 className='mt-4 text-xl font-semibold'>
                   Start your search
                 </h2>
-                <p className='text-muted-foreground mt-2'>
+                <p className='text-muted-foreground mt-2 mb-4'>
                   Ask any question or search for information
                 </p>
+                <div className='bg-muted/30 space-y-2 rounded-lg p-4 text-left text-sm'>
+                  <h3 className='flex items-center gap-2 font-medium'>
+                    <span>🌐</span>
+                    Web Search Tips
+                  </h3>
+                  <ul className='text-muted-foreground space-y-1 text-xs'>
+                    <li className='flex items-start gap-2'>
+                      <span className='text-primary'>•</span>
+                      <span>
+                        <strong>Select Sonar models</strong> for real-time
+                        internet searches
+                      </span>
+                    </li>
+                    <li className='flex items-start gap-2'>
+                      <span className='text-primary'>•</span>
+                      <span>
+                        <strong>Add URLs</strong> to search specific websites
+                      </span>
+                    </li>
+                    <li className='flex items-start gap-2'>
+                      <span className='text-primary'>•</span>
+                      <span>
+                        <strong>Basic search</strong> works without model
+                        selection
+                      </span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           )}
@@ -427,7 +480,7 @@ export function SearchPageComponent(props: Props) {
 
       {/* Auto-scroll indicator */}
       {!isNearBottom && (
-        <div className='fixed bottom-24 right-8 z-40 md:right-12 lg:right-16'>
+        <div className='fixed right-8 bottom-24 z-40 md:right-12 lg:right-16'>
           <button
             onClick={() => scrollToBottom()}
             className='bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-colors'
@@ -454,27 +507,36 @@ export function SearchPageComponent(props: Props) {
 }
 
 // Pending search card component
-function PendingSearchCard({ query, selectedModelInfo }: { 
-  query: string; 
-  selectedModelInfo: { name: string; provider?: string | null } | null | undefined; 
+function PendingSearchCard({
+  query,
+  selectedModelInfo,
+}: {
+  query: string;
+  selectedModelInfo:
+    | { name: string; provider?: string | null }
+    | null
+    | undefined;
 }) {
   return (
-    <div className='rounded-xl border p-6 bg-card'>
+    <div className='bg-card rounded-xl border p-6'>
       <div className='mb-4 flex items-start justify-between'>
         <div className='flex items-center gap-3'>
           <div className='bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium'>
             Q
           </div>
-          <h3 className='font-semibold text-lg'>{query}</h3>
+          <h3 className='text-lg font-semibold'>{query}</h3>
         </div>
         {selectedModelInfo && (
-          <Badge variant='secondary' className='flex items-center gap-1.5 px-2 py-1 text-xs'>
+          <Badge
+            variant='secondary'
+            className='flex items-center gap-1.5 px-2 py-1 text-xs'
+          >
             <Brain className='h-3 w-3' />
             {selectedModelInfo.name}
           </Badge>
         )}
       </div>
-      
+
       <div className='space-y-4'>
         <div className='flex items-center gap-3'>
           <div className='bg-primary h-2 w-2 animate-pulse rounded-full'></div>
@@ -482,7 +544,7 @@ function PendingSearchCard({ query, selectedModelInfo }: {
             Searching for relevant information...
           </span>
         </div>
-        
+
         <div className='space-y-3'>
           <Skeleton className='h-4 w-full animate-pulse' />
           <Skeleton className='h-4 w-3/4 animate-pulse' />
