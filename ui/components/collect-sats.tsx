@@ -198,13 +198,10 @@ export function CollectSats() {
     },
   });
 
-  // Get selected mint balance and info
+  // Get selected mint balance
   const selectedMintUrl = form.watch('mint_url');
   const selectedMintBalance = multimintBalance?.balances_by_mint?.find(
     (balance) => balance.mint_url === selectedMintUrl
-  );
-  const selectedMintInfo = activeMints?.mints?.find(
-    (mint) => mint.mint_url === selectedMintUrl
   );
 
   return (

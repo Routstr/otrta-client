@@ -48,7 +48,7 @@ interface StreamingResult {
 
 export function SearchPageComponent(props: Props) {
   const client = useQueryClient();
-  const [urls, setUrls] = useState<string[]>([]);
+  const [urls] = useState<string[]>([]);
   const { selectedModel } = useModelSelectionStore();
 
   // Auto-scroll state management
@@ -488,7 +488,6 @@ export function SearchPageComponent(props: Props) {
             loading={mutation.isPending}
             currentGroup={props.searchData.group_id}
             urls={urls}
-            setUrls={setUrls}
             proxyModels={proxyModels}
             isLoadingProxyModels={isLoadingProxyModels}
           />

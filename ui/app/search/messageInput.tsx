@@ -1,8 +1,6 @@
 import { cn, extractModelName } from '@/lib/utils';
 import { ArrowUp, Brain, Zap, Search, Link } from 'lucide-react';
 import {
-  Dispatch,
-  SetStateAction,
   useEffect,
   useRef,
   useState,
@@ -11,7 +9,7 @@ import {
 import TextareaAutosize from 'react-textarea-autosize';
 import { GroupSheet } from './groupSheet';
 import AddConversation from './addConversation';
-import { AddUrlDialog } from './addUrlDialog';
+
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -36,7 +34,6 @@ const MessageInput = ({
   loading,
   currentGroup,
   urls,
-  setUrls,
   proxyModels,
   isLoadingProxyModels,
 }: {
@@ -44,7 +41,7 @@ const MessageInput = ({
   loading: boolean;
   currentGroup: string;
   urls: string[];
-  setUrls: Dispatch<SetStateAction<string[]>>;
+
   proxyModels:
     | Array<{
         name: string;
