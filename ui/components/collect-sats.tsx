@@ -40,7 +40,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { MultimintService } from '@/lib/api/services/multimint';
 import { MintService } from '@/lib/api/services/mints';
 
-const formSchema = z.object({
+// Basic form schema without balance validation (for initial form setup)
+const basicFormSchema = z.object({
   amount: z
     .string()
     .min(1, { message: 'Amount is required' })
@@ -53,7 +54,33 @@ const formSchema = z.object({
   mint_url: z.string().min(1, { message: 'Please select a mint' }),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+// Schema with balance validation (for submit validation)
+const createFormSchema = (selectedMintBalance?: number) =>
+  z.object({
+    amount: z
+      .string()
+      .min(1, { message: 'Amount is required' })
+      .refine((val) => !isNaN(Number(val)), {
+        message: 'Amount must be a valid number',
+      })
+      .refine((val) => Number(val) > 0, {
+        message: 'Amount must be greater than 0',
+      })
+      .refine(
+        (val) =>
+          selectedMintBalance === undefined ||
+          Number(val) <= selectedMintBalance,
+        {
+          message: `Amount cannot exceed available balance ${selectedMintBalance ? `(${selectedMintBalance.toLocaleString()} sats)` : ''}`,
+        }
+      ),
+    mint_url: z.string().min(1, { message: 'Please select a mint' }),
+  });
+
+type FormValues = {
+  amount: string;
+  mint_url: string;
+};
 
 export function CollectSats() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,18 +89,16 @@ export function CollectSats() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const queryClient = useQueryClient();
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      amount: '',
-      mint_url: '',
-    },
-  });
-
   // Fetch active mints for selection
   const { data: activeMints, isLoading: isLoadingMints } = useQuery({
     queryKey: ['active-mints'],
     queryFn: () => MintService.getActiveMints(),
+  });
+
+  // Fetch multimint balance to show selected mint balance
+  const { data: multimintBalance } = useQuery({
+    queryKey: ['multimint-balance'],
+    queryFn: () => MultimintService.getMultimintBalance(),
   });
 
   // Generate QR code when token is generated
@@ -96,6 +121,22 @@ export function CollectSats() {
   }, [generatedToken]);
 
   async function onSubmit(values: FormValues) {
+    // Validate with current balance before submitting
+    const currentSchema = createFormSchema(selectedMintBalance?.balance);
+    const validation = currentSchema.safeParse(values);
+
+    if (!validation.success) {
+      // Set validation errors manually
+      validation.error.errors.forEach((error) => {
+        if (error.path.length > 0) {
+          form.setError(error.path[0] as keyof FormValues, {
+            message: error.message,
+          });
+        }
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const result = await MultimintService.sendMultimintToken({
@@ -148,6 +189,24 @@ export function CollectSats() {
       label: mint.name || new URL(mint.mint_url).hostname,
     })) || [];
 
+  const form = useForm<FormValues>({
+    resolver: zodResolver(basicFormSchema),
+    mode: 'onSubmit', // Only validate on submit
+    defaultValues: {
+      amount: '',
+      mint_url: '',
+    },
+  });
+
+  // Get selected mint balance and info
+  const selectedMintUrl = form.watch('mint_url');
+  const selectedMintBalance = multimintBalance?.balances_by_mint?.find(
+    (balance) => balance.mint_url === selectedMintUrl
+  );
+  const selectedMintInfo = activeMints?.mints?.find(
+    (mint) => mint.mint_url === selectedMintUrl
+  );
+
   return (
     <Card className='mx-auto w-full max-w-2xl'>
       <CardHeader>
@@ -191,6 +250,37 @@ export function CollectSats() {
                   </FormItem>
                 )}
               />
+
+              {/* Display selected mint balance and URL */}
+              {selectedMintUrl && (
+                <div className='bg-muted/30 rounded-lg border p-4'>
+                  <div className='flex items-center justify-between'>
+                    <div className='space-y-1'>
+                      <p className='text-sm font-medium'>Selected Mint</p>
+                      <p className='text-muted-foreground font-mono text-xs break-all'>
+                        {selectedMintUrl}
+                      </p>
+                    </div>
+                    <div className='text-right'>
+                      <p className='text-sm font-medium'>Balance</p>
+                      <p className='text-lg font-bold'>
+                        {selectedMintBalance ? (
+                          <>
+                            {selectedMintBalance.balance.toLocaleString()}{' '}
+                            <span className='text-muted-foreground text-sm font-normal'>
+                              {selectedMintBalance.unit || 'sats'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className='text-muted-foreground'>
+                            Loading...
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className='grid grid-cols-3 gap-4'>
                 <div className='col-span-2'>
