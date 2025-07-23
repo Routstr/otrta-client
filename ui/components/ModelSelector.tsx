@@ -279,6 +279,9 @@ export function ModelSelector() {
                             <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
                               <div className='group inline-block max-w-[80%] truncate font-medium'>
                                 <span className='truncate'>{extractModelName(model.name)}</span>
+                                <div className='text-muted-foreground truncate text-xs font-normal font-mono'>
+                                  {model.name}
+                                </div>
                                 {model.description && (
                                   <div className='text-muted-foreground truncate text-xs font-normal'>
                                     {model.description}
@@ -452,6 +455,9 @@ export function ModelSelector() {
                           <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
                             <div className='group inline-block max-w-[70%] truncate font-medium'>
                               <span className='truncate'>{extractModelName(model.name)}</span>
+                              <div className='text-muted-foreground truncate text-xs font-normal font-mono'>
+                                {model.name}
+                              </div>
                               {model.description && (
                                 <div className='text-muted-foreground truncate text-xs font-normal'>
                                   {model.description}
@@ -517,6 +523,11 @@ export function ModelSelector() {
             <div className='mt-1 text-sm font-normal break-all'>
               {modelInfo?.name ? extractModelName(modelInfo.name) : ''}
             </div>
+            {modelInfo?.name && (
+              <div className='mt-1 text-xs text-muted-foreground font-mono break-all'>
+                {modelInfo.name}
+              </div>
+            )}
           </h3>
           {isLoadingModelInfo ? (
             <div className='space-y-2'>
