@@ -51,8 +51,8 @@ function MarkdownRenderer({ content }: { content: string }) {
   }, [content]);
 
   return (
-    <div 
-      className="prose prose-sm dark:prose-invert max-w-none"
+    <div
+      className='prose prose-sm dark:prose-invert max-w-none'
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

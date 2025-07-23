@@ -33,8 +33,13 @@ struct OpenAIRequest {
 pub async fn forward_any_request_get(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
+    request: Request,
 ) -> Response<Body> {
-    forward_request(&state.db, &path).await.into_response()
+    let (parts, _) = request.into_parts();
+    let api_key_id = parts.extensions.get::<String>().map(|s| s.as_str());
+    forward_request(&state.db, &path, None, api_key_id)
+        .await
+        .into_response()
 }
 
 pub async fn forward_any_request(
@@ -510,21 +515,125 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     response
 }
 
-pub async fn forward_request(db: &Pool, path: &str) -> Response<Body> {
-    let server_config = if let Ok(Some(config)) = get_default_provider(db).await {
-        config
+pub async fn forward_request(
+    db: &Pool,
+    path: &str,
+    organization_id: Option<&Uuid>,
+    api_key_id: Option<&str>,
+) -> Response<Body> {
+    let org_id = if let Some(org_id) = organization_id {
+        *org_id
+    } else if let Some(api_key_id) = api_key_id {
+        match get_api_key_by_id(&db, api_key_id).await {
+            Ok(Some(api_key)) => match Uuid::parse_str(&api_key.organization_id) {
+                Ok(id) => id,
+                Err(_) => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({
+                            "error": {
+                                "message": "Invalid organization ID in API key",
+                                "type": "server_error",
+                                "code": "invalid_organization_id"
+                            }
+                        })),
+                    )
+                        .into_response();
+                }
+            },
+            Ok(None) => {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({
+                        "error": {
+                            "message": "API key not found",
+                            "type": "authentication_error",
+                            "code": "api_key_not_found"
+                        }
+                    })),
+                )
+                    .into_response();
+            }
+            Err(_) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {
+                            "message": "Failed to retrieve API key",
+                            "type": "server_error",
+                            "code": "api_key_lookup_failed"
+                        }
+                    })),
+                )
+                    .into_response();
+            }
+        }
     } else {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({
                 "error": {
-                    "message": "Default provider missing. Cannot process request without a configured endpoint.",
-                    "type": "server_error",
-                    "param": null,
-                    "code": "default_provider_missing"
+                    "message": "Either API key or organization ID must be provided",
+                    "type": "authentication_error",
+                    "code": "missing_auth_info"
                 }
             })),
-        ).into_response();
+        )
+            .into_response();
+    };
+
+    let server_config = match get_default_provider_for_organization_new(&db, &org_id).await {
+        Ok(Some(config)) => config,
+        Ok(None) => {
+            // Fallback to global default provider if organization doesn't have one configured
+            match get_default_provider(&db).await {
+                Ok(Some(config)) => config,
+                Ok(None) => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({
+                            "error": {
+                                "message": "No default provider configured. Please configure a provider first.",
+                                "type": "server_error",
+                                "param": null,
+                                "code": "default_provider_missing"
+                            }
+                        })),
+                    ).into_response();
+                }
+                Err(e) => {
+                    eprintln!("Failed to get global default provider: {}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "error": {
+                                "message": "Failed to retrieve provider configuration",
+                                "type": "server_error",
+                                "code": "provider_lookup_failed"
+                            }
+                        })),
+                    )
+                        .into_response();
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!(
+                "Failed to get default provider for organization {}: {}",
+                org_id, e
+            );
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve provider configuration",
+                        "type": "server_error",
+                        "code": "provider_lookup_failed"
+                    }
+                })),
+            )
+                .into_response();
+        }
     };
 
     let client_builder = Client::builder();

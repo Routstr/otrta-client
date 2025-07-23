@@ -14,8 +14,17 @@ use axum::{
 use serde_json::{self, json};
 use std::sync::Arc;
 
-pub async fn list_openai_models(State(state): State<Arc<AppState>>) -> Response {
-    crate::proxy::forward_request(&state.db, "v1/models").await
+pub async fn list_openai_models(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+) -> Response {
+    crate::proxy::forward_request(
+        &state.db,
+        "v1/models",
+        Some(&user_ctx.organization_id),
+        None,
+    )
+    .await
 }
 
 pub async fn get_proxy_models(
@@ -93,6 +102,7 @@ pub async fn refresh_models_internal(
 
     let client = reqwest::Client::new();
     let endpoint_url = format!("{}/v1/models", &server_config.url);
+    println!("endpoint_url {}", endpoint_url);
 
     let proxy_models_response = match client
         .get(&endpoint_url)
