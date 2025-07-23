@@ -13,6 +13,7 @@ interface Props {
   sendMessage: (message: string) => void;
   loading: boolean;
   currentGroup: string;
+  isStreaming?: boolean;
 }
 
 export function ResultCard(props: Props) {
@@ -83,6 +84,12 @@ export function ResultCard(props: Props) {
           <div className='mb-3 flex items-center gap-2'>
             <ScrollText className='text-muted-foreground h-4 w-4' />
             <span className='text-lg font-medium'>Answer</span>
+            {props.isStreaming && (
+              <div className='flex items-center gap-2 ml-auto'>
+                <div className='bg-primary h-2 w-2 animate-pulse rounded-full'></div>
+                <span className='text-muted-foreground text-xs'>Streaming...</span>
+              </div>
+            )}
           </div>
           <div
             className={`prose prose-sm dark:prose-invert max-w-none ${
@@ -105,6 +112,9 @@ export function ResultCard(props: Props) {
             >
               {parsedMessage}
             </Markdown>
+            {props.isStreaming && (
+              <span className='inline-block h-4 w-1 bg-primary animate-pulse ml-1 align-text-bottom'></span>
+            )}
           </div>
         </div>
       </CardContent>
