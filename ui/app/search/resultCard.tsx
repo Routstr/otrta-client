@@ -7,7 +7,6 @@ import highlight from 'rehype-highlight';
 import MessageSources from './messageSources';
 import { useEffect, useState } from 'react';
 import { ScrollText, SwatchBook } from 'lucide-react';
-import { LinkDropDown } from './linkDropDown';
 
 interface Props {
   data: SchemaResponseProps;
@@ -27,14 +26,6 @@ export function ResultCard(props: Props) {
     ) ||
     props.data.response.message.includes('unable to access or scrape') ||
     props.data.response.message.includes('No search sources were provided');
-
-  const deleteQA = () => {
-    console.log('Delete function called for:', props.data.id);
-  };
-
-  const retryQA = () => {
-    console.log('Retry function called for:', props.data.id);
-  };
 
   useEffect(() => {
     const regex = /\[(\d+)\]/g;
@@ -66,14 +57,14 @@ export function ResultCard(props: Props) {
             <span className='text-muted-foreground text-sm font-medium'>
               {props.data.query}
             </span>
-            <LinkDropDown
+            {/*<LinkDropDown
               sources={props.data.response.sources || []}
               sendMessage={props.sendMessage}
               loading={props.loading}
               currentGroup={props.currentGroup}
               deleteQA={deleteQA}
               retryQA={retryQA}
-            />
+            />*/}
           </div>
         </div>
 
