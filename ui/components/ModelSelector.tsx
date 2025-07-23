@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Zap, Copy, CheckCircle2, RefreshCw, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, extractModelName } from '@/lib/utils';
 import { ProxyModel } from '@/lib/api/schemas/models';
 
 export function ModelSelector() {
@@ -278,7 +278,7 @@ export function ModelSelector() {
                           <CardHeader className='relative z-10 pb-2'>
                             <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
                               <div className='group inline-block max-w-[80%] truncate font-medium'>
-                                <span className='truncate'>{model.name}</span>
+                                <span className='truncate'>{extractModelName(model.name)}</span>
                                 {model.description && (
                                   <div className='text-muted-foreground truncate text-xs font-normal'>
                                     {model.description}
@@ -451,7 +451,7 @@ export function ModelSelector() {
                         <CardHeader className='relative z-10 pb-2'>
                           <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
                             <div className='group inline-block max-w-[70%] truncate font-medium'>
-                              <span className='truncate'>{model.name}</span>
+                              <span className='truncate'>{extractModelName(model.name)}</span>
                               {model.description && (
                                 <div className='text-muted-foreground truncate text-xs font-normal'>
                                   {model.description}
@@ -515,7 +515,7 @@ export function ModelSelector() {
           <h3 className='mb-2 font-medium text-wrap'>
             Selected Model:
             <div className='mt-1 text-sm font-normal break-all'>
-              {modelInfo?.name}
+              {modelInfo?.name ? extractModelName(modelInfo.name) : ''}
             </div>
           </h3>
           {isLoadingModelInfo ? (
