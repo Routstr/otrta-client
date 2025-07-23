@@ -1,33 +1,14 @@
-FROM node:23-slim AS base
+FROM node:23-alpine AS base
 
 FROM base AS deps
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libc6-dev \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
-
-# Install dependencies with platform targeting
-RUN npm ci --platform=linux --arch=x64
-
-# Explicitly install and rebuild LightningCSS for Linux
-RUN npm install lightningcss --platform=linux --arch=x64 --force
-RUN npm rebuild lightningcss
+RUN npm i
 
 FROM base AS builder
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libc6-dev \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-
-# Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -36,12 +17,6 @@ ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_ENABLE_AUTHENTICATION
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_ENABLE_AUTHENTICATION=$NEXT_PUBLIC_ENABLE_AUTHENTICATION
-
-# Double-check LightningCSS binary exists and rebuild if needed
-RUN if [ ! -f node_modules/lightningcss/lightningcss.linux-x64-gnu.node ]; then \
-    echo "LightningCSS binary not found, rebuilding..."; \
-    npm rebuild lightningcss --platform=linux --arch=x64; \
-    fi
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
