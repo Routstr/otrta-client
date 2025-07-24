@@ -278,8 +278,10 @@ export function ModelSelector() {
                           <CardHeader className='relative z-10 pb-2'>
                             <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
                               <div className='group inline-block max-w-[80%] truncate font-medium'>
-                                <span className='truncate'>{extractModelName(model.name)}</span>
-                                <div className='text-muted-foreground truncate text-xs font-normal font-mono'>
+                                <span className='truncate'>
+                                  {extractModelName(model.name)}
+                                </span>
+                                <div className='text-muted-foreground truncate font-mono text-xs font-normal'>
                                   {model.name}
                                 </div>
                                 {model.description && (
@@ -454,8 +456,10 @@ export function ModelSelector() {
                         <CardHeader className='relative z-10 pb-2'>
                           <CardTitle className='flex items-center justify-between overflow-hidden text-sm'>
                             <div className='group inline-block max-w-[70%] truncate font-medium'>
-                              <span className='truncate'>{extractModelName(model.name)}</span>
-                              <div className='text-muted-foreground truncate text-xs font-normal font-mono'>
+                              <span className='truncate'>
+                                {extractModelName(model.name)}
+                              </span>
+                              <div className='text-muted-foreground truncate font-mono text-xs font-normal'>
                                 {model.name}
                               </div>
                               {model.description && (
@@ -524,7 +528,7 @@ export function ModelSelector() {
               {modelInfo?.name ? extractModelName(modelInfo.name) : ''}
             </div>
             {modelInfo?.name && (
-              <div className='mt-1 text-xs text-muted-foreground font-mono break-all'>
+              <div className='text-muted-foreground mt-1 font-mono text-xs break-all'>
                 {modelInfo.name}
               </div>
             )}

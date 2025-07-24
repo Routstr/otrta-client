@@ -1,11 +1,6 @@
 import { cn, extractModelName } from '@/lib/utils';
 import { ArrowUp, Brain, Zap, Search, Link } from 'lucide-react';
-import {
-  useEffect,
-  useRef,
-  useState,
-  useMemo,
-} from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { GroupSheet } from './groupSheet';
 import AddConversation from './addConversation';
@@ -18,13 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useModelSelectionStore } from '@/src/stores/model-selection';
@@ -63,24 +52,15 @@ const MessageInput = ({
   const [message, setMessage] = useState('');
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
   const [modelSearchTerm, setModelSearchTerm] = useState('');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { selectedModel, setSelectedModel } = useModelSelectionStore();
 
   const filteredModels = useMemo(() => {
     if (!proxyModels || !modelSearchTerm.trim()) return proxyModels;
 
-    return proxyModels.filter(
-      (model) =>
-        model.name.toLowerCase().includes(modelSearchTerm.toLowerCase()) ||
-        (model.provider &&
-          model.provider
-            .toLowerCase()
-            .includes(modelSearchTerm.toLowerCase())) ||
-        (model.description &&
-          model.description
-            .toLowerCase()
-            .includes(modelSearchTerm.toLowerCase()))
+    return proxyModels.filter((model) =>
+      model.name.toLowerCase().includes(modelSearchTerm.toLowerCase())
     );
   }, [proxyModels, modelSearchTerm]);
 
@@ -112,7 +92,6 @@ const MessageInput = ({
 
   const handleModelSelect = (value: string) => {
     setSelectedModel(value);
-    setIsSearchOpen(false);
     setModelSearchTerm('');
     setIsModelDialogOpen(false);
   };
@@ -185,39 +164,33 @@ const MessageInput = ({
                 </DialogTitle>
               </DialogHeader>
               <div className='space-y-4'>
-                <Select
-                  value={selectedModel}
-                  onValueChange={handleModelSelect}
-                  open={isSearchOpen}
-                  onOpenChange={setIsSearchOpen}
-                >
-                  <SelectTrigger className='w-full'>
-                    <SelectValue placeholder='Select a model for enhanced AI search (optional)' />
-                  </SelectTrigger>
-                  <SelectContent
-                    className='max-h-[60vh] w-full max-w-full overflow-auto'
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                  >
-                    <div className='p-2' onClick={(e) => e.stopPropagation()}>
-                      <div className='relative'>
-                        <Search className='text-muted-foreground absolute top-2.5 left-2 h-4 w-4' />
-                        <Input
-                          placeholder='Search models...'
-                          value={modelSearchTerm}
-                          onChange={(e) => {
-                            setModelSearchTerm(e.target.value);
-                            e.stopPropagation();
-                          }}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          onClick={(e) => e.stopPropagation()}
-                          className='pl-8'
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-                    <SelectItem value='none'>
-                      <div className='flex w-full items-center justify-between'>
-                        <span>No AI Model - Basic Search</span>
+                {/* Custom Model Search */}
+                <div className='space-y-3'>
+                  <div className='relative'>
+                    <Search className='text-muted-foreground absolute top-2.5 left-2 h-4 w-4' />
+                    <Input
+                      ref={searchInputRef}
+                      placeholder='Search models...'
+                      value={modelSearchTerm}
+                      onChange={(e) => setModelSearchTerm(e.target.value)}
+                      className='pl-8'
+                      autoFocus
+                    />
+                  </div>
+
+                  <ScrollArea className='h-80 w-full rounded-md border'>
+                    <div className='space-y-1 p-2'>
+                      {/* Basic Search Option */}
+                      <div
+                        onClick={() => handleModelSelect('none')}
+                        className={cn(
+                          'hover:bg-accent flex w-full cursor-pointer items-center justify-between rounded-md p-3 transition-colors',
+                          selectedModel === 'none' && 'bg-accent'
+                        )}
+                      >
+                        <span className='font-medium'>
+                          No AI Model - Basic Search
+                        </span>
                         <Badge
                           variant='secondary'
                           className='bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -225,15 +198,25 @@ const MessageInput = ({
                           Free
                         </Badge>
                       </div>
-                    </SelectItem>
-                    {isLoadingProxyModels ? (
-                      <SelectItem value='loading' disabled>
-                        Loading models...
-                      </SelectItem>
-                    ) : (
-                      filteredModels?.map((model) => (
-                        <SelectItem key={model.name} value={model.name}>
-                          <div className='flex w-full min-w-0 items-center justify-between gap-2'>
+
+                      {/* Loading State */}
+                      {isLoadingProxyModels ? (
+                        <div className='flex items-center justify-center p-8'>
+                          <span className='text-muted-foreground text-sm'>
+                            Loading models...
+                          </span>
+                        </div>
+                      ) : (
+                        /* Model List */
+                        filteredModels?.map((model) => (
+                          <div
+                            key={model.name}
+                            onClick={() => handleModelSelect(model.name)}
+                            className={cn(
+                              'hover:bg-accent flex w-full cursor-pointer items-center justify-between gap-2 rounded-md p-3 transition-colors',
+                              selectedModel === model.name && 'bg-accent'
+                            )}
+                          >
                             <div className='flex min-w-0 flex-1 items-center gap-2'>
                               <Zap className='h-4 w-4 flex-shrink-0' />
                               <div className='min-w-0 flex-1'>
@@ -322,11 +305,23 @@ const MessageInput = ({
                               )}
                             </div>
                           </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                        ))
+                      )}
+
+                      {/* No Results */}
+                      {!isLoadingProxyModels &&
+                        filteredModels?.length === 0 &&
+                        modelSearchTerm && (
+                          <div className='flex items-center justify-center p-8'>
+                            <span className='text-muted-foreground text-sm'>
+                              No models found matching &quot;{modelSearchTerm}
+                              &quot;
+                            </span>
+                          </div>
+                        )}
+                    </div>
+                  </ScrollArea>
+                </div>
 
                 {selectedModelInfo && (
                   <div className='rounded-lg border p-4'>
