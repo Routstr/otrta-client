@@ -21,6 +21,32 @@ use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
 
+fn is_valid_provider_url(url: &str, use_onion: bool) -> bool {
+    if url.trim().is_empty() {
+        return false;
+    }
+    
+    if url.contains(".onion") {
+        return use_onion && (url.starts_with("http://") || url.starts_with("https://"));
+    }
+    
+    url.starts_with("http://") || url.starts_with("https://")
+}
+
+async fn validate_tor_availability() -> bool {
+    let tor_proxy_url = std::env::var("TOR_SOCKS_PROXY")
+        .unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string());
+    
+    match reqwest::Client::builder()
+        .proxy(reqwest::Proxy::all(&tor_proxy_url).unwrap())
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(_) => true,
+        Err(_) => false
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProviderWithStatusListResponse {
     pub providers: Vec<ProviderWithStatus>,
@@ -224,13 +250,29 @@ pub async fn create_custom_provider_handler(
         ));
     }
 
-    if request.url.trim().is_empty() || !request.url.starts_with("http") {
+    if !is_valid_provider_url(&request.url, request.use_onion) {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(json!({
                 "error": {
-                    "message": "Provider URL must be a valid HTTP(S) URL",
+                    "message": if request.use_onion && request.url.contains(".onion") {
+                        "Onion URLs must start with http:// or https://"
+                    } else {
+                        "Provider URL must be a valid HTTP(S) URL"
+                    },
                     "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    if request.use_onion && !validate_tor_availability().await {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "error": {
+                    "message": "Tor proxy not available. Cannot create .onion provider.",
+                    "type": "service_unavailable"
                 }
             })),
         ));
@@ -407,5 +449,23 @@ pub async fn set_provider_default(
                 })),
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_provider_url_validation() {
+        assert!(is_valid_provider_url("http://example.com", false));
+        assert!(is_valid_provider_url("https://example.com", false));
+        assert!(is_valid_provider_url("http://example.onion", true));
+        assert!(is_valid_provider_url("https://example.onion", true));
+        
+        assert!(!is_valid_provider_url("", false));
+        assert!(!is_valid_provider_url("ftp://example.com", false));
+        assert!(!is_valid_provider_url("http://example.onion", false));
+        assert!(!is_valid_provider_url("example.onion", true));
     }
 }

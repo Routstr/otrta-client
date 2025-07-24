@@ -6,6 +6,7 @@ use crate::{
     models::{AppState, ServerConfig},
 };
 use axum::{extract::State, http::StatusCode, Json};
+use serde_json::json;
 use std::sync::Arc;
 
 pub async fn update_server_config(
@@ -52,4 +53,27 @@ pub async fn get_server_config(db: &Pool) -> Option<ServerConfigRecord> {
     }
 
     None
+}
+
+pub async fn tor_health_check() -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let tor_available = validate_tor_availability().await;
+    
+    Ok(Json(json!({
+        "tor_proxy_available": tor_available,
+        "proxy_url": std::env::var("TOR_SOCKS_PROXY").unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string())
+    })))
+}
+
+async fn validate_tor_availability() -> bool {
+    let tor_proxy_url = std::env::var("TOR_SOCKS_PROXY")
+        .unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string());
+    
+    match reqwest::Client::builder()
+        .proxy(reqwest::Proxy::all(&tor_proxy_url).unwrap())
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(_) => true,
+        Err(_) => false
+    }
 }

@@ -101,6 +101,7 @@ pub async fn perform_web_search_with_llm(
                 Ok(bytes) => {
                     let response_text = String::from_utf8_lossy(&bytes);
 
+                    println!("{:?}", response_text);
                     // Double-check that this isn't an error response
                     if response_text.contains("{\"error\"")
                         || response_text.contains("\"type\":\"payment_error\"")

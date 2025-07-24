@@ -113,6 +113,7 @@ async fn main() {
             get(handlers::get_current_server_config),
         )
         .route("/api/server-config", post(handlers::update_server_config))
+        .route("/api/tor/health", get(handlers::tor_health_check))
         .route("/api/credits", get(handlers::get_all_credits))
         .route("/api/transactions", get(handlers::get_all_transactions))
         .route(
