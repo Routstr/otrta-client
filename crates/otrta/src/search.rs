@@ -10,7 +10,7 @@ use crate::{
     proxy::forward_request_with_payment_with_body,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SearchRequest {
     pub message: String,
     pub group_id: String,
@@ -19,7 +19,7 @@ pub struct SearchRequest {
     pub model_id: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConversationEntry {
     pub human: String,
     pub assistant: String,

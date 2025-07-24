@@ -11,6 +11,7 @@ import { useModelSelectionStore } from '@/src/stores/model-selection';
 import { Badge } from '@/components/ui/badge';
 import { Brain, Sparkles } from 'lucide-react';
 import { extractModelName } from '@/lib/utils';
+import { SearchManager } from '@/lib/services/search-manager';
 
 interface Props {
   searchData: GetSearchesResponse;
@@ -211,6 +212,11 @@ export function SearchPageComponent(props: Props) {
     scrollToBottom(false);
   }, [scrollToBottom]);
 
+  // Load pending searches on component mount
+  useEffect(() => {
+    SearchManager.getInstance().loadPendingSearches();
+  }, []);
+
   // Handle new search results and start streaming - only when we should stream
   useEffect(() => {
     if (searchToStream && sortedSearches.length > 0) {
@@ -285,21 +291,32 @@ export function SearchPageComponent(props: Props) {
 
   const onSubmit = async (message: string, modelId?: string) => {
     const effectiveModel = modelId || selectedModel;
-    await mutation.mutateAsync({
-      message: message,
-      group_id: props.searchData.group_id,
-      conversation:
-        allResults.length === 0
-          ? undefined
-          : [
-              {
-                human: allResults[allResults.length - 1].query,
-                assistant: allResults[allResults.length - 1].response.message,
-              },
-            ],
-      urls: urls.length === 0 ? undefined : urls,
-      model_id: effectiveModel === 'none' ? undefined : effectiveModel,
-    });
+
+    try {
+      await SearchManager.getInstance().submitSearch({
+        message: message,
+        group_id: props.searchData.group_id,
+        conversation:
+          allResults.length === 0
+            ? undefined
+            : [
+                {
+                  human: allResults[allResults.length - 1].query,
+                  assistant: allResults[allResults.length - 1].response.message,
+                },
+              ],
+        urls: urls.length === 0 ? undefined : urls,
+        model_id: effectiveModel === 'none' ? undefined : effectiveModel,
+      });
+
+      await client.invalidateQueries({
+        queryKey: ['user_searches'],
+        exact: true,
+        refetchType: 'active',
+      });
+    } catch (error) {
+      console.error('Search submission failed:', error);
+    }
   };
 
   // Force scroll to bottom when search completes (after query invalidation)

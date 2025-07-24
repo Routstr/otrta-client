@@ -25,6 +25,7 @@ pub struct TokenRedeemResponse {
     pub message: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_msats_per_request: u32,

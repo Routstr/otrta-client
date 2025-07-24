@@ -39,6 +39,10 @@ pub struct UserSearch {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub name: String,
     pub search: Json<Search>,
+    pub status: Option<String>,
+    pub started_at: Option<chrono::NaiveDateTime>,
+    pub completed_at: Option<chrono::NaiveDateTime>,
+    pub error_message: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -54,6 +58,131 @@ impl From<SearchResponse> for Search {
             sources: response.sources,
         }
     }
+}
+
+pub async fn create_pending_search(
+    db_pool: &PgPool,
+    query: &String,
+    user_id: String,
+    group_id: Uuid,
+) -> Uuid {
+    let group = match get_search_group(db_pool, user_id.clone(), group_id).await {
+        Ok(group) => group,
+        Err(_) => create_conversation(db_pool, user_id.clone()).await,
+    };
+    if group.name == "new Conversation" {
+        update_search_group_name(db_pool, user_id.clone(), group.id, query).await;
+    }
+
+    let search_id = Uuid::new_v4();
+    let empty_search = Search {
+        message: String::new(),
+        sources: None,
+    };
+
+    sqlx::query!(
+        r#"
+        INSERT INTO user_searches (id, user_id, user_search_group_id, created_at, name, search, status, started_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        "#,
+        search_id,
+        user_id,
+        group.id,
+        chrono::Utc::now(),
+        query,
+        sqlx::types::Json(empty_search) as sqlx::types::Json<Search>,
+        "pending",
+        Option::<chrono::NaiveDateTime>::None,
+    )
+    .execute(db_pool)
+    .await
+    .expect("Failed to insert pending search");
+
+    search_id
+}
+
+pub async fn update_search_status(
+    db_pool: &PgPool,
+    search_id: Uuid,
+    status: &str,
+    started_at: Option<chrono::NaiveDateTime>,
+    completed_at: Option<chrono::NaiveDateTime>,
+    error_message: Option<&str>,
+) {
+    sqlx::query!(
+        r#"
+        UPDATE user_searches 
+        SET status = $1, started_at = $2, completed_at = $3, error_message = $4
+        WHERE id = $5
+        "#,
+        status,
+        started_at,
+        completed_at,
+        error_message,
+        search_id,
+    )
+    .execute(db_pool)
+    .await
+    .expect("Failed to update search status");
+}
+
+pub async fn complete_search(db_pool: &PgPool, search_id: Uuid, search_response: SearchResponse) {
+    let search_data: Search = search_response.into();
+
+    sqlx::query!(
+        r#"
+        UPDATE user_searches 
+        SET search = $1, status = $2, completed_at = $3
+        WHERE id = $4
+        "#,
+        sqlx::types::Json(search_data) as sqlx::types::Json<Search>,
+        "completed",
+        chrono::Utc::now().naive_utc(),
+        search_id,
+    )
+    .execute(db_pool)
+    .await
+    .expect("Failed to complete search");
+}
+
+pub async fn get_search_by_id(
+    db_pool: &PgPool,
+    search_id: Uuid,
+    user_id: &str,
+) -> Option<UserSearch> {
+    sqlx::query_as!(
+        UserSearch,
+        r#"
+        SELECT id, user_id, user_search_group_id, created_at, name, search as "search: Json<Search>",
+               status, started_at, completed_at, error_message 
+               
+        FROM user_searches 
+        WHERE id = $1 AND user_id = $2
+        "#,
+        search_id,
+        user_id,
+    )
+    .fetch_optional(db_pool)
+    .await
+    .expect("Failed to fetch search by id")
+}
+
+pub async fn get_pending_searches(db_pool: &PgPool, user_id: &str) -> Vec<UserSearch> {
+    sqlx::query_as!(
+        UserSearch,
+        r#"
+        SELECT id, user_id, user_search_group_id, created_at, name, search as "search: Json<Search>",
+               status, started_at, completed_at, error_message
+               
+        FROM user_searches 
+        WHERE user_id = $1 AND status IN ('pending', 'processing')
+        ORDER BY created_at DESC
+        "#,
+        user_id,
+    )
+    .fetch_all(db_pool)
+    .await
+    .expect("Failed to fetch pending searches")
 }
 
 pub async fn insert_search(
@@ -76,19 +205,21 @@ pub async fn insert_search(
 
     sqlx::query!(
         r#"
-        INSERT INTO user_searches (id, user_id, user_search_group_id, created_at, name, search)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO user_searches (id, user_id, user_search_group_id, created_at, name, search, status, completed_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         "#,
         search_id,
         user_id,
         group.id,
-        chrono::offset::Utc::now(),
+        chrono::Utc::now(),
         query,
-        sqlx::types::Json(search_data) as Json<Search>
+        sqlx::types::Json(search_data) as sqlx::types::Json<Search>,
+        "completed",
+        Some(chrono::Utc::now().naive_utc()),
     )
     .execute(db_pool)
     .await
-    .unwrap();
+    .expect("Failed to insert search");
 
     search_id
 }
@@ -103,7 +234,10 @@ pub async fn get_searches(
             let search = sqlx::query_as!(
                 UserSearch,
                 r#"
-                    SELECT id, user_id, user_search_group_id, created_at, name, search as "search: Json<Search>" FROM user_searches
+                    SELECT id, user_id, user_search_group_id, created_at, name, search as "search: Json<Search>",
+                           status, started_at, completed_at, error_message
+                           
+                    FROM user_searches
                     WHERE user_search_group_id = $1 AND user_id = $2
                     ORDER BY created_at DESC
                 "#,
@@ -128,7 +262,10 @@ pub async fn get_searches(
             let search = sqlx::query_as!(
                 UserSearch,
                 r#"
-                     SELECT id, user_id, user_search_group_id, created_at, name, search as "search: Json<Search>" FROM user_searches
+                     SELECT id, user_id, user_search_group_id, created_at, name, search as "search: Json<Search>",
+                            status, started_at, completed_at, error_message
+                            
+                     FROM user_searches
                      WHERE user_search_group_id = $1 AND user_id = $2
                      ORDER BY created_at DESC
                  "#,
@@ -166,7 +303,10 @@ pub async fn get_search(db_pool: &PgPool, group_id: Uuid, id: Uuid, user_id: Str
     sqlx::query_as!(
                 UserSearch,
                 r#"
-                    SELECT id, user_id, user_search_group_id, created_at, name, search as "search: Json<Search>" FROM user_searches
+                    SELECT id, user_id, user_search_group_id, created_at, name, search as "search: Json<Search>",
+                           status, started_at, completed_at, error_message
+                           
+                    FROM user_searches
                     WHERE user_search_group_id = $1 AND id = $2 AND user_id = $3
                     ORDER BY created_at DESC
                 "#,

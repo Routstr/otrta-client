@@ -4,6 +4,7 @@ import './globals.css';
 import { Providers } from './providers';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ProtectedRoute } from '@/lib/auth/ProtectedRoute';
+import { SearchProgressIndicator } from '@/components/search-progress-indicator';
 
 // const geistSans = Geist({
 //   variable: '--font-geist-sans',
@@ -30,7 +31,10 @@ export default function RootLayout({
       <body className={`antialiased`}>
         <ThemeProvider attribute='class' defaultTheme='system' enableSystem>
           <Providers>
-            <ProtectedRoute>{children}</ProtectedRoute>
+            <ProtectedRoute>
+              {children}
+              <SearchProgressIndicator />
+            </ProtectedRoute>
           </Providers>
         </ThemeProvider>
       </body>
