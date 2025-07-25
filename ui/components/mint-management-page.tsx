@@ -67,6 +67,14 @@ export function MintManagementPage() {
     queryFn: () => MintService.getActiveMints(),
   });
 
+  // Find the selected mint to get its currency unit
+  const selectedMint = topupForm.mint_url
+    ? activeMints?.mints?.find((mint) => mint.mint_url === topupForm.mint_url)
+    : activeMints?.mints?.[0];
+
+  // Get the currency unit for the selected mint (default to 'sat' if no mint selected)
+  const currencyUnit = selectedMint?.currency_unit || 'sat';
+
   const topupMutation = useMutation({
     mutationFn: (data: TopupMintRequest) => MultimintService.topupMint(data),
     onSuccess: (response) => {
@@ -249,7 +257,9 @@ export function MintManagementPage() {
 
                   {topupForm.method === 'lightning' && (
                     <div className='space-y-2'>
-                      <Label htmlFor='topup-amount'>Amount (sats)</Label>
+                      <Label htmlFor='topup-amount'>
+                        Amount ({currencyUnit})
+                      </Label>
                       <Input
                         id='topup-amount'
                         type='number'
@@ -260,7 +270,7 @@ export function MintManagementPage() {
                             amount: parseInt(e.target.value) || undefined,
                           }))
                         }
-                        placeholder='Enter amount in sats'
+                        placeholder={`Enter amount in ${currencyUnit}`}
                         min='1'
                       />
                       <p className='text-xs text-gray-500'>
