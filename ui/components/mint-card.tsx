@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
 import { Trash2, Power, PowerOff, Edit3, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -56,13 +57,38 @@ interface MintCardProps {
   className?: string;
 }
 
+type MintEditFormData = {
+  name: string;
+  currency_unit: string;
+};
+
 export function MintCard({ mint, balance, className }: MintCardProps) {
   const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editedName, setEditedName] = useState(mint.name || '');
-  const [editedCurrencyUnit, setEditedCurrencyUnit] = useState(
-    mint.currency_unit
-  );
+
+  // Initialize form with current mint values
+  const form = useForm<MintEditFormData>({
+    defaultValues: {
+      name: mint.name || '',
+      currency_unit: mint.currency_unit,
+    },
+  });
+
+  const { register, handleSubmit, reset, watch, formState } = form;
+  const { isDirty } = formState;
+
+  // Watch form values for change detection
+  const watchedValues = watch();
+
+  // Reset form when dialog opens or mint data changes
+  useEffect(() => {
+    if (isEditDialogOpen) {
+      reset({
+        name: mint.name || '',
+        currency_unit: mint.currency_unit,
+      });
+    }
+  }, [isEditDialogOpen, mint.name, mint.currency_unit, reset]);
 
   // Toggle mint active status
   const toggleActiveMutation = useMutation({
@@ -70,6 +96,7 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
       MintService.setMintActive(id, isActive),
     onSuccess: (_, { isActive }) => {
       queryClient.invalidateQueries({ queryKey: ['mints'] });
+      queryClient.invalidateQueries({ queryKey: ['active-mints'] });
       queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
       toast.success(
         `Mint ${isActive ? 'activated' : 'deactivated'} successfully`
@@ -85,6 +112,7 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
     mutationFn: (id: number) => MintService.deleteMint(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mints'] });
+      queryClient.invalidateQueries({ queryKey: ['active-mints'] });
       queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
       toast.success('Mint deleted successfully');
     },
@@ -98,7 +126,10 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
     mutationFn: ({ id, data }: { id: number; data: UpdateMintRequest }) =>
       MintService.updateMint(id, data),
     onSuccess: () => {
+      // Invalidate all mint-related queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ['mints'] });
+      queryClient.invalidateQueries({ queryKey: ['active-mints'] });
+      queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
       setIsEditDialogOpen(false);
       toast.success('Mint updated successfully');
     },
@@ -118,16 +149,30 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
     deleteMutation.mutate(mint.id);
   };
 
-  const handleUpdateMint = () => {
+  const onSubmit = (data: MintEditFormData) => {
+    const updateData: UpdateMintRequest = {};
+
+    // Only include fields that have actually changed
+    if (data.name !== (mint.name || '')) {
+      updateData.name = data.name || undefined;
+    }
+
+    if (data.currency_unit !== mint.currency_unit) {
+      updateData.currency_unit = data.currency_unit;
+    }
+
     updateMutation.mutate({
       id: mint.id,
-      data: {
-        name: editedName || undefined,
-        currency_unit:
-          editedCurrencyUnit !== mint.currency_unit
-            ? editedCurrencyUnit
-            : undefined,
-      },
+      data: updateData,
+    });
+  };
+
+  const handleDialogClose = () => {
+    setIsEditDialogOpen(false);
+    // Reset form when dialog is closed
+    reset({
+      name: mint.name || '',
+      currency_unit: mint.currency_unit,
     });
   };
 
@@ -169,7 +214,12 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
           </div>
 
           <div className='ml-2 flex items-center gap-1'>
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <Dialog
+              open={isEditDialogOpen}
+              onOpenChange={(open) =>
+                open ? setIsEditDialogOpen(true) : handleDialogClose()
+              }
+            >
               <DialogTrigger asChild>
                 <Button variant='ghost' size='icon' className='h-8 w-8'>
                   <Edit3 className='h-4 w-4' />
@@ -183,21 +233,27 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
                     Update the display name and currency unit for this mint.
                   </DialogDescription>
                 </DialogHeader>
-                <div className='space-y-4 py-4'>
+                <form
+                  onSubmit={handleSubmit(onSubmit)}
+                  className='space-y-4 py-4'
+                >
                   <div className='space-y-2'>
                     <Label htmlFor='name'>Display Name</Label>
                     <Input
                       id='name'
-                      value={editedName}
-                      onChange={(e) => setEditedName(e.target.value)}
+                      {...register('name')}
                       placeholder='Enter a display name'
                     />
                   </div>
                   <div className='space-y-2'>
                     <Label htmlFor='currency-unit'>Currency Unit</Label>
                     <Select
-                      value={editedCurrencyUnit}
-                      onValueChange={setEditedCurrencyUnit}
+                      value={watchedValues.currency_unit}
+                      onValueChange={(value) =>
+                        form.setValue('currency_unit', value, {
+                          shouldDirty: true,
+                        })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder='Select currency unit' />
@@ -210,21 +266,22 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant='outline'
-                    onClick={() => setIsEditDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleUpdateMint}
-                    disabled={updateMutation.isPending}
-                  >
-                    {updateMutation.isPending ? 'Saving...' : 'Save'}
-                  </Button>
-                </DialogFooter>
+                  <DialogFooter>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      onClick={handleDialogClose}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type='submit'
+                      disabled={updateMutation.isPending || !isDirty}
+                    >
+                      {updateMutation.isPending ? 'Saving...' : 'Save'}
+                    </Button>
+                  </DialogFooter>
+                </form>
               </DialogContent>
             </Dialog>
 
