@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useSearchState, ActiveSearch } from '@/src/stores/search-state';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,8 +116,18 @@ function SearchProgressItem({
 }
 
 export function SearchProgressIndicator() {
-  const { getActiveSearches, removeActiveSearch } = useSearchState();
-  const activeSearches = getActiveSearches();
+  const activeSearchesRecord = useSearchState((state) => state.activeSearches);
+  const removeActiveSearch = useSearchState(
+    (state) => state.removeActiveSearch
+  );
+
+  // Memoize the conversion to array to prevent infinite loops
+  const activeSearches = useMemo(
+    () => Object.values(activeSearchesRecord),
+    [activeSearchesRecord]
+  );
+
+  console.log('[SearchProgressIndicator] Active searches:', activeSearches);
 
   if (activeSearches.length === 0) {
     return null;
@@ -125,10 +135,10 @@ export function SearchProgressIndicator() {
 
   const handleCancel = async (searchId: string) => {
     const search = activeSearches.find((s) => s.id === searchId);
-    if (
-      search &&
-      (search.status === 'pending' || search.status === 'processing')
-    ) {
+    if (search) {
+      console.log(
+        `[SearchProgressIndicator] Cancelling/removing search ${searchId}`
+      );
       await SearchManager.getInstance().cancelSearch(searchId);
     } else {
       removeActiveSearch(searchId);
@@ -160,21 +170,20 @@ export function SearchProgressIndicator() {
           ))}
         </div>
 
-        {activeSearches.some((s) => s.status === 'completed') && (
+        {activeSearches.length > 0 && (
           <div className='mt-3 border-t pt-3'>
             <Button
               size='sm'
               variant='outline'
               className='w-full text-xs'
               onClick={() => {
-                activeSearches
-                  .filter(
-                    (s) => s.status === 'completed' || s.status === 'failed'
-                  )
-                  .forEach((s) => removeActiveSearch(s.id));
+                console.log(
+                  '[SearchProgressIndicator] Clearing all active searches'
+                );
+                activeSearches.forEach((s) => removeActiveSearch(s.id));
               }}
             >
-              Clear Completed
+              Clear All
             </Button>
           </div>
         )}
