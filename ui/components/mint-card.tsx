@@ -126,12 +126,15 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
     mutationFn: ({ id, data }: { id: number; data: UpdateMintRequest }) =>
       MintService.updateMint(id, data),
     onSuccess: () => {
-      // Invalidate all mint-related queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ['mints'] });
       queryClient.invalidateQueries({ queryKey: ['active-mints'] });
       queryClient.invalidateQueries({ queryKey: ['multimint-balance'] });
       setIsEditDialogOpen(false);
       toast.success('Mint updated successfully');
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     },
     onError: (error) => {
       toast.error(`Failed to update mint: ${error.message}`);
