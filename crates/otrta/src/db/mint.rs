@@ -61,6 +61,7 @@ pub struct CreateMintRequest {
 pub struct UpdateMintRequest {
     pub is_active: Option<bool>,
     pub name: Option<String>,
+    pub currency_unit: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -178,12 +179,14 @@ pub async fn update_mint(
         "UPDATE mints 
          SET is_active = COALESCE($1, is_active),
              name = COALESCE($2, name),
+             currency_unit = COALESCE($3, currency_unit),
              updated_at = NOW()
-         WHERE id = $3
+         WHERE id = $4
          RETURNING id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at",
     )
     .bind(request.is_active)
     .bind(request.name)
+    .bind(request.currency_unit)
     .bind(id)
     .fetch_one(db)
     .await?;
@@ -298,14 +301,16 @@ pub async fn update_mint_for_organization(
         "UPDATE mints 
          SET is_active = COALESCE($3, is_active),
              name = COALESCE($4, name),
+             currency_unit = COALESCE($5, currency_unit),
              updated_at = NOW()
-         WHERE id = $1 AND organization_id = $2
+         WHERE id = $1 AND (organization_id IS NULL OR organization_id = $2)
          RETURNING id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at",
     )
     .bind(id)
     .bind(organization_id)
     .bind(request.is_active)
     .bind(request.name)
+    .bind(request.currency_unit)
     .fetch_optional(db)
     .await?;
 
@@ -317,11 +322,13 @@ pub async fn delete_mint_for_organization(
     id: i32,
     organization_id: &Uuid,
 ) -> Result<bool, sqlx::Error> {
-    let result = sqlx::query("DELETE FROM mints WHERE id = $1 AND organization_id = $2")
-        .bind(id)
-        .bind(organization_id)
-        .execute(db)
-        .await?;
+    let result = sqlx::query(
+        "DELETE FROM mints WHERE id = $1 AND (organization_id IS NULL OR organization_id = $2)",
+    )
+    .bind(id)
+    .bind(organization_id)
+    .execute(db)
+    .await?;
 
     Ok(result.rows_affected() > 0)
 }
@@ -334,7 +341,7 @@ pub async fn set_mint_active_status_for_organization(
 ) -> Result<bool, sqlx::Error> {
     let result = sqlx::query(
         "UPDATE mints SET is_active = $3, updated_at = NOW() 
-         WHERE id = $1 AND organization_id = $2",
+         WHERE id = $1 AND (organization_id IS NULL OR organization_id = $2)",
     )
     .bind(id)
     .bind(organization_id)
