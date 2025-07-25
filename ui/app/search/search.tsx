@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { SchemaProps, search, GetSearchesResponse } from '@/src/api/web-search';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { GetSearchesResponse } from '@/src/api/web-search';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import MessageInput from './messageInput';
 import { ResultCard } from './resultCard';
@@ -11,15 +11,11 @@ import { useModelSelectionStore } from '@/src/stores/model-selection';
 import { Badge } from '@/components/ui/badge';
 import { Brain, Sparkles } from 'lucide-react';
 import { extractModelName } from '@/lib/utils';
+import { SearchManager } from '@/lib/services/search-manager';
+import { apiClient } from '@/lib/api/client';
 
 interface Props {
   searchData: GetSearchesResponse;
-}
-
-interface ApiError extends Error {
-  response?: {
-    status: number;
-  };
 }
 
 interface PendingSearch {
@@ -62,10 +58,14 @@ export function SearchPageComponent(props: Props) {
   const [pendingSearch, setPendingSearch] = useState<PendingSearch | null>(
     null
   );
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [streamingResults, setStreamingResults] = useState<
     Map<string, StreamingResult>
   >(new Map());
   const [searchToStream, setSearchToStream] = useState<string | null>(null);
+
+  // Polling state management
+  const pollingIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const { data: proxyModels, isLoading: isLoadingProxyModels } = useQuery({
     queryKey: ['proxy-models'],
@@ -246,65 +246,53 @@ export function SearchPageComponent(props: Props) {
     }
   }, [searchToStream, sortedSearches, streamingResults, streamText]);
 
-  const mutation = useMutation({
-    mutationKey: ['web_search'],
-    mutationFn: (registerForm: SchemaProps) => {
-      return search(registerForm);
-    },
-    onMutate: (variables) => {
-      // Immediately show the pending search
-      setPendingSearch({
-        query: variables.message,
-        timestamp: Date.now(),
-      });
-    },
-    onSuccess: async (data) => {
-      console.log(data);
-
-      // Set the specific search ID to stream
-      setSearchToStream(data.id);
-
-      await client.invalidateQueries({
-        queryKey: ['user_searches'],
-        exact: true,
-        refetchType: 'active',
-      });
-    },
-    onError: (error: ApiError) => {
-      console.error('Search failed:', error);
-      setPendingSearch(null);
-      setSearchToStream(null);
-    },
-    retry: (failureCount: number, error: ApiError) => {
-      if (error?.response?.status === 400 || error?.response?.status === 401) {
-        return false;
-      }
-      return failureCount < 2;
-    },
-  });
-
   const onSubmit = async (message: string, modelId?: string) => {
     const effectiveModel = modelId || selectedModel;
-    await mutation.mutateAsync({
-      message: message,
-      group_id: props.searchData.group_id,
-      conversation:
-        allResults.length === 0
-          ? undefined
-          : [
-              {
-                human: allResults[allResults.length - 1].query,
-                assistant: allResults[allResults.length - 1].response.message,
-              },
-            ],
-      urls: urls.length === 0 ? undefined : urls,
-      model_id: effectiveModel === 'none' ? undefined : effectiveModel,
+
+    // Clear any previous errors
+    setSearchError(null);
+
+    // Immediately show the pending search
+    setPendingSearch({
+      query: message,
+      timestamp: Date.now(),
     });
+
+    try {
+      const searchId = await SearchManager.getInstance().submitSearch({
+        message: message,
+        group_id: props.searchData.group_id,
+        conversation:
+          allResults.length === 0
+            ? undefined
+            : [
+                {
+                  human: allResults[allResults.length - 1].query,
+                  assistant: allResults[allResults.length - 1].response.message,
+                },
+              ],
+        urls: urls.length === 0 ? undefined : urls,
+        model_id: effectiveModel === 'none' ? undefined : effectiveModel,
+      });
+
+      console.log('[Search] Search submitted with ID:', searchId);
+
+      // Start polling for this search
+      startPolling(searchId);
+    } catch (error) {
+      console.error('Search submission failed:', error);
+      setPendingSearch(null);
+      setSearchError(
+        error instanceof Error
+          ? error.message
+          : 'An unexpected error occurred while searching. Please try again.'
+      );
+    }
   };
 
   // Force scroll to bottom when search completes (after query invalidation)
   useEffect(() => {
-    if (!mutation.isPending && allResults.length > 0) {
+    if (!pendingSearch && allResults.length > 0) {
       // Small delay to ensure DOM has updated after query invalidation
       const timeoutId = setTimeout(() => {
         scrollToBottom();
@@ -314,7 +302,7 @@ export function SearchPageComponent(props: Props) {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [mutation.isPending, allResults.length, scrollToBottom]);
+  }, [pendingSearch, allResults.length, scrollToBottom]);
 
   const getSelectedModelInfo = () => {
     if (selectedModel === 'none') return null;
@@ -322,6 +310,137 @@ export function SearchPageComponent(props: Props) {
   };
 
   const selectedModelInfo = getSelectedModelInfo();
+
+  // Polling functions
+  const stopPolling = useCallback((searchId: string) => {
+    const interval = pollingIntervalsRef.current.get(searchId);
+    if (interval) {
+      console.log(`[Search] Stopping polling for search ${searchId}`);
+      clearInterval(interval);
+      pollingIntervalsRef.current.delete(searchId);
+    }
+  }, []);
+
+  const pollSearchStatus = useCallback(
+    async (searchId: string) => {
+      try {
+        const response = await apiClient.get<{
+          id: string;
+          status: string;
+          query: string;
+          started_at?: string;
+          completed_at?: string;
+          error_message?: string;
+          response?: unknown;
+        }>(`/api/search/${searchId}/status`);
+
+        console.log(`[Search] Polling status for ${searchId}:`, response);
+
+        if (response.status === 'completed' || response.status === 'failed') {
+          console.log(
+            `[Search] Search ${searchId} completed with status: ${response.status}`
+          );
+          stopPolling(searchId);
+
+          // Invalidate the main search query to refresh results
+          await client.invalidateQueries({
+            queryKey: ['user_searches', props.searchData.group_id],
+            exact: true,
+            refetchType: 'active',
+          });
+
+          // Clear pending search if it matches
+          setPendingSearch((prev) => {
+            if (prev && response.query === prev.query) {
+              return null;
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error(`[Search] Error polling search ${searchId}:`, error);
+        if (
+          (error as { response?: { status?: number } })?.response?.status ===
+          404
+        ) {
+          stopPolling(searchId);
+        }
+      }
+    },
+    [client, props.searchData.group_id, stopPolling]
+  );
+
+  const startPolling = useCallback(
+    (searchId: string) => {
+      if (pollingIntervalsRef.current.has(searchId)) {
+        console.log(`[Search] Already polling search ${searchId}`);
+        return;
+      }
+
+      console.log(`[Search] Starting to poll search ${searchId}`);
+      // setPollingSearches(prev => new Set([...prev, searchId])); // This line was removed
+
+      const interval = setInterval(() => {
+        pollSearchStatus(searchId);
+      }, 3000);
+
+      pollingIntervalsRef.current.set(searchId, interval);
+    },
+    [pollSearchStatus]
+  );
+
+  // Load pending searches on component mount
+  useEffect(() => {
+    const loadPendingSearches = async () => {
+      try {
+        console.log('[Search] Loading pending searches...');
+        const pendingSearches = await apiClient.get<
+          Array<{
+            id: string;
+            status: string;
+            query: string;
+            group_id: string;
+            started_at?: string;
+            created_at: string;
+            error_message?: string;
+          }>
+        >('/api/search/pending');
+
+        console.log('[Search] Pending searches loaded:', pendingSearches);
+
+        for (const search of pendingSearches) {
+          if (search.status === 'pending' || search.status === 'processing') {
+            // Show pending search if it's for the current group
+            if (search.group_id === props.searchData.group_id) {
+              setPendingSearch({
+                query: search.query,
+                timestamp: new Date(search.created_at).getTime(),
+              });
+            }
+
+            console.log(
+              `[Search] Starting polling for pending search ${search.id}`
+            );
+            startPolling(search.id);
+          }
+        }
+      } catch (error) {
+        console.error('[Search] Failed to load pending searches:', error);
+      }
+    };
+
+    loadPendingSearches();
+  }, [props.searchData.group_id, startPolling]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    const currentIntervals = pollingIntervalsRef.current;
+    return () => {
+      console.log('[Search] Cleaning up all polling intervals');
+      currentIntervals.forEach((interval) => clearInterval(interval));
+      currentIntervals.clear();
+    };
+  }, []);
 
   return (
     <div className='relative flex h-screen flex-col'>
@@ -373,7 +492,7 @@ export function SearchPageComponent(props: Props) {
       >
         <div className='mx-auto max-w-4xl px-4 py-8'>
           {/* Error state */}
-          {mutation.error && (
+          {searchError && (
             <div className='border-destructive/20 bg-destructive/5 animate-in slide-in-from-bottom-4 mb-8 rounded-xl border p-6'>
               <div className='mb-2 flex items-center gap-2'>
                 <div className='bg-destructive h-2 w-2 rounded-full'></div>
@@ -381,11 +500,7 @@ export function SearchPageComponent(props: Props) {
                   Search Failed
                 </span>
               </div>
-              <p className='text-destructive/80 text-sm'>
-                {mutation.error instanceof Error
-                  ? mutation.error.message
-                  : 'An unexpected error occurred while searching. Please try again.'}
-              </p>
+              <p className='text-destructive/80 text-sm'>{searchError}</p>
             </div>
           )}
 
@@ -485,7 +600,7 @@ export function SearchPageComponent(props: Props) {
         <div className='mx-auto max-w-4xl p-4'>
           <MessageInput
             sendMessage={onSubmit}
-            loading={mutation.isPending}
+            loading={pendingSearch !== null}
             currentGroup={props.searchData.group_id}
             urls={urls}
             proxyModels={proxyModels}

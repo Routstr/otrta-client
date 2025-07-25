@@ -1,11 +1,15 @@
 use crate::{
     db::{
         user_search_groups::{create_conversation, delete_search_group, get_search_groups},
-        user_searches::{delete_search, get_searches, insert_search},
+        user_searches::{
+            complete_search, create_pending_search, delete_search, get_pending_searches,
+            get_search_by_id, get_searches, update_search_status,
+        },
     },
     models::AppState,
     search::{perform_web_search, perform_web_search_with_llm, SearchRequest},
 };
+use axum::extract::Path;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -35,6 +39,74 @@ pub struct GetSearchesResponse {
     searches: Vec<SearchResultResponse>,
 }
 
+async fn process_search_background(
+    state: Arc<AppState>,
+    search_id: uuid::Uuid,
+    request: SearchRequest,
+    user_context: crate::models::UserContext,
+) {
+    update_search_status(
+        &state.db,
+        search_id,
+        "processing",
+        Some(chrono::Utc::now().naive_utc()),
+        None,
+        None,
+    )
+    .await;
+
+    let user_id = user_context.npub.clone();
+    let _group_id = uuid::Uuid::parse_str(&request.group_id).unwrap();
+
+    let (response, error_msg) = if request.model_id.is_some() {
+        match perform_web_search_with_llm(
+            &state,
+            &request.message,
+            request.urls,
+            request.conversation.as_deref(),
+            request.model_id.as_deref(),
+            &user_context.organization_id,
+            Some(&user_id),
+        )
+        .await
+        {
+            Ok(resp) => (Some(resp), None),
+            Err(e) => (None, Some(format!("{}", e))),
+        }
+    } else {
+        match perform_web_search(&request.message, request.urls).await {
+            Ok(resp) => (Some(resp), None),
+            Err(e) => (None, Some(format!("{}", e))),
+        }
+    };
+
+    if let Some(response) = response {
+        if response.message.contains("{\"error\"") || response.message.contains("\"type\":\"") {
+            update_search_status(
+                &state.db,
+                search_id,
+                "failed",
+                None,
+                Some(chrono::Utc::now().naive_utc()),
+                Some("Search processing failed"),
+            )
+            .await;
+        } else {
+            complete_search(&state.db, search_id, response).await;
+        }
+    } else if let Some(error_message) = error_msg {
+        update_search_status(
+            &state.db,
+            search_id,
+            "failed",
+            None,
+            Some(chrono::Utc::now().naive_utc()),
+            Some(&error_message),
+        )
+        .await;
+    }
+}
+
 pub async fn search_handler(
     State(state): State<Arc<AppState>>,
     axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
@@ -57,138 +129,25 @@ pub async fn search_handler(
         }
     };
 
-    // Create a unique search identifier to prevent duplicate processing
-    // let search_key = format!("{}:{}:{}", user_id, group_id, request.message);
+    let search_id =
+        create_pending_search(&state.db, &request.message, user_id.clone(), group_id).await;
 
-    // Check if this search is already being processed or was recently processed
-    // {
-    //     let mut cache = state.search_cache.lock().unwrap();
-    //     let now = Instant::now();
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+    let user_context_clone = user_context.clone();
 
-    //     // Clean up old entries (older than 30 seconds)
-    //     cache.retain(|_, &mut timestamp| now.duration_since(timestamp) < Duration::from_secs(30));
-
-    //     // Check if this search was attempted recently
-    //     if let Some(&last_attempt) = cache.get(&search_key) {
-    //         if now.duration_since(last_attempt) < Duration::from_secs(30) {
-    //             return (
-    //                 StatusCode::TOO_MANY_REQUESTS,
-    //                 Json(json!({
-    //                     "error": {
-    //                         "message": "Search request is already being processed or was recently attempted",
-    //                         "type": "duplicate_request"
-    //                     }
-    //                 })),
-    //             )
-    //                 .into_response();
-    //         }
-    //     }
-
-    //     // Mark this search as being processed
-    //     cache.insert(search_key.clone(), now);
-    // }
-
-    // Perform web search with optional LLM integration
-    let search_response = if request.model_id.is_some() {
-        match perform_web_search_with_llm(
-            &state,
-            &request.message,
-            request.urls,
-            request.conversation.as_deref(),
-            request.model_id.as_deref(),
-            &user_context.organization_id,
-            Some(&user_id),
-        )
-        .await
-        {
-            Ok(response) => response,
-            Err(e) => {
-                // Remove from cache on error to allow retry later
-                // {
-                //     let mut cache = state.search_cache.lock().unwrap();
-                //     cache.remove(&search_key);
-                // }
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Search with LLM failed: {}", e),
-                            "type": "search_error"
-                        }
-                    })),
-                )
-                    .into_response();
-            }
-        }
-    } else {
-        match perform_web_search(&request.message, request.urls).await {
-            Ok(response) => response,
-            Err(e) => {
-                // Remove from cache on error to allow retry later
-                // {
-                //     let mut cache = state.search_cache.lock().unwrap();
-                //     cache.remove(&search_key);
-                // }
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": format!("Search failed: {}", e),
-                            "type": "search_error"
-                        }
-                    })),
-                )
-                    .into_response();
-            }
-        }
-    };
-
-    // Validate search response before saving to database
-    // Never save error responses - they should always be valid search results
-    if search_response.message.contains("{\"error\"")
-        || search_response.message.contains("\"type\":\"")
-    {
-        eprintln!(
-            "Warning: Detected error response in search result, not saving to database: {}",
-            search_response.message
-        );
-        // Remove from cache on validation error
-        // {
-        //     let mut cache = state.search_cache.lock().unwrap();
-        //     cache.remove(&search_key);
-        // }
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": {
-                    "message": "Search processing failed",
-                    "type": "search_error"
-                }
-            })),
-        )
-            .into_response();
-    }
-
-    // Save search to database
-    let search_id = insert_search(
-        &state.db,
-        &request.message,
-        search_response.clone(),
-        user_id,
-        group_id,
-    )
-    .await;
-
-    // Remove from cache since search completed successfully
-    // {
-    //     let mut cache = state.search_cache.lock().unwrap();
-    //     cache.remove(&search_key);
-    // }
+    tokio::spawn(async move {
+        process_search_background(state_clone, search_id, request_clone, user_context_clone).await;
+    });
 
     let response = SearchResultResponse {
         id: search_id.to_string(),
         query: request.message,
-        response: serde_json::to_value(&search_response).unwrap(),
+        response: serde_json::to_value(&json!({
+            "message": "Search queued for processing",
+            "sources": null
+        }))
+        .unwrap(),
         created_at: chrono::Utc::now().to_rfc3339(),
     };
 
@@ -388,4 +347,85 @@ pub async fn delete_search_group_handler(
         )
             .into_response(),
     }
+}
+
+pub async fn get_search_status_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
+    Path(search_id): Path<String>,
+) -> Response {
+    let user_id = user_context.npub.clone();
+    let search_uuid = match uuid::Uuid::parse_str(&search_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "message": "Invalid search_id format",
+                        "type": "invalid_request"
+                    }
+                })),
+            )
+                .into_response()
+        }
+    };
+
+    match get_search_by_id(&state.db, search_uuid, &user_id).await {
+        Some(search) => {
+            let status = search
+                .status
+                .clone()
+                .unwrap_or_else(|| "completed".to_string());
+            Json(json!({
+                "id": search.id.to_string(),
+                "status": status,
+                "query": search.name,
+                "started_at": search.started_at,
+                "completed_at": search.completed_at,
+                "error_message": search.error_message,
+                "response": if search.status.as_deref() == Some("completed") {
+                    Some(serde_json::to_value(&search.search).unwrap())
+                } else {
+                    None
+                }
+            }))
+            .into_response()
+        }
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "Search not found",
+                    "type": "not_found"
+                }
+            })),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_pending_searches_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
+) -> Response {
+    let user_id = user_context.npub.clone();
+    let pending_searches = get_pending_searches(&state.db, &user_id).await;
+
+    let response: Vec<serde_json::Value> = pending_searches
+        .into_iter()
+        .map(|search| {
+            json!({
+                "id": search.id.to_string(),
+                "status": search.status.unwrap_or_else(|| "completed".to_string()),
+                "query": search.name,
+                "group_id": search.user_search_group_id.to_string(),
+                "started_at": search.started_at,
+                "created_at": search.created_at,
+                "error_message": search.error_message
+            })
+        })
+        .collect();
+
+    Json(response).into_response()
 }

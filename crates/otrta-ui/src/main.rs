@@ -176,6 +176,14 @@ async fn main() {
         .route("/api/search", post(handlers::search_handler))
         .route("/api/search/delete", post(handlers::delete_search_handler))
         .route(
+            "/api/search/{search_id}/status",
+            get(handlers::get_search_status_handler),
+        )
+        .route(
+            "/api/search/pending",
+            get(handlers::get_pending_searches_handler),
+        )
+        .route(
             "/api/search/groups",
             get(handlers::get_search_groups_handler),
         )
