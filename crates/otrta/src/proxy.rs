@@ -224,7 +224,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     let client = client_builder.build().unwrap();
     let endpoint_url = format!("{}/{}", &server_config.url, path);
 
-    println!("{}", endpoint_url);
     let mut req_builder = if body.is_some() {
         client.post(endpoint_url)
     } else {
@@ -242,8 +241,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     } else {
         None
     };
-
-    println!("endpoint_url: {:?}", model_name);
 
     let model = if let Some(ref model_name) = model_name {
         (get_model(&state.db, model_name).await).unwrap_or_default()

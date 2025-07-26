@@ -25,6 +25,41 @@ pub struct ConversationEntry {
     pub assistant: String,
 }
 
+fn handle_completion_response(
+    completion_response: crate::completion::ChatCompletionResponse,
+    sources: &mut Vec<SearchSource>,
+    query: &str,
+) -> String {
+    eprintln!("Successfully parsed LLM completion response");
+
+    // Map citations from the LLM response back to our sources
+    let cited_sources = map_citations_to_sources(&completion_response, sources);
+    *sources = cited_sources;
+
+    // Handle the response content
+    if let Some(choice) = completion_response.choices.first() {
+        if choice.message.content.trim().is_empty() {
+            eprintln!("LLM returned empty content, but this might be valid. Checking if we have sources...");
+            if sources.is_empty() {
+                eprintln!("No sources and empty content, falling back to basic search");
+                generate_search_response(query, sources)
+            } else {
+                eprintln!("Have sources but empty content, using basic search with sources");
+                generate_search_response(query, sources)
+            }
+        } else {
+            eprintln!(
+                "LLM returned valid content: {} chars",
+                choice.message.content.len()
+            );
+            choice.message.content.clone()
+        }
+    } else {
+        eprintln!("No choices in LLM response, falling back to basic search");
+        generate_search_response(query, sources)
+    }
+}
+
 pub async fn perform_web_search_with_llm(
     state: &Arc<AppState>,
     query: &str,
@@ -34,13 +69,31 @@ pub async fn perform_web_search_with_llm(
     organization_id: &uuid::Uuid,
     user_id: Option<&str>,
 ) -> Result<SearchResponse, Box<dyn std::error::Error>> {
+    eprintln!("=== Starting web search with LLM ===");
+    eprintln!("Query: {}", query);
+    eprintln!("Model ID: {:?}", model_id);
+    eprintln!("Organization ID: {}", organization_id);
+    eprintln!("User ID: {:?}", user_id);
+    eprintln!("URLs provided: {:?}", urls);
+    eprintln!(
+        "Conversation entries: {}",
+        conversation.map_or(0, |c| c.len())
+    );
+
     let client = Client::new();
     let mut sources = Vec::new();
 
     if let Some(url_list) = urls {
+        eprintln!("Scraping {} URLs for sources", url_list.len());
         for url in url_list {
+            eprintln!("Attempting to scrape URL: {}", url);
             match scrape_url(&client, &url).await {
                 Ok(content) => {
+                    eprintln!(
+                        "Successfully scraped URL: {} (content length: {})",
+                        url,
+                        content.len()
+                    );
                     sources.push(SearchSource {
                         metadata: SearchSourceMetadata {
                             url: url.clone(),
@@ -57,29 +110,41 @@ pub async fn perform_web_search_with_llm(
                 }
             }
         }
+        eprintln!(
+            "URL scraping completed. Total sources gathered: {}",
+            sources.len()
+        );
+    } else {
+        eprintln!("No URLs provided for scraping");
     }
 
     let response_message = if let Some(model) = model_id {
         eprintln!("Processing search with model: {}", model);
+        eprintln!("Sources available for completion: {}", sources.len());
 
         let completion_request = create_search_completion_request(
             model,
             query,
             conversation,
             if sources.is_empty() {
+                eprintln!("No sources provided to completion request");
                 None
             } else {
+                eprintln!("Providing {} sources to completion request", sources.len());
                 Some(&sources)
             },
         );
 
+        eprintln!("Completion request created, making API call...");
         let headers = axum::http::HeaderMap::new();
+        eprintln!("About to call forward_request_with_payment_with_body...");
+
         let response = forward_request_with_payment_with_body(
             headers,
             state,
             "v1/chat/completions",
             Some(completion_request),
-            false,
+            true,
             None,                  // api_key_id
             Some(organization_id), // organization_id
             user_id,
@@ -87,7 +152,9 @@ pub async fn perform_web_search_with_llm(
         )
         .await;
 
+        eprintln!("API call completed, received response");
         let status = response.status();
+        eprintln!("LLM request status: {}", status);
 
         // Always fall back to basic search for any non-OK status
         if status != axum::http::StatusCode::OK {
@@ -97,39 +164,121 @@ pub async fn perform_web_search_with_llm(
             );
             generate_search_response(query, &sources)
         } else {
+            eprintln!("LLM request succeeded with status 200, processing response body...");
             match axum::body::to_bytes(response.into_body(), usize::MAX).await {
                 Ok(bytes) => {
-                    let response_text = String::from_utf8_lossy(&bytes);
+                    eprintln!(
+                        "Successfully read response body, {} bytes received",
+                        bytes.len()
+                    );
 
-                    // Double-check that this isn't an error response
-                    if response_text.contains("{\"error\"")
-                        || response_text.contains("\"type\":\"payment_error\"")
-                    {
-                        eprintln!("Detected error response in LLM body despite OK status, falling back to basic search");
+                    if bytes.is_empty() {
+                        eprintln!("WARNING: Response body is empty despite 200 status!");
+                        eprintln!(
+                            "This might indicate a server-side issue or body already consumed"
+                        );
                         generate_search_response(query, &sources)
-                    } else if let Ok(completion_response) = serde_json::from_str::<
-                        crate::completion::ChatCompletionResponse,
-                    >(&response_text)
-                    {
-                        println!("{:?}", response_text);
-                        // Map citations from the LLM response back to our sources
-                        let cited_sources =
-                            map_citations_to_sources(&completion_response, &sources);
-
-                        // Update sources to only include the ones that were cited
-                        sources = cited_sources;
-
-                        completion_response
-                            .choices
-                            .first()
-                            .map(|choice| choice.message.content.clone())
-                            .unwrap_or_else(|| {
-                                eprintln!("Empty LLM response, falling back to basic search");
-                                generate_search_response(query, &sources)
-                            })
                     } else {
-                        eprintln!("Failed to parse LLM response as completion, falling back to basic search");
-                        generate_search_response(query, &sources)
+                        eprintln!(
+                            "Raw response bytes (first 200 chars): {:?}",
+                            &bytes[..std::cmp::min(200, bytes.len())]
+                        );
+
+                        let response_text = String::from_utf8_lossy(&bytes);
+                        eprintln!("Response text length: {}", response_text.len());
+                        eprintln!(
+                            "Response text (first 500 chars): {}",
+                            &response_text[..std::cmp::min(500, response_text.len())]
+                        );
+
+                        if response_text.trim().is_empty() {
+                            eprintln!("WARNING: Response text is empty or only whitespace!");
+                            generate_search_response(query, &sources)
+                        } else {
+                            eprintln!("Processing non-empty response...");
+
+                            // Try to parse as JSON first to check for structured errors
+                            if let Ok(json_value) =
+                                serde_json::from_str::<serde_json::Value>(&response_text)
+                            {
+                                eprintln!("Successfully parsed response as JSON");
+                                // Check for actual error structure, not just string matching
+                                if json_value.get("error").is_some() {
+                                    eprintln!(
+                                        "Structured error found in LLM response: {}",
+                                        json_value.get("error").unwrap()
+                                    );
+                                    generate_search_response(query, &sources)
+                                } else if let Some(error_type) =
+                                    json_value.get("type").and_then(|v| v.as_str())
+                                {
+                                    eprintln!("Found type field in response: {}", error_type);
+                                    if error_type == "payment_error" {
+                                        eprintln!("Payment error detected in LLM response");
+                                        generate_search_response(query, &sources)
+                                    } else {
+                                        eprintln!("Non-payment error type, attempting to parse as completion...");
+                                        // Try to parse as completion response
+                                        match serde_json::from_str::<
+                                            crate::completion::ChatCompletionResponse,
+                                        >(
+                                            &response_text
+                                        ) {
+                                            Ok(completion_response) => {
+                                                eprintln!(
+                                                    "Successfully parsed as ChatCompletionResponse"
+                                                );
+                                                handle_completion_response(
+                                                    completion_response,
+                                                    &mut sources,
+                                                    query,
+                                                )
+                                            }
+                                            Err(parse_err) => {
+                                                eprintln!(
+                                                    "Failed to parse as ChatCompletionResponse: {}",
+                                                    parse_err
+                                                );
+                                                eprintln!("Raw response was: {}", response_text);
+                                                generate_search_response(query, &sources)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    eprintln!("No error or type field found, attempting to parse as completion...");
+                                    // Try to parse as completion response
+                                    match serde_json::from_str::<
+                                        crate::completion::ChatCompletionResponse,
+                                    >(&response_text)
+                                    {
+                                        Ok(completion_response) => {
+                                            eprintln!(
+                                                "Successfully parsed as ChatCompletionResponse"
+                                            );
+                                            handle_completion_response(
+                                                completion_response,
+                                                &mut sources,
+                                                query,
+                                            )
+                                        }
+                                        Err(parse_err) => {
+                                            eprintln!(
+                                                "Failed to parse as ChatCompletionResponse: {}",
+                                                parse_err
+                                            );
+                                            eprintln!("Raw response was: {}", response_text);
+                                            generate_search_response(query, &sources)
+                                        }
+                                    }
+                                }
+                            } else {
+                                eprintln!(
+                                    "Response is not valid JSON, falling back to basic search"
+                                );
+                                eprintln!("Raw response was: {}", response_text);
+                                generate_search_response(query, &sources)
+                            }
+                        }
                     }
                 }
                 Err(e) => {
@@ -137,19 +286,34 @@ pub async fn perform_web_search_with_llm(
                         "Failed to read LLM response body: {}, falling back to basic search",
                         e
                     );
+                    eprintln!("Error type: {:?}", e);
+                    eprintln!(
+                        "This could indicate a network issue, timeout, or body consumption problem"
+                    );
                     generate_search_response(query, &sources)
                 }
             }
         }
     } else {
+        eprintln!("No model specified, using basic search response");
         generate_search_response(query, &sources)
     };
+
+    eprintln!("=== Search completed ===");
+    eprintln!("Final response message length: {}", response_message.len());
+    eprintln!("Final sources count: {}", sources.len());
+    eprintln!(
+        "Response message preview: {}",
+        &response_message[..std::cmp::min(200, response_message.len())]
+    );
 
     Ok(SearchResponse {
         message: response_message,
         sources: if sources.is_empty() {
+            eprintln!("Returning response with no sources");
             None
         } else {
+            eprintln!("Returning response with {} sources", sources.len());
             Some(sources)
         },
     })
