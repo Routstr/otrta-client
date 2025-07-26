@@ -696,9 +696,9 @@ export function SearchPageComponent(props: Props) {
                   }
                 : value;
 
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const isTemporary = Boolean(
-                'isTemporary' in value && (value as any).isTemporary
+                'isTemporary' in value &&
+                  (value as { isTemporary?: boolean }).isTemporary
               );
               const isSaving = savingSearches.has(value.query);
 

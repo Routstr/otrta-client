@@ -74,9 +74,7 @@ export const useConverstationStore = create<ConversationState>()(
             id: string;
             name: string;
             created_at: string;
-          }>('/api/search/groups', {
-            name: `Search Group ${new Date().toLocaleDateString()}`,
-          });
+          }>('/api/search/groups', {});
 
           console.log('✅ New group created:', response);
           set({ group_id: response.id, hasActiveConversation: true });

@@ -426,32 +426,12 @@ pub async fn get_search_groups_handler(
     Json(response).into_response()
 }
 
-#[derive(Deserialize)]
-pub struct CreateSearchGroupRequest {
-    name: String,
-}
-
 pub async fn create_search_group_handler(
     State(state): State<Arc<AppState>>,
     axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
-    Json(request): Json<CreateSearchGroupRequest>,
 ) -> Response {
     let user_id = user_context.npub.clone();
-    
-    // Create group with custom name
-    let group = sqlx::query_as!(
-        crate::db::user_search_groups::UserSearchGroup,
-        r#"
-        INSERT INTO user_search_groups (user_id, name)
-        VALUES ($1, $2)
-        RETURNING id, user_id, name, created_at, updated_at
-        "#,
-        user_id,
-        request.name
-    )
-    .fetch_one(&state.db)
-    .await
-    .unwrap();
+    let group = create_conversation(&state.db, user_id).await;
 
     let response = SearchGroupResponse {
         id: group.id.to_string(),
