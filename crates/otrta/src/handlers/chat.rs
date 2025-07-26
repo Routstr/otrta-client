@@ -1,6 +1,8 @@
 use crate::{
     db::{
-        user_search_groups::{create_conversation, delete_search_group, get_search_groups},
+        user_search_groups::{
+            create_conversation, delete_search_group, get_search_groups, update_search_group_name,
+        },
         user_searches::{
             complete_search, create_pending_search, delete_search, get_pending_searches,
             get_search_by_id, get_searches, update_search_status,
@@ -279,11 +281,7 @@ pub async fn temporary_search_handler(
         )
         .await
     } else {
-        perform_web_search(
-            &request.message,
-            request.urls.clone(),
-        )
-        .await
+        perform_web_search(&request.message, request.urls.clone()).await
     };
 
     let search_response = match search_result {
@@ -318,10 +316,10 @@ pub async fn save_search_handler(
     axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
     Json(request): Json<SaveSearchRequest>,
 ) -> Response {
-    use crate::db::user_search_groups::{get_search_group, create_conversation};
-    
+    use crate::db::user_search_groups::{create_conversation, get_search_group};
+
     let user_id = user_context.npub.clone();
-    
+
     // Check if group_id is empty, if so create a new group
     let group_id = if request.group_id.is_empty() {
         let new_group = create_conversation(&state.db, user_id.clone()).await;
@@ -360,7 +358,7 @@ pub async fn save_search_handler(
     });
 
     let search_id = uuid::Uuid::new_v4();
-    
+
     match sqlx::query!(
         r#"
         INSERT INTO user_searches (id, name, search, user_search_group_id, user_id, created_at)
@@ -437,6 +435,46 @@ pub async fn create_search_group_handler(
         id: group.id.to_string(),
         name: group.name,
         created_at: group.created_at.to_rfc3339(),
+    };
+
+    Json(response).into_response()
+}
+
+#[derive(Deserialize)]
+pub struct UpdateSearchGroupRequest {
+    id: String,
+    name: String,
+}
+
+pub async fn update_search_group_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
+    Json(request): Json<UpdateSearchGroupRequest>,
+) -> Response {
+    let user_id = user_context.npub.clone();
+    let group_id = match uuid::Uuid::parse_str(&request.id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "message": "Invalid group_id format",
+                        "type": "invalid_request"
+                    }
+                })),
+            )
+                .into_response()
+        }
+    };
+
+    update_search_group_name(&state.db, user_id.clone(), group_id, &request.name).await;
+
+    // Return the updated group info
+    let response = SearchGroupResponse {
+        id: request.id,
+        name: request.name,
+        created_at: chrono::Utc::now().to_rfc3339(), // This would ideally be fetched from DB
     };
 
     Json(response).into_response()

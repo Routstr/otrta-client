@@ -215,3 +215,14 @@ export const getGroups = async (
   );
   return z.array(SearchGroupSchema).parse(response);
 };
+
+export const updateGroup = async (data: {
+  id: string;
+  name: string;
+}): Promise<SearchGroup> => {
+  const response = await apiClient.post<SearchGroup>(
+    '/api/search/groups/update',
+    data
+  );
+  return SearchGroupSchema.parse(response);
+};

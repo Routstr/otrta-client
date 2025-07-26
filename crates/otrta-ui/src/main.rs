@@ -197,6 +197,10 @@ async fn main() {
             post(handlers::create_search_group_handler),
         )
         .route(
+            "/api/search/groups/update",
+            post(handlers::update_search_group_handler),
+        )
+        .route(
             "/api/search/groups/delete",
             post(handlers::delete_search_group_handler),
         )

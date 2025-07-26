@@ -8,9 +8,17 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { MessageCircle, Search, Clock, Trash2 } from 'lucide-react';
+import {
+  MessageCircle,
+  Search,
+  Clock,
+  Trash2,
+  Edit3,
+  Check,
+  X,
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { getGroups } from '@/src/api/web-search';
+import { getGroups, updateGroup } from '@/src/api/web-search';
 import { deleteConversation } from '@/src/api/conversation';
 import {
   Tooltip,
@@ -30,6 +38,8 @@ interface Props {
 export function GroupSheet(props: Props) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
   const { updateConversation, clearConversation } = useConverstationStore();
 
   const client = useQueryClient();
@@ -78,6 +88,24 @@ export function GroupSheet(props: Props) {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      return updateGroup({ id, name });
+    },
+    mutationKey: ['update_group'],
+    onSuccess: async () => {
+      setEditingGroupId(null);
+      setEditingName('');
+      await client.invalidateQueries({
+        queryKey: ['search_groups'],
+        exact: true,
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to update group name:', error);
+    },
+  });
+
   const filteredGroups =
     mutationGroup.data?.filter((group) =>
       group.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -102,9 +130,41 @@ export function GroupSheet(props: Props) {
     }
   };
 
+  const startEdit = (groupId: string, currentName: string) => {
+    setEditingGroupId(groupId);
+    setEditingName(currentName);
+  };
+
+  const saveEdit = async () => {
+    if (editingGroupId && editingName.trim()) {
+      try {
+        await updateMutation.mutateAsync({
+          id: editingGroupId,
+          name: editingName.trim(),
+        });
+      } catch (error) {
+        console.error('Update failed:', error);
+      }
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingGroupId(null);
+    setEditingName('');
+  };
+
   const onClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     setOpen(true);
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      // Cancel any pending edits when closing the sheet
+      setEditingGroupId(null);
+      setEditingName('');
+    }
   };
 
   const formatTime = (dateStr: string) => {
@@ -121,7 +181,7 @@ export function GroupSheet(props: Props) {
   };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -189,15 +249,63 @@ export function GroupSheet(props: Props) {
                     <div className='flex items-start justify-between'>
                       <div
                         className='min-w-0 flex-1'
-                        onClick={() => onSelect(group.id)}
+                        onClick={() =>
+                          editingGroupId !== group.id && onSelect(group.id)
+                        }
                       >
-                        <h4 className='truncate text-sm font-medium'>
-                          {group.name}
-                        </h4>
-                        <div className='text-muted-foreground mt-1 flex items-center gap-1 text-xs'>
-                          <Clock className='h-3 w-3' />
-                          {formatTime(group.created_at)}
-                        </div>
+                        {editingGroupId === group.id ? (
+                          <div className='space-y-2'>
+                            <Input
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              className='h-7 text-sm'
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  saveEdit();
+                                } else if (e.key === 'Escape') {
+                                  cancelEdit();
+                                }
+                              }}
+                              autoFocus
+                            />
+                            <div className='flex items-center gap-1'>
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  saveEdit();
+                                }}
+                                className='h-6 w-6 p-0'
+                                disabled={updateMutation.isPending}
+                              >
+                                <Check className='h-3 w-3 text-green-600' />
+                              </Button>
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  cancelEdit();
+                                }}
+                                className='h-6 w-6 p-0'
+                              >
+                                <X className='h-3 w-3 text-red-600' />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <h4 className='truncate text-sm font-medium'>
+                              {group.name}
+                            </h4>
+                            <div className='text-muted-foreground mt-1 flex items-center gap-1 text-xs'>
+                              <Clock className='h-3 w-3' />
+                              {formatTime(group.created_at)}
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className='flex items-center gap-2'>
                         {group.id === props.currentGroup && (
@@ -205,21 +313,36 @@ export function GroupSheet(props: Props) {
                             Active
                           </Badge>
                         )}
-                        <DeleteGroupDialog
-                          deleteCallback={() => onDelete(group.id)}
-                          description='This action cannot be undone. This will permanently delete this conversation.'
-                        >
-                          <Button
-                            variant='ghost'
-                            size='sm'
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            className='hover:text-destructive h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100'
-                          >
-                            <Trash2 className='h-3 w-3' />
-                          </Button>
-                        </DeleteGroupDialog>
+                        {editingGroupId !== group.id && (
+                          <>
+                            <Button
+                              variant='ghost'
+                              size='sm'
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEdit(group.id, group.name);
+                              }}
+                              className='h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100'
+                            >
+                              <Edit3 className='h-3 w-3' />
+                            </Button>
+                            <DeleteGroupDialog
+                              deleteCallback={() => onDelete(group.id)}
+                              description='This action cannot be undone. This will permanently delete this conversation.'
+                            >
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                className='hover:text-destructive h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100'
+                              >
+                                <Trash2 className='h-3 w-3' />
+                              </Button>
+                            </DeleteGroupDialog>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
