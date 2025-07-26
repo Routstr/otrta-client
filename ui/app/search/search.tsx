@@ -60,6 +60,7 @@ export function SearchPageComponent(props: Props) {
     checkHasActiveConversation,
     ensureActiveGroup,
     refreshGroups,
+    updateConversation,
   } = useConverstationStore();
 
   // Auto-scroll state management
@@ -301,26 +302,33 @@ export function SearchPageComponent(props: Props) {
 
       const activeGroupId = await ensureActiveGroup();
 
-      await SearchManager.getInstance().saveSearchToDb({
+      const saveResponse = await SearchManager.getInstance().saveSearchToDb({
         searchData,
         group_id: activeGroupId,
       });
+
+      // If response includes a group_id and it's different from current, activate it
+      if (saveResponse.group_id && saveResponse.group_id !== currentGroupId) {
+        console.log('🎯 Activating group from save response:', saveResponse.group_id);
+        updateConversation(saveResponse.group_id);
+      }
 
       // Remove from temporary searches
       setTemporarySearches((prev) =>
         prev.filter((search) => search.query !== searchData.query)
       );
 
-      // Refresh the search results
+      // Refresh the search results for the active group
+      const targetGroupId = saveResponse.group_id || activeGroupId;
       await client.invalidateQueries({
-        queryKey: ['user_searches', activeGroupId],
+        queryKey: ['user_searches', targetGroupId],
         exact: true,
         refetchType: 'active',
       });
 
       await refreshGroups();
 
-      console.log('✅ Search saved successfully');
+      console.log('✅ Search saved successfully to group:', targetGroupId);
     } catch (error) {
       console.error('❌ Failed to save search:', error);
       setSearchError('Failed to save search. Please try again.');

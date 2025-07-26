@@ -71,7 +71,7 @@ export class SearchManager {
 
   async saveSearchToDb(
     request: SaveSearchRequest
-  ): Promise<SchemaResponseProps> {
+  ): Promise<SchemaResponseProps & { group_id?: string }> {
     try {
       console.log('[SearchManager] Saving search to DB:', request);
 
@@ -86,7 +86,7 @@ export class SearchManager {
         timestamp: encryptedData.timestamp,
       };
 
-      const response = await apiClient.post<SchemaResponseProps>(
+      const response = await apiClient.post<SchemaResponseProps & { group_id?: string }>(
         '/api/search/save',
         saveRequest
       );

@@ -374,12 +374,13 @@ pub async fn save_search_handler(
     .await
     {
         Ok(_) => {
-            let response = SearchResultResponse {
-                id: search_id.to_string(),
-                query: request.encrypted_query,
-                response: search_data,
-                created_at: chrono::Utc::now().to_rfc3339(),
-            };
+            let response = json!({
+                "id": search_id.to_string(),
+                "query": request.encrypted_query,
+                "response": search_data,
+                "created_at": chrono::Utc::now().to_rfc3339(),
+                "group_id": group_id.to_string(),
+            });
             Json(response).into_response()
         }
         Err(error) => {
