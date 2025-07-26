@@ -14,17 +14,15 @@ interface Props {
 }
 
 export default function AddConversation(props: Props) {
-  const updateConveration = useConverstationStore(
-    (state) => state.updateConversation
-  );
+  const { updateConversation } = useConverstationStore();
   const client = useQueryClient();
   const mutation = useMutation({
-    mutationKey: ['create_onversation'],
+    mutationKey: ['create_conversation'],
     mutationFn: async () => {
       return createConversation({});
     },
     onSuccess: async (data) => {
-      updateConveration(data.id);
+      updateConversation(data.id);
       await client.invalidateQueries({
         queryKey: ['search_groups'],
         exact: true,

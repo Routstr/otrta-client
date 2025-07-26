@@ -250,6 +250,156 @@ pub async fn delete_search_handler(
     Json(json!({"success": true})).into_response()
 }
 
+#[derive(Deserialize)]
+pub struct SaveSearchRequest {
+    encrypted_query: String,
+    encrypted_response: String,
+    group_id: String,
+    timestamp: i64,
+}
+
+pub async fn temporary_search_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
+    Json(request): Json<SearchRequest>,
+) -> Response {
+    let user_id = user_context.npub.clone();
+
+    let search_id = uuid::Uuid::new_v4();
+
+    let search_result = if let Some(model_id) = &request.model_id {
+        perform_web_search_with_llm(
+            &state,
+            &request.message,
+            request.urls.clone(),
+            request.conversation.as_deref(),
+            Some(model_id.as_str()),
+            &user_context.organization_id,
+            Some(&user_id),
+        )
+        .await
+    } else {
+        perform_web_search(
+            &request.message,
+            request.urls.clone(),
+        )
+        .await
+    };
+
+    let search_response = match search_result {
+        Ok(result) => result,
+        Err(error) => {
+            let error_message = format!("Search failed: {}", error);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": error_message,
+                        "type": "search_error"
+                    }
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let response = SearchResultResponse {
+        id: search_id.to_string(),
+        query: request.message,
+        response: serde_json::to_value(&search_response).unwrap(),
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+
+    Json(response).into_response()
+}
+
+pub async fn save_search_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
+    Json(request): Json<SaveSearchRequest>,
+) -> Response {
+    use crate::db::user_search_groups::{get_search_group, create_conversation};
+    
+    let user_id = user_context.npub.clone();
+    
+    // Check if group_id is empty, if so create a new group
+    let group_id = if request.group_id.is_empty() {
+        let new_group = create_conversation(&state.db, user_id.clone()).await;
+        new_group.id
+    } else {
+        let parsed_group_id = match uuid::Uuid::parse_str(&request.group_id) {
+            Ok(id) => id,
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "message": "Invalid group_id format",
+                            "type": "invalid_request"
+                        }
+                    })),
+                )
+                    .into_response()
+            }
+        };
+
+        // Check if group exists, if not create a new one
+        match get_search_group(&state.db, user_id.clone(), parsed_group_id).await {
+            Ok(_) => parsed_group_id, // Group exists, use it
+            Err(_) => {
+                // Group doesn't exist, create a new one
+                let new_group = create_conversation(&state.db, user_id.clone()).await;
+                new_group.id
+            }
+        }
+    };
+
+    let search_data = json!({
+        "message": request.encrypted_response,
+        "sources": null
+    });
+
+    let search_id = uuid::Uuid::new_v4();
+    
+    match sqlx::query!(
+        r#"
+        INSERT INTO user_searches (id, name, search, user_search_group_id, user_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        "#,
+        search_id,
+        request.encrypted_query,
+        search_data,
+        group_id,
+        user_id,
+    )
+    .execute(&state.db)
+    .await
+    {
+        Ok(_) => {
+            let response = SearchResultResponse {
+                id: search_id.to_string(),
+                query: request.encrypted_query,
+                response: search_data,
+                created_at: chrono::Utc::now().to_rfc3339(),
+            };
+            Json(response).into_response()
+        }
+        Err(error) => {
+            eprintln!("Failed to save search: {}", error);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to save search",
+                        "type": "database_error"
+                    }
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct SearchGroupResponse {
     id: String,
@@ -276,12 +426,32 @@ pub async fn get_search_groups_handler(
     Json(response).into_response()
 }
 
+#[derive(Deserialize)]
+pub struct CreateSearchGroupRequest {
+    name: String,
+}
+
 pub async fn create_search_group_handler(
     State(state): State<Arc<AppState>>,
     axum::extract::Extension(user_context): axum::extract::Extension<crate::models::UserContext>,
+    Json(request): Json<CreateSearchGroupRequest>,
 ) -> Response {
     let user_id = user_context.npub.clone();
-    let group = create_conversation(&state.db, user_id).await;
+    
+    // Create group with custom name
+    let group = sqlx::query_as!(
+        crate::db::user_search_groups::UserSearchGroup,
+        r#"
+        INSERT INTO user_search_groups (user_id, name)
+        VALUES ($1, $2)
+        RETURNING id, user_id, name, created_at, updated_at
+        "#,
+        user_id,
+        request.name
+    )
+    .fetch_one(&state.db)
+    .await
+    .unwrap();
 
     let response = SearchGroupResponse {
         id: group.id.to_string(),

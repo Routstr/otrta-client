@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/sheet';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { MessageCircle, Search, Clock, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getGroups } from '@/src/api/web-search';
 import { deleteConversation } from '@/src/api/conversation';
 import {
@@ -30,12 +30,7 @@ interface Props {
 export function GroupSheet(props: Props) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const updateConveration = useConverstationStore(
-    (state) => state.updateConversation
-  );
-  const clearConversation = useConverstationStore(
-    (state) => state.clearConversation
-  );
+  const { updateConversation, clearConversation } = useConverstationStore();
 
   const client = useQueryClient();
 
@@ -43,6 +38,17 @@ export function GroupSheet(props: Props) {
     queryFn: () => getGroups({}),
     queryKey: ['search_groups'],
   });
+
+  useEffect(() => {
+    if (open) {
+      // Just refresh the groups query when opening the sheet
+      client.invalidateQueries({
+        queryKey: ['search_groups'],
+        exact: true,
+        refetchType: 'active',
+      });
+    }
+  }, [open, client]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -79,14 +85,10 @@ export function GroupSheet(props: Props) {
 
   const onSelect = async (id: string) => {
     setOpen(false);
-    updateConveration(id);
+    updateConversation(id);
+    // Only invalidate the user_searches for the specific group
     await client.invalidateQueries({
-      queryKey: ['search_groups'],
-      exact: true,
-      refetchType: 'active',
-    });
-    await client.invalidateQueries({
-      queryKey: ['user_searches'],
+      queryKey: ['user_searches', id],
       exact: true,
       refetchType: 'active',
     });

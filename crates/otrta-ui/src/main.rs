@@ -174,6 +174,8 @@ async fn main() {
         .route("/api/debug/wallet", get(handlers::get_wallet_debug_info))
         .route("/api/search", get(handlers::get_searches_handler))
         .route("/api/search", post(handlers::search_handler))
+        .route("/api/search/temporary", post(handlers::temporary_search_handler))
+        .route("/api/search/save", post(handlers::save_search_handler))
         .route("/api/search/delete", post(handlers::delete_search_handler))
         .route(
             "/api/search/{search_id}/status",
