@@ -86,10 +86,9 @@ export class SearchManager {
         timestamp: encryptedData.timestamp,
       };
 
-      const response = await apiClient.post<SchemaResponseProps & { group_id?: string }>(
-        '/api/search/save',
-        saveRequest
-      );
+      const response = await apiClient.post<
+        SchemaResponseProps & { group_id?: string }
+      >('/api/search/save', saveRequest);
 
       console.log('[SearchManager] Search saved successfully:', response);
       return response;

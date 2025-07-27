@@ -106,18 +106,35 @@ export function ResultCard(props: Props) {
     setParsedMessage(props.data.response.message);
   }, [props.data.response.message, props.data.response.sources]);
 
-  const handleSave = async () => {
+  const handleSave = async (e: React.MouseEvent) => {
+    // Prevent any potential form submission or page refresh
+    e.preventDefault();
+    e.stopPropagation();
+
     if (props.onSave) {
-      await props.onSave({
-        query: props.data.query,
-        response: props.data.response,
-      });
+      try {
+        await props.onSave({
+          query: props.data.query,
+          response: props.data.response,
+        });
+      } catch (error) {
+        console.error('Failed to save search:', error);
+        // Don't let the error bubble up and potentially cause page refresh
+      }
     }
   };
 
-  const handleDiscard = () => {
+  const handleDiscard = (e: React.MouseEvent) => {
+    // Prevent any potential form submission or page refresh
+    e.preventDefault();
+    e.stopPropagation();
+
     if (props.onDiscard) {
-      props.onDiscard(props.data.id);
+      try {
+        props.onDiscard(props.data.id);
+      } catch (error) {
+        console.error('Failed to discard search:', error);
+      }
     }
   };
 
@@ -172,6 +189,7 @@ export function ResultCard(props: Props) {
             {props.data.isTemporary && (
               <div className='flex items-center gap-2'>
                 <Button
+                  type='button'
                   variant='outline'
                   size='sm'
                   onClick={handleDiscard}
@@ -182,6 +200,7 @@ export function ResultCard(props: Props) {
                   Discard
                 </Button>
                 <Button
+                  type='button'
                   variant='default'
                   size='sm'
                   onClick={handleSave}
