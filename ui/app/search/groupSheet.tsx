@@ -322,7 +322,7 @@ export function GroupSheet(props: Props) {
                                 e.stopPropagation();
                                 startEdit(group.id, group.name);
                               }}
-                              className='h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100'
+                              className='text-muted-foreground hover:text-foreground h-6 w-6 p-0 opacity-100 transition-colors md:opacity-0 md:group-hover:opacity-100'
                             >
                               <Edit3 className='h-3 w-3' />
                             </Button>
@@ -336,7 +336,7 @@ export function GroupSheet(props: Props) {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                 }}
-                                className='hover:text-destructive h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100'
+                                className='text-muted-foreground hover:text-destructive h-6 w-6 p-0 opacity-100 transition-colors md:opacity-0 md:group-hover:opacity-100'
                               >
                                 <Trash2 className='h-3 w-3' />
                               </Button>
