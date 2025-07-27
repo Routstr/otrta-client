@@ -23,6 +23,14 @@ use std::io;
 use std::sync::Arc;
 use uuid::Uuid;
 
+fn is_onion_url(url: &str) -> bool {
+    url.contains(".onion")
+}
+
+fn needs_tor_proxy(url: &str, use_onion: bool) -> bool {
+    use_onion && is_onion_url(url)
+}
+
 #[derive(serde::Deserialize)]
 struct OpenAIRequest {
     model: String,
@@ -221,13 +229,39 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             .pool_max_idle_per_host(0);
     }
 
-    let client = client_builder.build().unwrap();
     let endpoint_url = format!("{}/{}", &server_config.url, path);
 
+    if needs_tor_proxy(&endpoint_url, server_config.use_onion) {
+        let tor_proxy_url = std::env::var("TOR_SOCKS_PROXY")
+            .unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string());
+        
+        match reqwest::Proxy::all(&tor_proxy_url) {
+            Ok(proxy) => {
+                client_builder = client_builder.proxy(proxy);
+                println!("Using Tor proxy for .onion request: {}", endpoint_url);
+            }
+            Err(e) => {
+                eprintln!("Failed to create Tor proxy: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {
+                            "message": "Failed to configure Tor proxy for .onion request",
+                            "type": "proxy_error"
+                        }
+                    })),
+                ).into_response();
+            }
+        }
+    }
+
+    let client = client_builder.build().unwrap();
+
+    println!("{}", endpoint_url);
     let mut req_builder = if body.is_some() {
-        client.post(endpoint_url)
+        client.post(&endpoint_url)
     } else {
-        client.get(endpoint_url)
+        client.get(&endpoint_url)
     };
 
     let model_name = if let Some(body_data) = &body {
@@ -374,7 +408,17 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.header(header::ACCEPT, accept);
     }
 
+    let start_time = if is_onion_url(&endpoint_url) {
+        Some(std::time::Instant::now())
+    } else {
+        None
+    };
+
     let response = if let Ok(resp) = req_builder.send().await {
+        if let Some(start) = start_time {
+            let duration = start.elapsed();
+            println!("Onion request completed in {:?}: {}", duration, endpoint_url);
+        }
         let status = resp.status();
         let headers = resp.headers().clone();
 
@@ -638,7 +682,7 @@ pub async fn forward_request(
 
     let endpoint_url = format!("{}/{}", &server_config.url, path);
 
-    let mut req_builder = client.get(endpoint_url);
+    let mut req_builder = client.get(&endpoint_url);
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
 
     match req_builder.send().await {
@@ -666,14 +710,48 @@ pub async fn forward_request(
         Err(error) => {
             eprintln!("Error forwarding request: {}", error);
 
+            let error_msg = if is_onion_url(&endpoint_url) {
+                if error.is_timeout() {
+                    "Timeout connecting to .onion service (Tor may not be running)"
+                } else if error.is_connect() {
+                    "Failed to connect via Tor proxy (check Tor daemon)"
+                } else {
+                    "Error accessing .onion service"
+                }
+            } else {
+                "Error forwarding request"
+            };
+
             let error_json = Json(json!({
                 "error": {
-                    "message": format!("Error forwarding request: {}", error),
+                    "message": error_msg,
                     "type": "gateway_error"
                 }
             }));
 
-            (StatusCode::INTERNAL_SERVER_ERROR, error_json).into_response()
+            (StatusCode::BAD_GATEWAY, error_json).into_response()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_onion_url_detection() {
+        assert!(is_onion_url("http://example.onion"));
+        assert!(is_onion_url("https://3g2upl4pq6kufc4m.onion"));
+        assert!(is_onion_url("http://facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion"));
+        assert!(!is_onion_url("https://example.com"));
+        assert!(!is_onion_url("http://google.com"));
+    }
+
+    #[test]
+    fn test_tor_proxy_requirement() {
+        assert!(needs_tor_proxy("http://example.onion", true));
+        assert!(!needs_tor_proxy("http://example.onion", false));
+        assert!(!needs_tor_proxy("http://example.com", true));
+        assert!(!needs_tor_proxy("http://example.com", false));
     }
 }

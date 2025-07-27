@@ -16,7 +16,7 @@ futures-util = "0.3"
 hex = "0.4"
 nostr = "0.33"
 rand = "0.8"
-reqwest = { version = "0.12", features = ["json", "stream"] }
+reqwest = { version = "0.12", features = ["json", "stream", "socks"] }
 scraper = "0.20"
 rust_decimal = { version = "1.33", features = ["serde-float"] }
 secp256k1 = "0.29"
