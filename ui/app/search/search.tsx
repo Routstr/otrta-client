@@ -741,6 +741,13 @@ export function SearchPageComponent(props: Props) {
                   internet searches
                 </span>
               </div>
+              <div className='text-muted-foreground flex items-center gap-2 text-xs'>
+                <span>🔐</span>
+                <span>
+                  Saved searches are encrypted with <strong>NIP-44</strong>{' '}
+                  using your Nostr key
+                </span>
+              </div>
             </div>
             <div className='flex items-center gap-2'>
               {selectedModelInfo ? (
@@ -880,6 +887,13 @@ export function SearchPageComponent(props: Props) {
                       <span>
                         <strong>Basic search</strong> works without model
                         selection
+                      </span>
+                    </li>
+                    <li className='flex items-start gap-2'>
+                      <span className='text-primary'>•</span>
+                      <span>
+                        <strong>Privacy</strong>: Saved searches are encrypted
+                        with NIP-44
                       </span>
                     </li>
                   </ul>
