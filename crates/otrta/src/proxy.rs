@@ -9,7 +9,7 @@ use crate::{
     models::*,
     onion::{
         configure_client_with_tor_proxy, construct_url_with_protocol, get_onion_error_message,
-        is_onion_url, log_onion_timing, needs_tor_proxy, start_onion_timing,
+        log_onion_timing, start_onion_timing,
     },
     wallet::send_with_retry,
 };

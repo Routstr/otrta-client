@@ -195,154 +195,160 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
       )}
     >
       <CardHeader className='pb-3'>
-        <div className='flex items-start justify-between'>
-          <div className='min-w-0 flex-1 space-y-1'>
-            <div className='flex items-center gap-2'>
-              <CardTitle className='truncate text-lg'>{displayName}</CardTitle>
-              <Badge
-                variant={mint.is_active ? 'default' : 'secondary'}
-                className={cn(
-                  'shrink-0',
-                  mint.is_active
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-100 text-gray-600'
-                )}
+        <div className='space-y-2'>
+          {/* Top row: Title and action buttons */}
+          <div className='flex items-start justify-between gap-2'>
+            <CardTitle className='flex-1 truncate text-lg leading-tight'>
+              {displayName}
+            </CardTitle>
+            <div className='flex flex-shrink-0 items-center gap-1'>
+              <Dialog
+                open={isEditDialogOpen}
+                onOpenChange={(open) =>
+                  open ? setIsEditDialogOpen(true) : handleDialogClose()
+                }
               >
-                {MultimintService.getMintStatusText(mint.is_active)}
-              </Badge>
-            </div>
-            <CardDescription className='truncate' title={mint.mint_url}>
-              {mint.mint_url}
-            </CardDescription>
-          </div>
-
-          <div className='ml-2 flex items-center gap-1'>
-            <Dialog
-              open={isEditDialogOpen}
-              onOpenChange={(open) =>
-                open ? setIsEditDialogOpen(true) : handleDialogClose()
-              }
-            >
-              <DialogTrigger asChild>
-                <Button variant='ghost' size='icon' className='h-8 w-8'>
-                  <Edit3 className='h-4 w-4' />
-                  <span className='sr-only'>Edit mint</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Edit Mint</DialogTitle>
-                  <DialogDescription>
-                    Update the display name and currency unit for this mint.
-                  </DialogDescription>
-                </DialogHeader>
-                <form
-                  onSubmit={handleSubmit(onSubmit)}
-                  className='space-y-4 py-4'
-                >
-                  <div className='space-y-2'>
-                    <Label htmlFor='name'>Display Name</Label>
-                    <Input
-                      id='name'
-                      {...register('name')}
-                      placeholder='Enter a display name'
-                    />
-                  </div>
-                  <div className='space-y-2'>
-                    <Label htmlFor='currency-unit'>Currency Unit</Label>
-                    <Select
-                      value={watchedValues.currency_unit}
-                      onValueChange={(value) =>
-                        form.setValue('currency_unit', value, {
-                          shouldDirty: true,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder='Select currency unit' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value='sat'>sat (Satoshis)</SelectItem>
-                        <SelectItem value='msat'>
-                          msat (Millisatoshis)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      onClick={handleDialogClose}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type='submit'
-                      disabled={updateMutation.isPending || !isDirty}
-                    >
-                      {updateMutation.isPending ? 'Saving...' : 'Save'}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            <Button
-              variant='ghost'
-              size='icon'
-              className={cn(
-                'h-8 w-8',
-                mint.is_active
-                  ? 'text-green-600 hover:text-green-700'
-                  : 'text-gray-400 hover:text-gray-600'
-              )}
-              onClick={handleToggleActive}
-              disabled={toggleActiveMutation.isPending}
-            >
-              {mint.is_active ? (
-                <Power className='h-4 w-4' />
-              ) : (
-                <PowerOff className='h-4 w-4' />
-              )}
-              <span className='sr-only'>
-                {mint.is_active ? 'Deactivate' : 'Activate'} mint
-              </span>
-            </Button>
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  className='h-8 w-8 text-red-600 hover:text-red-700'
-                >
-                  <Trash2 className='h-4 w-4' />
-                  <span className='sr-only'>Delete mint</span>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Mint</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete this mint? This action
-                    cannot be undone. Make sure the mint has zero balance before
-                    deleting.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    disabled={deleteMutation.isPending}
-                    className='bg-red-600 hover:bg-red-700'
+                <DialogTrigger asChild>
+                  <Button variant='ghost' size='icon' className='h-8 w-8'>
+                    <Edit3 className='h-4 w-4' />
+                    <span className='sr-only'>Edit mint</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Mint</DialogTitle>
+                    <DialogDescription>
+                      Update the display name and currency unit for this mint.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form
+                    onSubmit={handleSubmit(onSubmit)}
+                    className='space-y-4 py-4'
                   >
-                    {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    <div className='space-y-2'>
+                      <Label htmlFor='name'>Display Name</Label>
+                      <Input
+                        id='name'
+                        {...register('name')}
+                        placeholder='Enter a display name'
+                      />
+                    </div>
+                    <div className='space-y-2'>
+                      <Label htmlFor='currency-unit'>Currency Unit</Label>
+                      <Select
+                        value={watchedValues.currency_unit}
+                        onValueChange={(value) =>
+                          form.setValue('currency_unit', value, {
+                            shouldDirty: true,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder='Select currency unit' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='sat'>sat (Satoshis)</SelectItem>
+                          <SelectItem value='msat'>
+                            msat (Millisatoshis)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={handleDialogClose}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type='submit'
+                        disabled={updateMutation.isPending || !isDirty}
+                      >
+                        {updateMutation.isPending ? 'Saving...' : 'Save'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              <Button
+                variant='ghost'
+                size='icon'
+                className={cn(
+                  'h-8 w-8',
+                  mint.is_active
+                    ? 'text-green-600 hover:text-green-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                )}
+                onClick={handleToggleActive}
+                disabled={toggleActiveMutation.isPending}
+              >
+                {mint.is_active ? (
+                  <Power className='h-4 w-4' />
+                ) : (
+                  <PowerOff className='h-4 w-4' />
+                )}
+                <span className='sr-only'>
+                  {mint.is_active ? 'Deactivate' : 'Activate'} mint
+                </span>
+              </Button>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 text-red-600 hover:text-red-700'
+                  >
+                    <Trash2 className='h-4 w-4' />
+                    <span className='sr-only'>Delete mint</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Mint</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this mint? This action
+                      cannot be undone. Make sure the mint has zero balance
+                      before deleting.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      disabled={deleteMutation.isPending}
+                      className='bg-red-600 hover:bg-red-700'
+                    >
+                      {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
+
+          {/* Second row: Status badge */}
+          <div className='flex flex-wrap gap-1'>
+            <Badge
+              variant={mint.is_active ? 'default' : 'secondary'}
+              className={cn(
+                'text-xs',
+                mint.is_active
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-gray-100 text-gray-600'
+              )}
+            >
+              {MultimintService.getMintStatusText(mint.is_active)}
+            </Badge>
+          </div>
+
+          {/* Third row: URL */}
+          <CardDescription className='truncate pt-1' title={mint.mint_url}>
+            {mint.mint_url}
+          </CardDescription>
         </div>
       </CardHeader>
 

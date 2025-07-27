@@ -36,6 +36,13 @@ export interface CreateCustomProviderRequest {
   use_onion: boolean;
 }
 
+export interface UpdateCustomProviderRequest {
+  name: string;
+  url: string;
+  mints: string[];
+  use_onion: boolean;
+}
+
 export class ProviderService {
   static async listProviders(): Promise<ProviderListResponse> {
     try {
@@ -111,6 +118,21 @@ export class ProviderService {
       );
     } catch (error) {
       console.error(`Error deleting custom provider ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async updateCustomProvider(
+    id: number,
+    request: UpdateCustomProviderRequest
+  ): Promise<Provider> {
+    try {
+      return await apiClient.put<Provider>(
+        `/api/providers/${id}`,
+        request as unknown as Record<string, unknown>
+      );
+    } catch (error) {
+      console.error(`Error updating custom provider ${id}:`, error);
       throw error;
     }
   }

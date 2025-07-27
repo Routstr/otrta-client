@@ -257,7 +257,6 @@ pub struct SaveSearchRequest {
     encrypted_query: String,
     encrypted_response: String,
     group_id: String,
-    timestamp: i64,
 }
 
 pub async fn temporary_search_handler(

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ProviderService,
   CreateCustomProviderRequest,
+  UpdateCustomProviderRequest,
 } from '@/lib/api/services/providers';
 import { toast } from 'sonner';
 
@@ -84,6 +85,38 @@ export function useCreateCustomProvider() {
         toast.error(apiError.response.data.error.message || 'Validation error');
       } else {
         toast.error('Failed to create custom provider');
+      }
+    },
+  });
+}
+
+export function useUpdateCustomProvider() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      request,
+    }: {
+      id: number;
+      request: UpdateCustomProviderRequest;
+    }) => ProviderService.updateCustomProvider(id, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['providers'] });
+      queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
+      toast.success('Custom provider updated successfully');
+    },
+    onError: (error: unknown) => {
+      console.error('Error updating custom provider:', error);
+      const apiError = error as {
+        response?: { data?: { error?: { type?: string; message?: string } } };
+      };
+      if (apiError?.response?.data?.error?.type === 'duplicate_error') {
+        toast.error('A provider with this URL already exists');
+      } else if (apiError?.response?.data?.error?.type === 'validation_error') {
+        toast.error(apiError.response.data.error.message || 'Validation error');
+      } else {
+        toast.error('Failed to update custom provider');
       }
     },
   });

@@ -6,8 +6,9 @@ use crate::{
         get_active_providers_for_organization, get_available_providers_for_organization,
         get_default_provider_for_organization_new, get_provider_by_id_for_organization,
         refresh_providers_from_nostr, set_default_provider_for_organization_new,
+        update_custom_provider, update_custom_provider_for_organization,
         CreateCustomProviderRequest, ProviderListResponse, ProviderWithStatus,
-        RefreshProvidersResponse,
+        RefreshProvidersResponse, UpdateCustomProviderRequest,
     },
     handlers::models::refresh_models_internal,
     models::{AppState, UserContext},
@@ -330,6 +331,99 @@ pub async fn create_custom_provider_handler(
                     Json(json!({
                         "error": {
                             "message": "Failed to create custom provider",
+                            "type": "database_error"
+                        }
+                    })),
+                ))
+            }
+        }
+    }
+}
+
+pub async fn update_custom_provider_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+    Path(id): Path<i32>,
+    Json(request): Json<UpdateCustomProviderRequest>,
+) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
+    if request.name.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "Provider name cannot be empty",
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    if !is_valid_provider_url(&request.url, request.use_onion) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": if request.use_onion && request.url.contains(".onion") {
+                        "Invalid onion URL format. Use format: example.onion or http://example.onion"
+                    } else {
+                        "Provider URL must be a valid HTTP(S) URL"
+                    },
+                    "type": "validation_error"
+                }
+            })),
+        ));
+    }
+
+    if request.use_onion && !validate_tor_availability().await {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "error": {
+                    "message": "Tor proxy not available. Cannot update .onion provider.",
+                    "type": "service_unavailable"
+                }
+            })),
+        ));
+    }
+
+    let result = if user_ctx.is_admin {
+        update_custom_provider(&state.db, id, request).await
+    } else {
+        update_custom_provider_for_organization(&state.db, id, request, &user_ctx.organization_id)
+            .await
+    };
+
+    match result {
+        Ok(provider) => Ok(Json(provider)),
+        Err(sqlx::Error::RowNotFound) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "message": "Custom provider not found or cannot be updated",
+                    "type": "not_found"
+                }
+            })),
+        )),
+        Err(e) => {
+            eprintln!("Failed to update custom provider {}: {}", id, e);
+            if e.to_string()
+                .contains("duplicate key value violates unique constraint")
+            {
+                Err((
+                    StatusCode::CONFLICT,
+                    Json(json!({
+                        "error": {
+                            "message": "A provider with this URL already exists",
+                            "type": "duplicate_error"
+                        }
+                    })),
+                ))
+            } else {
+                Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {
+                            "message": "Failed to update custom provider",
                             "type": "database_error"
                         }
                     })),

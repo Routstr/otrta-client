@@ -153,7 +153,7 @@ export function MintList({
             </div>
           </CardHeader>
           <CardContent>
-            <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
               <div className='space-y-2'>
                 <p className='text-muted-foreground text-sm'>Total Mints</p>
                 <p className='text-2xl font-bold'>{mints.length}</p>
@@ -168,6 +168,13 @@ export function MintList({
                   >
                     Active
                   </Badge>
+                </div>
+              </div>
+              <div className='space-y-2'>
+                <p className='text-muted-foreground text-sm'>Inactive Mints</p>
+                <div className='flex items-center gap-2'>
+                  <p className='text-2xl font-bold'>{inactiveMints.length}</p>
+                  <Badge variant='secondary'>Inactive</Badge>
                 </div>
               </div>
             </div>

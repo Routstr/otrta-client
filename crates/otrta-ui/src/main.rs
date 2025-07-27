@@ -80,6 +80,10 @@ async fn main() {
             delete(handlers::delete_custom_provider_handler),
         )
         .route(
+            "/api/providers/{id}",
+            put(handlers::update_custom_provider_handler),
+        )
+        .route(
             "/api/providers/{id}/set-default",
             post(handlers::set_provider_default),
         )

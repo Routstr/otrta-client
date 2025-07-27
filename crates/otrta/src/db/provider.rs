@@ -59,6 +59,14 @@ pub struct CreateCustomProviderRequest {
     pub use_onion: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateCustomProviderRequest {
+    pub name: String,
+    pub url: String,
+    pub mints: Vec<String>,
+    pub use_onion: bool,
+}
+
 pub async fn get_all_providers(db: &Pool) -> Result<Vec<Provider>, sqlx::Error> {
     let providers = sqlx::query_as::<_, Provider>(
         "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
@@ -320,6 +328,52 @@ pub async fn create_custom_provider_for_organization(
     .bind(&request.url)
     .bind(&request.mints)
     .bind(request.use_onion)
+    .bind(organization_id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(provider)
+}
+
+pub async fn update_custom_provider(
+    db: &Pool,
+    id: i32,
+    request: UpdateCustomProviderRequest,
+) -> Result<Provider, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "UPDATE providers 
+         SET name = $1, url = $2, mints = $3, use_onion = $4, updated_at = NOW()
+         WHERE id = $5 AND is_custom = TRUE
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
+    )
+    .bind(&request.name)
+    .bind(&request.url)
+    .bind(&request.mints)
+    .bind(request.use_onion)
+    .bind(id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(provider)
+}
+
+pub async fn update_custom_provider_for_organization(
+    db: &Pool,
+    id: i32,
+    request: UpdateCustomProviderRequest,
+    organization_id: &Uuid,
+) -> Result<Provider, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "UPDATE providers 
+         SET name = $1, url = $2, mints = $3, use_onion = $4, updated_at = NOW()
+         WHERE id = $5 AND is_custom = TRUE AND organization_id = $6
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
+    )
+    .bind(&request.name)
+    .bind(&request.url)
+    .bind(&request.mints)
+    .bind(request.use_onion)
+    .bind(id)
     .bind(organization_id)
     .fetch_one(db)
     .await?;

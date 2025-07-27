@@ -151,7 +151,7 @@ export function MintManagementPage() {
   const isTopupProcessing = topupMutation.isPending;
 
   return (
-    <div className='space-y-6 p-6'>
+    <div className='space-y-6'>
       <Card>
         <CardHeader>
           <CardTitle className='flex items-center gap-2'>
@@ -163,7 +163,7 @@ export function MintManagementPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
             <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
               <DialogTrigger asChild>
                 <Button className='h-20 flex-col gap-2' variant='outline'>
