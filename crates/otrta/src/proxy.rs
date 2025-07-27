@@ -7,6 +7,10 @@ use crate::{
         Pool,
     },
     models::*,
+    onion::{
+        configure_client_with_tor_proxy, construct_url_with_protocol, get_onion_error_message,
+        is_onion_url, log_onion_timing, needs_tor_proxy, start_onion_timing,
+    },
     wallet::send_with_retry,
 };
 use axum::{
@@ -22,14 +26,6 @@ use serde_json::json;
 use std::io;
 use std::sync::Arc;
 use uuid::Uuid;
-
-fn is_onion_url(url: &str) -> bool {
-    url.contains(".onion")
-}
-
-fn needs_tor_proxy(url: &str, use_onion: bool) -> bool {
-    use_onion && is_onion_url(url)
-}
 
 #[derive(serde::Deserialize)]
 struct OpenAIRequest {
@@ -217,48 +213,63 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         }
     };
 
-    println!("{:?}", server_config);
+    let endpoint_url = construct_url_with_protocol(&server_config.url, path);
+    println!("Constructed proxy endpoint URL: {}", endpoint_url);
 
-    let mut client_builder = Client::builder();
+    let timeout_secs = if is_streaming { 300 } else { 60 }; // 5 min for streaming, 1 min for regular
+    let mut client = match crate::onion::create_onion_client(
+        &endpoint_url,
+        server_config.use_onion,
+        Some(timeout_secs),
+    ) {
+        Ok(client) => client,
+        Err(e) => {
+            eprintln!("Failed to create client with Tor proxy: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to configure client for .onion request",
+                        "type": "proxy_error"
+                    }
+                })),
+            )
+                .into_response();
+        }
+    };
 
-    if is_streaming {
-        use std::time::Duration;
-        client_builder = client_builder
-            .timeout(Duration::from_secs(300))
-            .pool_idle_timeout(None)
-            .pool_max_idle_per_host(0);
-    }
+    // For streaming requests with onion services, we need to handle connection pooling differently
+    if is_streaming && server_config.use_onion && endpoint_url.contains(".onion") {
+        // For onion streaming, create a fresh client without connection pooling
+        let mut client_builder = Client::builder()
+            .timeout(std::time::Duration::from_secs(300))
+            .pool_max_idle_per_host(1); // Allow minimal pooling for onion services
 
-    let endpoint_url = format!("{}/{}", &server_config.url, path);
-
-    if needs_tor_proxy(&endpoint_url, server_config.use_onion) {
-        let tor_proxy_url = std::env::var("TOR_SOCKS_PROXY")
-            .unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string());
-
-        match reqwest::Proxy::all(&tor_proxy_url) {
-            Ok(proxy) => {
-                client_builder = client_builder.proxy(proxy);
-                println!("Using Tor proxy for .onion request: {}", endpoint_url);
-            }
+        // Configure Tor proxy for streaming onion requests
+        client_builder = match configure_client_with_tor_proxy(
+            client_builder,
+            &endpoint_url,
+            server_config.use_onion,
+        ) {
+            Ok(builder) => builder,
             Err(e) => {
-                eprintln!("Failed to create Tor proxy: {}", e);
+                eprintln!("Failed to configure Tor proxy for streaming: {}", e);
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({
                         "error": {
-                            "message": "Failed to configure Tor proxy for .onion request",
+                            "message": "Failed to configure Tor proxy for streaming .onion request",
                             "type": "proxy_error"
                         }
                     })),
                 )
                     .into_response();
             }
-        }
+        };
+
+        client = client_builder.build().unwrap();
     }
 
-    let client = client_builder.build().unwrap();
-
-    println!("{}", endpoint_url);
     let mut req_builder = if body.is_some() {
         client.post(&endpoint_url)
     } else {
@@ -289,8 +300,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         None => false,
     };
 
-    println!("endpoint_url: {:?}", model);
-
     eprintln!(
         "Processing request for model: {:?}, is_free: {}, cost: {}",
         model_name,
@@ -305,7 +314,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.json(&body_data);
     }
 
-    println!("{:?}", model);
     let cost = match model {
         Some(model) => model
             .min_cost_per_request
@@ -313,6 +321,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         None => state.default_msats_per_request as i64,
     };
 
+    println!("{:?}", server_config);
     if server_config.mints.is_empty() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -409,20 +418,10 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.header(header::ACCEPT, accept);
     }
 
-    let start_time = if is_onion_url(&endpoint_url) {
-        Some(std::time::Instant::now())
-    } else {
-        None
-    };
+    let start_time = start_onion_timing(&endpoint_url);
 
     let response = if let Ok(resp) = req_builder.send().await {
-        if let Some(start) = start_time {
-            let duration = start.elapsed();
-            println!(
-                "Onion request completed in {:?}: {}",
-                duration, endpoint_url
-            );
-        }
+        log_onion_timing(start_time, &endpoint_url, "proxy");
         let status = resp.status();
         let headers = resp.headers().clone();
 
@@ -684,7 +683,20 @@ pub async fn forward_request(
     let client_builder = Client::builder();
     let client = client_builder.build().unwrap();
 
-    let endpoint_url = format!("{}/{}", &server_config.url, path);
+    // Construct proper URL with protocol prefix (same logic as models.rs)
+    let base_url =
+        if server_config.url.starts_with("http://") || server_config.url.starts_with("https://") {
+            server_config.url.clone()
+        } else if server_config.url.contains(".onion") {
+            // For onion addresses, use http:// prefix by default
+            format!("http://{}", server_config.url)
+        } else {
+            // For regular URLs, use https:// prefix by default
+            format!("https://{}", server_config.url)
+        };
+
+    let endpoint_url = format!("{}/{}", base_url, path);
+    println!("Constructed forward_request endpoint URL: {}", endpoint_url);
 
     let mut req_builder = client.get(&endpoint_url);
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
@@ -714,17 +726,7 @@ pub async fn forward_request(
         Err(error) => {
             eprintln!("Error forwarding request: {}", error);
 
-            let error_msg = if is_onion_url(&endpoint_url) {
-                if error.is_timeout() {
-                    "Timeout connecting to .onion service (Tor may not be running)"
-                } else if error.is_connect() {
-                    "Failed to connect via Tor proxy (check Tor daemon)"
-                } else {
-                    "Error accessing .onion service"
-                }
-            } else {
-                "Error forwarding request"
-            };
+            let error_msg = get_onion_error_message(&error, &endpoint_url, "forward_request");
 
             let error_json = Json(json!({
                 "error": {

@@ -11,5 +11,28 @@ services:
       - "5433:5432"
     volumes:
       - dbtest:/var/lib/postgresql/data
+
+  tor:
+    image: dockurr/tor
+    container_name: tor_proxy
+    restart: unless-stopped
+    ports:
+      - "9050:9050/tcp" # SOCKS proxy port
+      - "9053:9053/udp" # DNS port (optional)
+    volumes:
+      - tor-data:/var/lib/tor
+    environment:
+      # Optional: Configure exit nodes (uncomment if needed)
+      # - EXIT_NODES=1.2.3.4,1.2.3.5
+      # Optional: Set SOCKS timeout
+      - SOCKS_TIMEOUT_SECONDS=60
+    # Health check to ensure Tor is running
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9050"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   dbtest: {}
+  tor-data: {}

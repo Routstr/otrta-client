@@ -4,6 +4,10 @@ use crate::{
         upsert_model,
     },
     models::{AppState, ModelListResponse, ProxyModel, RefreshModelsResponse, UserContext},
+    onion::{
+        construct_url_with_protocol, create_onion_client, get_onion_error_message,
+        log_onion_timing, start_onion_timing,
+    },
 };
 use axum::{
     extract::{Extension, State},
@@ -100,19 +104,35 @@ pub async fn refresh_models_internal(
         );
     };
 
-    let client = reqwest::Client::new();
-    let endpoint_url = format!("{}/v1/models", &server_config.url);
-    println!("endpoint_url {}", endpoint_url);
+    // Use onion module to construct proper URL
+    let endpoint_url = construct_url_with_protocol(&server_config.url, "v1/models");
+    println!("Constructed endpoint URL: {}", endpoint_url);
+
+    // Use onion module to create HTTP client with Tor proxy support
+    let client = match create_onion_client(&endpoint_url, server_config.use_onion, Some(60)) {
+        Ok(client) => client,
+        Err(e) => return Err(e),
+    };
+
+    // Start timing for onion requests
+    let start_time = start_onion_timing(&endpoint_url);
+    println!("Making request to: {}", endpoint_url);
 
     let proxy_models_response = match client
         .get(&endpoint_url)
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(120)) // Longer timeout for onion services
         .send()
         .await
     {
-        Ok(response) => response,
+        Ok(response) => {
+            log_onion_timing(start_time, &endpoint_url, "models");
+            println!("Response status: {}", response.status());
+            response
+        }
         Err(e) => {
-            return Err(format!("Failed to connect to proxy: {}", e));
+            let error_msg = get_onion_error_message(&e, &endpoint_url, "models");
+            eprintln!("Request error details: {:?}", e);
+            return Err(format!("{}: {}", error_msg, e));
         }
     };
 

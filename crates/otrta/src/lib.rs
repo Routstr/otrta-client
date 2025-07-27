@@ -6,6 +6,7 @@ pub mod handlers;
 pub mod models;
 pub mod multimint;
 pub mod multimint_manager;
+pub mod onion;
 pub mod proxy;
 pub mod search;
 pub mod wallet;
