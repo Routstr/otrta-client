@@ -3061,6 +3061,7 @@ dependencies = [
  "hex",
  "nostr 0.33.0",
  "rand 0.8.5",
+ "regex",
  "reqwest",
  "rust_decimal",
  "scraper",

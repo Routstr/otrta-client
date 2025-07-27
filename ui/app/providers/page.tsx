@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { TruncatedUrl } from '@/components/ui/truncated-url';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Copy,
@@ -211,9 +212,7 @@ export default function ProvidersPage() {
                           </div>
                         </div>
                         <CardDescription>
-                          <span className='truncate'>
-                            {provider.url.replace('https://', '')}
-                          </span>
+                          <TruncatedUrl url={provider.url} maxLength={35} />
                         </CardDescription>
                       </div>
                       {provider.is_custom && (

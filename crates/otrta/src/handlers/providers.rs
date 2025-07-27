@@ -25,25 +25,35 @@ fn is_valid_provider_url(url: &str, use_onion: bool) -> bool {
     if url.trim().is_empty() {
         return false;
     }
-    
+
     if url.contains(".onion") {
-        return use_onion && (url.starts_with("http://") || url.starts_with("https://"));
+        if !use_onion {
+            return false;
+        }
+        // For onion URLs, accept with or without protocol
+        if url.starts_with("http://") || url.starts_with("https://") {
+            return true;
+        }
+        // Accept bare onion addresses (without protocol)
+        // Onion v3 addresses are 56 characters, v2 are 16 characters
+        let onion_regex = regex::Regex::new(r"^[a-z0-9]{16,56}\.onion$").unwrap();
+        return onion_regex.is_match(url);
     }
-    
+
     url.starts_with("http://") || url.starts_with("https://")
 }
 
 async fn validate_tor_availability() -> bool {
-    let tor_proxy_url = std::env::var("TOR_SOCKS_PROXY")
-        .unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string());
-    
+    let tor_proxy_url =
+        std::env::var("TOR_SOCKS_PROXY").unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string());
+
     match reqwest::Client::builder()
         .proxy(reqwest::Proxy::all(&tor_proxy_url).unwrap())
         .timeout(std::time::Duration::from_secs(10))
         .build()
     {
         Ok(_) => true,
-        Err(_) => false
+        Err(_) => false,
     }
 }
 
@@ -256,7 +266,7 @@ pub async fn create_custom_provider_handler(
             Json(json!({
                 "error": {
                     "message": if request.use_onion && request.url.contains(".onion") {
-                        "Onion URLs must start with http:// or https://"
+                        "Invalid onion URL format. Use format: example.onion or http://example.onion"
                     } else {
                         "Provider URL must be a valid HTTP(S) URL"
                     },
@@ -458,14 +468,29 @@ mod tests {
 
     #[test]
     fn test_provider_url_validation() {
+        // Regular URLs
         assert!(is_valid_provider_url("http://example.com", false));
         assert!(is_valid_provider_url("https://example.com", false));
+
+        // Onion URLs with protocol (when onion enabled)
         assert!(is_valid_provider_url("http://example.onion", true));
         assert!(is_valid_provider_url("https://example.onion", true));
-        
+
+        // Bare onion URLs (when onion enabled)
+        assert!(is_valid_provider_url(
+            "zdnt2juw6htljsu25ftnbvdicgvr4s3ts4ldlx2myjcuyz4woaf4l7id.onion",
+            true
+        ));
+        assert!(is_valid_provider_url("facebookcorewwwi.onion", true)); // v2 onion
+
+        // Invalid cases
         assert!(!is_valid_provider_url("", false));
         assert!(!is_valid_provider_url("ftp://example.com", false));
-        assert!(!is_valid_provider_url("http://example.onion", false));
-        assert!(!is_valid_provider_url("example.onion", true));
+        assert!(!is_valid_provider_url("http://example.onion", false)); // onion disabled
+        assert!(!is_valid_provider_url(
+            "zdnt2juw6htljsu25ftnbvdicgvr4s3ts4ldlx2myjcuyz4woaf4l7id.onion",
+            false
+        )); // onion disabled
+        assert!(!is_valid_provider_url("invalid.onion.format", true)); // invalid onion format
     }
 }

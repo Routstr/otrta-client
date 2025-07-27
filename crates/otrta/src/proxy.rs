@@ -234,7 +234,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     if needs_tor_proxy(&endpoint_url, server_config.use_onion) {
         let tor_proxy_url = std::env::var("TOR_SOCKS_PROXY")
             .unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string());
-        
+
         match reqwest::Proxy::all(&tor_proxy_url) {
             Ok(proxy) => {
                 client_builder = client_builder.proxy(proxy);
@@ -250,7 +250,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                             "type": "proxy_error"
                         }
                     })),
-                ).into_response();
+                )
+                    .into_response();
             }
         }
     }
@@ -417,7 +418,10 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     let response = if let Ok(resp) = req_builder.send().await {
         if let Some(start) = start_time {
             let duration = start.elapsed();
-            println!("Onion request completed in {:?}: {}", duration, endpoint_url);
+            println!(
+                "Onion request completed in {:?}: {}",
+                duration, endpoint_url
+            );
         }
         let status = resp.status();
         let headers = resp.headers().clone();
@@ -742,7 +746,9 @@ mod tests {
     fn test_onion_url_detection() {
         assert!(is_onion_url("http://example.onion"));
         assert!(is_onion_url("https://3g2upl4pq6kufc4m.onion"));
-        assert!(is_onion_url("http://facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion"));
+        assert!(is_onion_url(
+            "http://facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion"
+        ));
         assert!(!is_onion_url("https://example.com"));
         assert!(!is_onion_url("http://google.com"));
     }
