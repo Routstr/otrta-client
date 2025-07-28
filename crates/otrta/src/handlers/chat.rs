@@ -286,9 +286,31 @@ pub async fn temporary_search_handler(
     let search_response = match search_result {
         Ok(result) => result,
         Err(error) => {
-            let error_message = format!("Search failed: {}", error);
+            let error_message = error.to_string();
+            let status_code = if error_message.contains("Payment required")
+                || error_message.contains("payment_error")
+            {
+                StatusCode::PAYMENT_REQUIRED
+            } else if error_message.contains("No URLs provided")
+                || error_message.contains("Invalid")
+            {
+                StatusCode::BAD_REQUEST
+            } else if error_message.contains("Could not access")
+                || error_message.contains("Network error")
+            {
+                StatusCode::BAD_GATEWAY
+            } else if error_message.contains("Authentication")
+                || error_message.contains("Unauthorized")
+            {
+                StatusCode::UNAUTHORIZED
+            } else if error_message.contains("Rate limit") {
+                StatusCode::TOO_MANY_REQUESTS
+            } else {
+                StatusCode::BAD_REQUEST
+            };
+
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                status_code,
                 Json(json!({
                     "error": {
                         "message": error_message,

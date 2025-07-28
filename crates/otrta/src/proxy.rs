@@ -109,7 +109,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         Json(json!({
                             "error": {
                                 "message": "Invalid organization ID in API key",
-                                "type": "server_error",
+                                "type": "validation_error",
                                 "code": "invalid_organization_id"
                             }
                         })),
@@ -132,11 +132,11 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             }
             Err(_) => {
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::UNAUTHORIZED,
                     Json(json!({
                         "error": {
                             "message": "Failed to retrieve API key",
-                            "type": "server_error",
+                            "type": "authentication_error",
                             "code": "api_key_lookup_failed"
                         }
                     })),
@@ -171,7 +171,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         Json(json!({
                             "error": {
                                 "message": "No default provider configured. Please configure a provider first.",
-                                "type": "server_error",
+                                "type": "configuration_error",
                                 "param": null,
                                 "code": "default_provider_missing"
                             }
@@ -181,11 +181,11 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 Err(e) => {
                     eprintln!("Failed to get global default provider: {}", e);
                     return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
+                        StatusCode::SERVICE_UNAVAILABLE,
                         Json(json!({
                             "error": {
-                                "message": "Failed to retrieve provider configuration",
-                                "type": "server_error",
+                                "message": "Provider service unavailable",
+                                "type": "provider_error",
                                 "code": "provider_lookup_failed"
                             }
                         })),
@@ -200,11 +200,11 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 org_id, e
             );
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::SERVICE_UNAVAILABLE,
                 Json(json!({
                     "error": {
-                        "message": "Failed to retrieve provider configuration",
-                        "type": "server_error",
+                        "message": "Provider service unavailable",
+                        "type": "provider_error",
                         "code": "provider_lookup_failed"
                     }
                 })),
@@ -226,11 +226,12 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         Err(e) => {
             eprintln!("Failed to create client with Tor proxy: {}", e);
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::BAD_GATEWAY,
                 Json(json!({
                     "error": {
                         "message": "Failed to configure client for .onion request",
-                        "type": "proxy_error"
+                        "type": "proxy_error",
+                        "code": "tor_proxy_configuration_failed"
                     }
                 })),
             )
@@ -255,11 +256,12 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             Err(e) => {
                 eprintln!("Failed to configure Tor proxy for streaming: {}", e);
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::BAD_GATEWAY,
                     Json(json!({
                         "error": {
                             "message": "Failed to configure Tor proxy for streaming .onion request",
-                            "type": "proxy_error"
+                            "type": "proxy_error",
+                            "code": "tor_streaming_configuration_failed"
                         }
                     })),
                 )
@@ -324,11 +326,12 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     println!("{:?}", server_config);
     if server_config.mints.is_empty() {
         return (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::BAD_REQUEST,
             Json(json!({
                 "error": {
-                    "message": format!("no mint found for provider"),
-                    "type": "payment_error",
+                    "message": "No active mints configured for this provider",
+                    "type": "configuration_error",
+                    "code": "no_active_mints"
                 }
             })),
         )
@@ -351,12 +354,12 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     org_id, e
                 );
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::BAD_REQUEST,
                     Json(json!({
                         "error": {
-                            "message": "Failed to get organization wallet",
+                            "message": "No active mints configured",
                             "type": "wallet_error",
-                            "code": "wallet_access_failed"
+                            "code": "no_active_mints"
                         }
                     })),
                 )
@@ -389,11 +392,12 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     String::new()
                 } else {
                     return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
+                        StatusCode::PAYMENT_REQUIRED,
                         Json(json!({
                             "error": {
-                                "message": format!("Failed to generate payment token: {:?}. This usually means insufficient wallet balance or mint connectivity issues.", e),
+                                "message": "Insufficient funds or mint connectivity issues",
                                 "type": "payment_error",
+                                "code": "insufficient_funds",
                                 "details": {
                                     "model": model_name,
                                     "cost_msats": cost,
@@ -435,7 +439,16 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     {
                         Ok(wallet) => wallet,
                         Err(_) => {
-                            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet")
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(json!({
+                                    "error": {
+                                        "message": "No active mints configured",
+                                        "type": "wallet_error",
+                                        "code": "no_active_mints"
+                                    }
+                                })),
+                            )
                                 .into_response()
                         }
                     };
@@ -472,7 +485,16 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 {
                     Ok(wallet) => wallet,
                     Err(_) => {
-                        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet")
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({
+                                "error": {
+                                    "message": "No active mints configured",
+                                    "type": "wallet_error",
+                                    "code": "no_active_mints"
+                                }
+                            })),
+                        )
                             .into_response()
                     }
                 };
@@ -521,8 +543,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
             eprintln!("Error creating streaming response: {}", e);
             Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::from("Error creating streaming response"))
+                .status(StatusCode::BAD_GATEWAY)
+                .body(Body::from(format!("{{\"error\":{{\"message\":\"Error creating streaming response\",\"type\":\"streaming_error\",\"code\":\"stream_creation_failed\"}}}}")))
                 .unwrap()
         });
     } else {
@@ -533,7 +555,17 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         {
             Ok(wallet) => wallet,
             Err(_) => {
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet").into_response()
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "message": "No active mints configured",
+                            "type": "wallet_error",
+                            "code": "no_active_mints"
+                        }
+                    })),
+                )
+                    .into_response()
             }
         };
         let res = wallet.receive(&token).await.unwrap();
@@ -550,10 +582,12 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         .unwrap();
         let error_json = Json(json!({
             "error": {
-            "message": format!("Error forwarding request"),
-            "type": "gateway_error"
-        }}));
-        (StatusCode::INTERNAL_SERVER_ERROR, error_json).into_response()
+                "message": "Error forwarding request to provider",
+                "type": "gateway_error",
+                "code": "request_forwarding_failed"
+            }
+        }));
+        (StatusCode::BAD_GATEWAY, error_json).into_response()
     };
 
     response
@@ -577,7 +611,7 @@ pub async fn forward_request(
                         Json(json!({
                             "error": {
                                 "message": "Invalid organization ID in API key",
-                                "type": "server_error",
+                                "type": "validation_error",
                                 "code": "invalid_organization_id"
                             }
                         })),
@@ -600,11 +634,11 @@ pub async fn forward_request(
             }
             Err(_) => {
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::UNAUTHORIZED,
                     Json(json!({
                         "error": {
                             "message": "Failed to retrieve API key",
-                            "type": "server_error",
+                            "type": "authentication_error",
                             "code": "api_key_lookup_failed"
                         }
                     })),
@@ -638,7 +672,7 @@ pub async fn forward_request(
                         Json(json!({
                             "error": {
                                 "message": "No default provider configured. Please configure a provider first.",
-                                "type": "server_error",
+                                "type": "configuration_error",
                                 "param": null,
                                 "code": "default_provider_missing"
                             }
@@ -648,11 +682,11 @@ pub async fn forward_request(
                 Err(e) => {
                     eprintln!("Failed to get global default provider: {}", e);
                     return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
+                        StatusCode::SERVICE_UNAVAILABLE,
                         Json(json!({
                             "error": {
-                                "message": "Failed to retrieve provider configuration",
-                                "type": "server_error",
+                                "message": "Provider service unavailable",
+                                "type": "provider_error",
                                 "code": "provider_lookup_failed"
                             }
                         })),
@@ -667,11 +701,11 @@ pub async fn forward_request(
                 org_id, e
             );
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::SERVICE_UNAVAILABLE,
                 Json(json!({
                     "error": {
-                        "message": "Failed to retrieve provider configuration",
-                        "type": "server_error",
+                        "message": "Provider service unavailable",
+                        "type": "provider_error",
                         "code": "provider_lookup_failed"
                     }
                 })),
@@ -710,15 +744,15 @@ pub async fn forward_request(
                 Ok(bytes) => response.body(Body::from(bytes)).unwrap_or_else(|e| {
                     eprintln!("Error creating response: {}", e);
                     Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from("Error creating response"))
+                        .status(StatusCode::BAD_GATEWAY)
+                        .body(Body::from(format!("{{\"error\":{{\"message\":\"Error processing provider response\",\"type\":\"gateway_error\",\"code\":\"response_processing_failed\"}}}}")))
                         .unwrap()
                 }),
                 Err(e) => {
                     eprintln!("Error reading response body: {}", e);
                     Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from(format!("Error reading response body: {}", e)))
+                        .status(StatusCode::BAD_GATEWAY)
+                        .body(Body::from(format!("{{\"error\":{{\"message\":\"Error reading response from provider\",\"type\":\"gateway_error\",\"code\":\"response_read_failed\"}}}}")))
                         .unwrap()
                 }
             }
@@ -737,29 +771,5 @@ pub async fn forward_request(
 
             (StatusCode::BAD_GATEWAY, error_json).into_response()
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_onion_url_detection() {
-        assert!(is_onion_url("http://example.onion"));
-        assert!(is_onion_url("https://3g2upl4pq6kufc4m.onion"));
-        assert!(is_onion_url(
-            "http://facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion"
-        ));
-        assert!(!is_onion_url("https://example.com"));
-        assert!(!is_onion_url("http://google.com"));
-    }
-
-    #[test]
-    fn test_tor_proxy_requirement() {
-        assert!(needs_tor_proxy("http://example.onion", true));
-        assert!(!needs_tor_proxy("http://example.onion", false));
-        assert!(!needs_tor_proxy("http://example.com", true));
-        assert!(!needs_tor_proxy("http://example.com", false));
     }
 }

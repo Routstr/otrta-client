@@ -1,7 +1,12 @@
 import { apiClient } from '@/lib/api/client';
 import { useSearchState, ActiveSearch } from '@/src/stores/search-state';
-import { SchemaProps, SchemaResponseProps } from '@/src/api/web-search';
+import {
+  SchemaProps,
+  SchemaResponseProps,
+  temporarySearch,
+} from '@/src/api/web-search';
 import { SearchEncryptionService, SearchData } from './search-encryption';
+import { toast } from 'sonner';
 
 export interface TemporarySearchResult {
   id: string;
@@ -50,21 +55,38 @@ export class SearchManager {
   ): Promise<TemporarySearchResult> {
     try {
       console.log('[SearchManager] Submitting temporary search:', request);
-      const response = await apiClient.post<SchemaResponseProps>(
-        '/api/search/temporary',
-        request
-      );
+      const response = await temporarySearch(request);
       console.log('[SearchManager] Temporary search completed:', response);
 
       return {
-        ...response,
+        id: Date.now().toString(),
+        query: request.message,
+        response,
+        created_at: new Date().toISOString(),
         isTemporary: true,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(
         '[SearchManager] Failed to submit temporary search:',
         error
       );
+
+      // Handle API errors with toast notifications
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as {
+          response?: { data?: { error?: { message?: string } } };
+        };
+        if (apiError.response?.data?.error?.message) {
+          toast.error(apiError.response.data.error.message);
+        } else {
+          toast.error('Search failed. Please try again.');
+        }
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Search failed. Please try again.');
+      }
+
       throw error;
     }
   }

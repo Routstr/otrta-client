@@ -29,7 +29,7 @@ fn handle_completion_response(
     completion_response: crate::completion::ChatCompletionResponse,
     sources: &mut Vec<SearchSource>,
     query: &str,
-) -> String {
+) -> Result<String, Box<dyn std::error::Error>> {
     eprintln!("Successfully parsed LLM completion response");
 
     // Map citations from the LLM response back to our sources
@@ -39,24 +39,22 @@ fn handle_completion_response(
     // Handle the response content
     if let Some(choice) = completion_response.choices.first() {
         if choice.message.content.trim().is_empty() {
-            eprintln!("LLM returned empty content, but this might be valid. Checking if we have sources...");
+            eprintln!("LLM returned empty content");
             if sources.is_empty() {
-                eprintln!("No sources and empty content, falling back to basic search");
-                generate_search_response(query, sources)
+                return Err("AI returned empty response with no sources".into());
             } else {
-                eprintln!("Have sources but empty content, using basic search with sources");
-                generate_search_response(query, sources)
+                return Ok(generate_search_response(query, sources));
             }
         } else {
             eprintln!(
                 "LLM returned valid content: {} chars",
                 choice.message.content.len()
             );
-            choice.message.content.clone()
+            return Ok(choice.message.content.clone());
         }
     } else {
-        eprintln!("No choices in LLM response, falling back to basic search");
-        generate_search_response(query, sources)
+        eprintln!("No choices in LLM response");
+        return Err("AI returned no response choices".into());
     }
 }
 
@@ -156,13 +154,9 @@ pub async fn perform_web_search_with_llm(
         let status = response.status();
         eprintln!("LLM request status: {}", status);
 
-        // Always fall back to basic search for any non-OK status
         if status != axum::http::StatusCode::OK {
-            eprintln!(
-                "LLM request failed with status: {}, falling back to basic search",
-                status
-            );
-            generate_search_response(query, &sources)
+            eprintln!("LLM request failed with status: {}", status);
+            return Err(format!("Search failed with status: {}", status).into());
         } else {
             eprintln!("LLM request succeeded with status 200, processing response body...");
             match axum::body::to_bytes(response.into_body(), usize::MAX).await {
@@ -174,10 +168,7 @@ pub async fn perform_web_search_with_llm(
 
                     if bytes.is_empty() {
                         eprintln!("WARNING: Response body is empty despite 200 status!");
-                        eprintln!(
-                            "This might indicate a server-side issue or body already consumed"
-                        );
-                        generate_search_response(query, &sources)
+                        return Err("Empty response from AI provider".into());
                     } else {
                         eprintln!(
                             "Raw response bytes (first 200 chars): {:?}",
@@ -193,7 +184,7 @@ pub async fn perform_web_search_with_llm(
 
                         if response_text.trim().is_empty() {
                             eprintln!("WARNING: Response text is empty or only whitespace!");
-                            generate_search_response(query, &sources)
+                            return Err("Empty response text from AI provider".into());
                         } else {
                             eprintln!("Processing non-empty response...");
 
@@ -204,18 +195,19 @@ pub async fn perform_web_search_with_llm(
                                 eprintln!("Successfully parsed response as JSON");
                                 // Check for actual error structure, not just string matching
                                 if json_value.get("error").is_some() {
-                                    eprintln!(
-                                        "Structured error found in LLM response: {}",
-                                        json_value.get("error").unwrap()
-                                    );
-                                    generate_search_response(query, &sources)
+                                    let error_msg = json_value
+                                        .get("error")
+                                        .and_then(|e| e.get("message"))
+                                        .and_then(|m| m.as_str())
+                                        .unwrap_or("AI provider error");
+                                    return Err(error_msg.into());
                                 } else if let Some(error_type) =
                                     json_value.get("type").and_then(|v| v.as_str())
                                 {
                                     eprintln!("Found type field in response: {}", error_type);
                                     if error_type == "payment_error" {
                                         eprintln!("Payment error detected in LLM response");
-                                        generate_search_response(query, &sources)
+                                        return Err("Payment required for AI search".into());
                                     } else {
                                         eprintln!("Non-payment error type, attempting to parse as completion...");
                                         // Try to parse as completion response
@@ -228,19 +220,21 @@ pub async fn perform_web_search_with_llm(
                                                 eprintln!(
                                                     "Successfully parsed as ChatCompletionResponse"
                                                 );
-                                                handle_completion_response(
+                                                match handle_completion_response(
                                                     completion_response,
                                                     &mut sources,
                                                     query,
-                                                )
+                                                ) {
+                                                    Ok(response) => response,
+                                                    Err(e) => return Err(e),
+                                                }
                                             }
                                             Err(parse_err) => {
                                                 eprintln!(
                                                     "Failed to parse as ChatCompletionResponse: {}",
                                                     parse_err
                                                 );
-                                                eprintln!("Raw response was: {}", response_text);
-                                                generate_search_response(query, &sources)
+                                                return Err("Failed to parse AI response".into());
                                             }
                                         }
                                     }
@@ -255,42 +249,34 @@ pub async fn perform_web_search_with_llm(
                                             eprintln!(
                                                 "Successfully parsed as ChatCompletionResponse"
                                             );
-                                            handle_completion_response(
+                                            match handle_completion_response(
                                                 completion_response,
                                                 &mut sources,
                                                 query,
-                                            )
+                                            ) {
+                                                Ok(response) => response,
+                                                Err(e) => return Err(e),
+                                            }
                                         }
                                         Err(parse_err) => {
                                             eprintln!(
                                                 "Failed to parse as ChatCompletionResponse: {}",
                                                 parse_err
                                             );
-                                            eprintln!("Raw response was: {}", response_text);
-                                            generate_search_response(query, &sources)
+                                            return Err("Failed to parse AI response".into());
                                         }
                                     }
                                 }
                             } else {
-                                eprintln!(
-                                    "Response is not valid JSON, falling back to basic search"
-                                );
-                                eprintln!("Raw response was: {}", response_text);
-                                generate_search_response(query, &sources)
+                                eprintln!("Response is not valid JSON");
+                                return Err("Invalid response format from AI provider".into());
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!(
-                        "Failed to read LLM response body: {}, falling back to basic search",
-                        e
-                    );
-                    eprintln!("Error type: {:?}", e);
-                    eprintln!(
-                        "This could indicate a network issue, timeout, or body consumption problem"
-                    );
-                    generate_search_response(query, &sources)
+                    eprintln!("Failed to read LLM response body: {}", e);
+                    return Err("Network error reading AI response".into());
                 }
             }
         }
@@ -349,13 +335,13 @@ pub async fn perform_web_search(
         }
     }
 
-    let response_message = if sources.is_empty() && urls_provided {
-        "I was unable to access or scrape any of the provided URLs. Please check that the URLs are accessible and try again.".to_string()
+    if sources.is_empty() && urls_provided {
+        return Err("Could not access any of the provided URLs".into());
     } else if sources.is_empty() {
-        "No search sources were provided. Please provide URLs to search or use the AI-enhanced search with a selected model.".to_string()
-    } else {
-        generate_search_response(query, &sources)
-    };
+        return Err("No URLs provided and no AI model selected".into());
+    }
+
+    let response_message = generate_search_response(query, &sources);
 
     Ok(SearchResponse {
         message: response_message,
@@ -468,7 +454,7 @@ fn extract_title_from_content(content: &str) -> String {
 
 fn generate_search_response(query: &str, sources: &[SearchSource]) -> String {
     if sources.is_empty() {
-        format!("I couldn't find any accessible content for your search query '{}'. This might be because:\n• The URLs provided are not accessible\n• The content couldn't be scraped\n• No URLs were provided\n\nPlease try:\n• Checking that your URLs are correct and accessible\n• Using AI-enhanced search by selecting a model\n• Providing different URLs", query)
+        format!("No content found for search query: {}", query)
     } else {
         let source_summaries: Vec<String> = sources
             .iter()
