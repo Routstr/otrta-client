@@ -151,9 +151,9 @@ export function ResultCard(props: Props) {
       <CardContent className='space-y-4 p-6'>
         <div className='space-y-2'>
           <div className='flex items-center justify-between'>
-            <div className='flex items-center gap-2'>
-              <SwatchBook className='text-muted-foreground h-4 w-4' />
-              <span className='text-muted-foreground text-sm font-medium'>
+            <div className='flex min-w-0 flex-1 items-center gap-2'>
+              <SwatchBook className='text-muted-foreground h-4 w-4 flex-shrink-0' />
+              <span className='text-muted-foreground min-w-0 truncate text-sm font-medium'>
                 {props.data.query}
               </span>
               {props.data.isTemporary && (
