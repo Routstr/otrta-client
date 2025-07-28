@@ -91,11 +91,14 @@ export const temporarySearch = async (
   data: SchemaProps
 ): Promise<SchemaResponse> => {
   const validatedData = SchemaPropsSchema.parse(data);
-  const response = await apiClient.post<SchemaResponse>(
-    '/api/search/temporary',
-    validatedData
-  );
-  return SchemaResponseSchema.parse(response);
+  const response = await apiClient.post<{
+    id: string;
+    query: string;
+    response: SchemaResponse;
+    created_at: string;
+  }>('/api/search/temporary', validatedData);
+
+  return SchemaResponseSchema.parse(response.response);
 };
 
 export const getUserSearches = async (params: {
