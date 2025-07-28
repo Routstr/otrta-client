@@ -711,29 +711,40 @@ pub async fn forward_request(
         }
     };
 
-    let client_builder = Client::builder();
-    let client = client_builder.build().unwrap();
-
-    // Construct proper URL with protocol prefix (same logic as models.rs)
-    let base_url =
-        if server_config.url.starts_with("http://") || server_config.url.starts_with("https://") {
-            server_config.url.clone()
-        } else if server_config.url.contains(".onion") {
-            // For onion addresses, use http:// prefix by default
-            format!("http://{}", server_config.url)
-        } else {
-            // For regular URLs, use https:// prefix by default
-            format!("https://{}", server_config.url)
-        };
-
-    let endpoint_url = format!("{}/{}", base_url, path);
+    let endpoint_url = construct_url_with_protocol(&server_config.url, path);
     println!("Constructed forward_request endpoint URL: {}", endpoint_url);
+
+    let timeout_secs = 60; // 1 min for regular requests
+    let client = match crate::onion::create_onion_client(
+        &endpoint_url,
+        server_config.use_onion,
+        Some(timeout_secs),
+    ) {
+        Ok(client) => client,
+        Err(e) => {
+            eprintln!("Failed to create client with Tor proxy: {}", e);
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to configure client for .onion request",
+                        "type": "proxy_error",
+                        "code": "tor_proxy_configuration_failed"
+                    }
+                })),
+            )
+                .into_response();
+        }
+    };
 
     let mut req_builder = client.get(&endpoint_url);
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
 
+    let start_time = start_onion_timing(&endpoint_url);
+
     match req_builder.send().await {
         Ok(resp) => {
+            log_onion_timing(start_time, &endpoint_url, "forward_request");
             let status = resp.status();
             let response = Response::builder().status(status);
 
