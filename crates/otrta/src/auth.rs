@@ -10,6 +10,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 
 use crate::db::api_keys::{get_api_key_by_key, update_last_used_at};
+use crate::db::mint::create_mint_for_organization;
+use crate::db::provider::{
+    activate_provider_for_organization, get_available_providers_for_organization,
+    get_default_provider_for_organization_new, set_default_provider_for_organization_new,
+};
 use crate::db::{organizations, users};
 use crate::error::AppError;
 use crate::models::{AppState, CreateOrganizationRequest, UserContext};
@@ -391,6 +396,12 @@ async fn create_or_get_user_context(
     };
     users::create_user(&app_state.db, &create_user_request).await?;
 
+    // Setup default provider and wallet for new user
+    if let Err(e) = setup_first_time_user_defaults(app_state, &organization.id).await {
+        warn!("Failed to setup defaults for new user {}: {}", npub, e);
+        // Don't fail the entire authentication if default setup fails
+    }
+
     let is_admin = is_user_admin(npub, whitelisted_npubs);
     Ok(UserContext::new_with_admin_status(
         npub.to_string(),
@@ -411,6 +422,114 @@ pub async fn ensure_default_organization_exists(
     info!("Created default organization: {}", organization.id);
 
     Ok(organization)
+}
+
+async fn setup_first_time_user_defaults(
+    app_state: &Arc<AppState>,
+    org_id: &uuid::Uuid,
+) -> Result<(), AppError> {
+    // Check if organization already has a default provider
+    if get_default_provider_for_organization_new(&app_state.db, org_id)
+        .await
+        .map_err(|e| AppError::DatabaseError(e.to_string()))?
+        .is_some()
+    {
+        info!("Organization {} already has a default provider", org_id);
+        return Ok(());
+    }
+
+    info!(
+        "Setting up first-time defaults for organization: {}",
+        org_id
+    );
+
+    // Get all available providers for this organization
+    let available_providers = get_available_providers_for_organization(&app_state.db, org_id)
+        .await
+        .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+    if available_providers.is_empty() {
+        warn!("No providers available for organization {}", org_id);
+        return Ok(());
+    }
+
+    // Find the first global (non-custom) provider or fall back to any provider
+    let default_provider = available_providers
+        .iter()
+        .find(|p| !p.provider.is_custom)
+        .unwrap_or(&available_providers[0]);
+
+    info!(
+        "Setting provider {} as default for organization {}",
+        default_provider.provider.name, org_id
+    );
+
+    // Activate the provider for the organization
+    if let Err(e) =
+        activate_provider_for_organization(&app_state.db, org_id, default_provider.provider.id)
+            .await
+    {
+        warn!(
+            "Failed to activate provider {}: {}",
+            default_provider.provider.id, e
+        );
+        return Ok(());
+    }
+
+    // Set as default provider
+    if let Err(e) = set_default_provider_for_organization_new(
+        &app_state.db,
+        org_id,
+        default_provider.provider.id,
+    )
+    .await
+    {
+        warn!(
+            "Failed to set default provider {}: {}",
+            default_provider.provider.id, e
+        );
+        return Ok(());
+    }
+
+    // Add provider's mints to the database for this organization
+    for mint_url in &default_provider.provider.mints {
+        // Check if mint already exists for this organization
+        let skip_mint =
+            match crate::db::mint::get_mints_for_organization(&app_state.db, org_id).await {
+                Ok(existing_mints) => existing_mints.iter().any(|m| m.mint_url == *mint_url),
+                Err(e) => {
+                    warn!(
+                        "Failed to check existing mints for organization {}: {}",
+                        org_id, e
+                    );
+                    false // Continue trying to add the mint if we can't check
+                }
+            };
+
+        if skip_mint {
+            continue; // Skip if mint already exists
+        }
+
+        let create_mint_request = crate::db::mint::CreateMintRequest {
+            mint_url: mint_url.clone(),
+            currency_unit: Some("sat".to_string()),
+            name: None,
+        };
+
+        if let Err(e) =
+            create_mint_for_organization(&app_state.db, create_mint_request, org_id).await
+        {
+            warn!(
+                "Failed to add mint {} for organization {}: {}",
+                mint_url, org_id, e
+            );
+        } else {
+            info!("Added mint {} for organization {}", mint_url, org_id);
+        }
+    }
+
+    info!("Successfully set up defaults for organization {}", org_id);
+    Ok(())
 }
 
 async fn ensure_organization_multimint(
