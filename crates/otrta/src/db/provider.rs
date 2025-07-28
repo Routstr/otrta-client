@@ -35,6 +35,7 @@ pub struct ProviderWithStatus {
     pub provider: Provider,
     pub is_active_for_org: bool,
     pub is_default_for_org: bool,
+    pub is_editable: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -444,23 +445,32 @@ pub async fn get_available_providers_for_organization(
 
     let result = providers
         .into_iter()
-        .map(|row| ProviderWithStatus {
-            provider: Provider {
-                id: row.id,
-                name: row.name,
-                url: row.url,
-                mints: row.mints.unwrap_or_default(),
-                use_onion: row.use_onion.unwrap_or(false),
-                followers: row.followers.unwrap_or(0),
-                zaps: row.zaps.unwrap_or(0),
-                is_default: row.is_default.unwrap_or(false),
-                is_custom: row.is_custom.unwrap_or(false),
-                organization_id: row.organization_id,
-                created_at: row.created_at.unwrap_or_else(chrono::Utc::now),
-                updated_at: row.updated_at.unwrap_or_else(chrono::Utc::now),
-            },
-            is_active_for_org: row.is_active_for_org.unwrap_or(false),
-            is_default_for_org: row.is_default_for_org.unwrap_or(false),
+        .map(|row| {
+            let is_custom = row.is_custom.unwrap_or(false);
+            let provider_org_id = row.organization_id;
+
+            // Provider is editable if it's custom and belongs to the same organization
+            let is_editable = is_custom && provider_org_id == Some(*organization_id);
+
+            ProviderWithStatus {
+                provider: Provider {
+                    id: row.id,
+                    name: row.name,
+                    url: row.url,
+                    mints: row.mints.unwrap_or_default(),
+                    use_onion: row.use_onion.unwrap_or(false),
+                    followers: row.followers.unwrap_or(0),
+                    zaps: row.zaps.unwrap_or(0),
+                    is_default: row.is_default.unwrap_or(false),
+                    is_custom,
+                    organization_id: provider_org_id,
+                    created_at: row.created_at.unwrap_or_else(chrono::Utc::now),
+                    updated_at: row.updated_at.unwrap_or_else(chrono::Utc::now),
+                },
+                is_active_for_org: row.is_active_for_org.unwrap_or(false),
+                is_default_for_org: row.is_default_for_org.unwrap_or(false),
+                is_editable,
+            }
         })
         .collect();
 

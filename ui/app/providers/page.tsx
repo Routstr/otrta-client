@@ -240,7 +240,7 @@ export default function ProvidersPage() {
                         <CardTitle className='flex-1 truncate text-lg leading-tight font-semibold'>
                           {provider.name}
                         </CardTitle>
-                        {provider.is_custom && (
+                        {provider.is_editable && (
                           <div className='flex flex-shrink-0 gap-1'>
                             <Button
                               size='sm'

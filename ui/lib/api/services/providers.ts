@@ -15,6 +15,7 @@ export interface Provider {
   updated_at: string;
   is_active_for_org: boolean;
   is_default_for_org: boolean;
+  is_editable: boolean;
 }
 
 export interface ProviderListResponse {
