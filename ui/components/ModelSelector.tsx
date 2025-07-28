@@ -224,18 +224,18 @@ export function ModelSelector() {
               </div>
               <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end'>
                 <div className='relative w-full sm:w-64'>
-                  <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
+                  <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
                   <Input
                     placeholder='Search models by name...'
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className='pl-10 pr-8'
+                    className='pr-8 pl-10'
                   />
                   {searchQuery && (
                     <Button
                       variant='ghost'
                       size='sm'
-                      className='absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0 hover:bg-muted'
+                      className='hover:bg-muted absolute top-1/2 right-1 h-6 w-6 -translate-y-1/2 p-0'
                       onClick={() => setSearchQuery('')}
                     >
                       <X className='h-3 w-3' />
@@ -287,12 +287,15 @@ export function ModelSelector() {
             <div className='p-4 text-center text-red-500'>
               Error loading proxy models: {String(proxyModelsError)}
             </div>
-          ) : searchQuery.trim() && Object.keys(groupedProxyModels).length === 0 && freeModels.length === 0 ? (
+          ) : searchQuery.trim() &&
+            Object.keys(groupedProxyModels).length === 0 &&
+            freeModels.length === 0 ? (
             <div className='p-8 text-center'>
-              <Search className='mx-auto mb-4 h-12 w-12 text-muted-foreground' />
+              <Search className='text-muted-foreground mx-auto mb-4 h-12 w-12' />
               <h3 className='mb-2 text-lg font-semibold'>No models found</h3>
               <p className='text-muted-foreground'>
-                No models match your search for &ldquo;{searchQuery}&rdquo;. Try adjusting your search terms.
+                No models match your search for &ldquo;{searchQuery}&rdquo;. Try
+                adjusting your search terms.
               </p>
             </div>
           ) : (

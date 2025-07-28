@@ -167,7 +167,7 @@ export function AddCustomProviderForm({
           </div>
 
           <div className='space-y-2'>
-            <Label>Supported Mints</Label>
+            <Label>Supported Mints *</Label>
             <div className='flex gap-2'>
               <Input
                 type='text'
@@ -187,7 +187,7 @@ export function AddCustomProviderForm({
                 Add
               </Button>
             </div>
-            {mints.length > 0 && (
+            {mints.length > 0 ? (
               <div className='mt-2 flex flex-wrap gap-2'>
                 {mints.map((mint) => (
                   <Badge
@@ -208,6 +208,10 @@ export function AddCustomProviderForm({
                   </Badge>
                 ))}
               </div>
+            ) : (
+              <p className='text-sm text-red-500'>
+                At least one mint URL is required
+              </p>
             )}
           </div>
 
@@ -232,6 +236,7 @@ export function AddCustomProviderForm({
                 !name.trim() ||
                 !url.trim() ||
                 !isUrlValid ||
+                mints.length === 0 ||
                 createCustomProvider.isPending
               }
               className='flex-1'
