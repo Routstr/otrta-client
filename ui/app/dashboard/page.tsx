@@ -16,13 +16,23 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, AlertTriangle, Wallet, Plus } from 'lucide-react';
+import {
+  Settings,
+  AlertTriangle,
+  Wallet,
+  Plus,
+  Copy,
+  Check,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { MintService } from '@/lib/api/services/mints';
 import { MultimintService } from '@/lib/api/services/multimint';
+import { useState } from 'react';
 
 export default function Page() {
+  const [copied, setCopied] = useState(false);
+
   const { defaultProvider, isLoading: isLoadingProvider } =
     useDefaultProvider();
 
@@ -51,6 +61,16 @@ export default function Page() {
     ]) || []
   );
 
+  const copyServerUrl = async () => {
+    try {
+      await navigator.clipboard.writeText('https://server.otrta.routstr.com');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar variant='inset' />
@@ -65,6 +85,63 @@ export default function Page() {
               Manage your wallet and redeem ecash tokens.
             </p>
           </div>
+
+          <Card className='mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20'>
+            <CardHeader className='pb-3'>
+              <CardTitle className='flex items-center text-blue-800 dark:text-blue-200'>
+                <Settings className='mr-2 h-5 w-5' />
+                How to Use OTRTA API
+              </CardTitle>
+            </CardHeader>
+            <CardContent className='space-y-3'>
+              <div>
+                <p className='text-sm text-blue-700 dark:text-blue-300'>
+                  Use the OTRTA API server for AI model access with Cashu
+                  payments:
+                </p>
+              </div>
+              <div className='rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30'>
+                <div className='flex items-center justify-between'>
+                  <p className='font-mono text-xs text-blue-900 dark:text-blue-100'>
+                    https://server.otrta.routstr.com
+                  </p>
+                  <Button
+                    size='sm'
+                    variant='ghost'
+                    onClick={copyServerUrl}
+                    className='h-6 w-6 p-0 text-blue-700 hover:bg-blue-200 hover:text-blue-800 dark:text-blue-300 dark:hover:bg-blue-800 dark:hover:text-blue-200'
+                    title={copied ? 'Copied!' : 'Copy URL'}
+                  >
+                    {copied ? (
+                      <Check className='h-3 w-3' />
+                    ) : (
+                      <Copy className='h-3 w-3' />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                <Badge
+                  variant='outline'
+                  className='border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300'
+                >
+                  OpenAI Compatible
+                </Badge>
+                <Badge
+                  variant='outline'
+                  className='border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300'
+                >
+                  Cashu Payments
+                </Badge>
+                <Badge
+                  variant='outline'
+                  className='border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300'
+                >
+                  Tor Support
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
 
           {!isLoadingProvider && !defaultProvider && (
             <Alert className='mb-6 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20'>
