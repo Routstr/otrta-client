@@ -96,8 +96,10 @@ export default function Page() {
             <CardContent className='space-y-3'>
               <div>
                 <p className='text-sm text-blue-700 dark:text-blue-300'>
-                  Use the OTRTA API server for AI model access with Cashu
-                  payments:
+                  The OTRTA API server is fully{' '}
+                  <strong>OpenAI API compatible</strong> and can be used with
+                  any client that supports custom API URLs, including ChatGPT
+                  clients, coding assistants, and AI tools:
                 </p>
               </div>
               <div className='rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30'>
@@ -119,6 +121,19 @@ export default function Page() {
                     )}
                   </Button>
                 </div>
+              </div>
+              <div className='text-sm text-blue-700 dark:text-blue-300'>
+                <p>
+                  <strong>Need an API key?</strong>{' '}
+                  <Button
+                    asChild
+                    variant='link'
+                    size='sm'
+                    className='h-auto p-0 text-sm font-normal text-blue-600 underline dark:text-blue-400'
+                  >
+                    <Link href='/settings'>Create one in Settings</Link>
+                  </Button>
+                </p>
               </div>
               <div className='flex flex-wrap gap-2'>
                 <Badge
