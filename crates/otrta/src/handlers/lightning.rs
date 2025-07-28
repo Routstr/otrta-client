@@ -178,7 +178,6 @@ pub async fn create_lightning_payment_handler(
         None
     };
 
-    println!("{}", payload.invoice);
     match wallet
         .melt_quote(payload.invoice.clone(), melt_options)
         .await

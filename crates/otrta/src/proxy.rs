@@ -323,7 +323,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         None => state.default_msats_per_request as i64,
     };
 
-    println!("{:?}", server_config);
     if server_config.mints.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
@@ -474,9 +473,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             response = response.header(header::CONTENT_TYPE, "text/event-stream");
         }
 
-        println!("{:?}", headers);
         if let Some(change_sats) = headers.get("X-Cashu") {
-            println!("{:?}", change_sats);
             if let Ok(in_token) = change_sats.to_str() {
                 let wallet = match state
                     .multimint_manager

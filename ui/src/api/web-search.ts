@@ -125,9 +125,6 @@ export const getUserSearches = async (params: {
       const decryptedSearches = await Promise.all(
         validatedResponse.searches.map(async (search) => {
           try {
-            // More robust check for encrypted data:
-            // 1. Query should be a long base64-like string (encrypted queries are much longer than normal queries)
-            // 2. Response message should also be a long encrypted string
             const isLikelyEncrypted =
               search.query &&
               typeof search.query === 'string' &&

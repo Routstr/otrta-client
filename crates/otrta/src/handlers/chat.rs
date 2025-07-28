@@ -404,19 +404,16 @@ pub async fn save_search_handler(
             });
             Json(response).into_response()
         }
-        Err(error) => {
-            eprintln!("Failed to save search: {}", error);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": {
-                        "message": "Failed to save search",
-                        "type": "database_error"
-                    }
-                })),
-            )
-                .into_response()
-        }
+        Err(_error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": {
+                    "message": "Failed to save search",
+                    "type": "database_error"
+                }
+            })),
+        )
+            .into_response(),
     }
 }
 

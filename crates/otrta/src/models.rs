@@ -192,7 +192,6 @@ pub struct ProxyModelFromApi {
 
 impl ProxyModelFromApi {
     pub fn to_model_record(&self, provider_id: i32) -> ModelRecord {
-        // println!("{:?}", self);
         ModelRecord {
             id: uuid::Uuid::new_v4(),
             provider_id,
