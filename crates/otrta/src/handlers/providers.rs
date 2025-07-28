@@ -68,7 +68,13 @@ pub async fn get_providers(
     State(state): State<Arc<AppState>>,
     Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<ProviderWithStatusListResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match get_available_providers_for_organization(&state.db, &user_ctx.organization_id).await {
+    match get_available_providers_for_organization(
+        &state.db,
+        &user_ctx.organization_id,
+        user_ctx.is_admin,
+    )
+    .await
+    {
         Ok(providers) => {
             let total = providers.len() as i32;
             Ok(Json(ProviderWithStatusListResponse { providers, total }))

@@ -424,6 +424,7 @@ pub async fn set_default_provider_for_organization(
 pub async fn get_available_providers_for_organization(
     db: &Pool,
     organization_id: &Uuid,
+    is_admin: bool,
 ) -> Result<Vec<ProviderWithStatus>, sqlx::Error> {
     let providers = sqlx::query!(
         r#"
@@ -449,8 +450,10 @@ pub async fn get_available_providers_for_organization(
             let is_custom = row.is_custom.unwrap_or(false);
             let provider_org_id = row.organization_id;
 
-            // Provider is editable if it's custom and belongs to the same organization
-            let is_editable = is_custom && provider_org_id == Some(*organization_id);
+            // Provider is editable if it's custom and either:
+            // 1. User is admin (can edit any custom provider), or
+            // 2. Provider belongs to the same organization
+            let is_editable = is_custom && (is_admin || provider_org_id == Some(*organization_id));
 
             ProviderWithStatus {
                 provider: Provider {

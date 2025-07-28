@@ -444,9 +444,10 @@ async fn setup_first_time_user_defaults(
     );
 
     // Get all available providers for this organization
-    let available_providers = get_available_providers_for_organization(&app_state.db, org_id)
-        .await
-        .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+    let available_providers =
+        get_available_providers_for_organization(&app_state.db, org_id, false)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
     if available_providers.is_empty() {
         warn!("No providers available for organization {}", org_id);
