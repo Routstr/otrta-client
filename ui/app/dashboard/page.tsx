@@ -146,7 +146,7 @@ export default function Page() {
           {!isLoadingProvider && !defaultProvider && (
             <Alert className='mb-6 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20'>
               <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400' />
-              <AlertDescription className='flex items-center justify-between'>
+              <AlertDescription className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-0'>
                 <div>
                   <strong className='text-amber-800 dark:text-amber-200'>
                     Setup Required:
@@ -159,7 +159,7 @@ export default function Page() {
                   asChild
                   variant='outline'
                   size='sm'
-                  className='ml-4 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20'
+                  className='w-fit border-amber-300 text-amber-700 hover:bg-amber-100 md:ml-4 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20'
                 >
                   <Link href='/providers'>
                     <Settings className='mr-2 h-4 w-4' />
