@@ -18,6 +18,11 @@ import { ProtectedRoute } from '@/lib/auth/ProtectedRoute';
 export const metadata: Metadata = {
   title: 'Otrta AI',
   description: 'AI model management',
+  icons: {
+    icon: '/routstr.svg',
+    shortcut: '/routstr.svg',
+    apple: '/routstr.svg',
+  },
 };
 
 export default function RootLayout({
