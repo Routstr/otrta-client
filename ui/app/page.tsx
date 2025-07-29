@@ -62,24 +62,6 @@ const iconRotate = {
   rotate: [0, 360],
 };
 
-const rotateFromLeft = {
-  initial: { opacity: 0, rotate: -45, x: -100 },
-  animate: { opacity: 1, rotate: 0, x: 0 },
-  transition: { duration: 0.8, type: 'spring', stiffness: 100 },
-};
-
-const rotateFromRight = {
-  initial: { opacity: 0, rotate: 45, x: 100 },
-  animate: { opacity: 1, rotate: 0, x: 0 },
-  transition: { duration: 0.8, type: 'spring', stiffness: 100 },
-};
-
-const rotateFromCenter = {
-  initial: { opacity: 0, rotate: 180, scale: 0.5 },
-  animate: { opacity: 1, rotate: 0, scale: 1 },
-  transition: { duration: 0.8, type: 'spring', stiffness: 100 },
-};
-
 interface AppCardProps {
   name: string;
   description: string;
