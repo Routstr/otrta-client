@@ -22,6 +22,11 @@ import {
   Network,
   Globe,
   Lock,
+  ExternalLink,
+  Code,
+  Layers,
+  Sparkles,
+  Cpu,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
@@ -56,6 +61,238 @@ const iconPulse = {
 const iconRotate = {
   rotate: [0, 360],
 };
+
+const rotateFromLeft = {
+  initial: { opacity: 0, rotate: -45, x: -100 },
+  animate: { opacity: 1, rotate: 0, x: 0 },
+  transition: { duration: 0.8, type: 'spring', stiffness: 100 },
+};
+
+const rotateFromRight = {
+  initial: { opacity: 0, rotate: 45, x: 100 },
+  animate: { opacity: 1, rotate: 0, x: 0 },
+  transition: { duration: 0.8, type: 'spring', stiffness: 100 },
+};
+
+const rotateFromCenter = {
+  initial: { opacity: 0, rotate: 180, scale: 0.5 },
+  animate: { opacity: 1, rotate: 0, scale: 1 },
+  transition: { duration: 0.8, type: 'spring', stiffness: 100 },
+};
+
+interface AppCardProps {
+  name: string;
+  description: string;
+  url: string;
+  icon: React.ReactElement;
+  features: string[];
+  downloads?: string;
+}
+
+function AppCard({
+  name,
+  description,
+  url,
+  icon,
+  features,
+  downloads,
+}: AppCardProps) {
+  return (
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className='h-full'
+    >
+      <Card className='glass bg-background/50 hover:bg-background/60 flex h-full flex-col rounded-lg border p-6 shadow-sm backdrop-blur-sm transition-all hover:shadow-lg'>
+        <div className='mb-4 flex items-center gap-3'>
+          {icon}
+          <div className='flex-1'>
+            <h3 className='text-xl font-semibold'>{name}</h3>
+            {downloads && (
+              <Badge variant='secondary' className='text-xs'>
+                {downloads} downloads
+              </Badge>
+            )}
+          </div>
+          <a
+            href={url}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='text-muted-foreground hover:text-foreground transition-colors'
+          >
+            <ExternalLink className='h-4 w-4' />
+          </a>
+        </div>
+
+        <p className='text-muted-foreground mb-4 flex-1'>{description}</p>
+
+        <div className='flex flex-wrap gap-2'>
+          {features.map((feature, index) => (
+            <Badge key={index} variant='outline' className='text-xs'>
+              {feature}
+            </Badge>
+          ))}
+        </div>
+      </Card>
+    </motion.div>
+  );
+}
+
+function MajorApps() {
+  const apps = [
+    {
+      name: 'Cline',
+      description:
+        'Autonomous coding agent right in your IDE. The most popular open-source AI coding assistant with MCP marketplace integration.',
+      url: 'https://cline.bot/',
+      icon: <Code className='h-8 w-8 text-blue-500' />,
+      features: [
+        'VS Code Extension',
+        'Autonomous Coding',
+        'MCP Marketplace',
+        'Tool Calling',
+      ],
+      downloads: '593k+',
+    },
+    {
+      name: 'Roo Code',
+      description:
+        'A whole dev team of AI agents in your editor. Multiple specialized modes for coding, debugging, and architecture.',
+      url: 'https://roocode.com/',
+      icon: <Layers className='h-8 w-8 text-purple-500' />,
+      features: [
+        'Multi-Agent System',
+        'Deep Context',
+        'Diff-based Edits',
+        'Model Agnostic',
+      ],
+      downloads: '592k+',
+    },
+    {
+      name: 'Kilo Code',
+      description:
+        'The best AI coding agent for VS Code. Combines all features of Cline, Roo, and adds orchestrator mode for complex workflows.',
+      url: 'https://kilocode.ai/',
+      icon: <Sparkles className='h-8 w-8 text-green-500' />,
+      features: [
+        'Orchestrator Mode',
+        'Error Recovery',
+        'Context7 Integration',
+        'Hallucination-free',
+      ],
+    },
+    {
+      name: 'Goose',
+      description:
+        'Open source AI agent by Block that supercharges software development by automating coding tasks with tool calling capabilities.',
+      url: 'https://block.github.io/goose/docs/quickstart',
+      icon: <Cpu className='h-8 w-8 text-orange-500' />,
+      features: [
+        'Desktop & CLI',
+        'Browser Control',
+        'Extension System',
+        'Session Management',
+      ],
+    },
+  ];
+
+  return (
+    <section className='container px-4 py-16'>
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        viewport={{ once: true }}
+        className='mx-auto max-w-6xl'
+      >
+        <div className='mb-16 text-center'>
+          <h2 className='mb-4 text-3xl font-bold sm:text-4xl'>
+            Major AI Coding Apps
+          </h2>
+          <h3 className='text-primary mb-6 text-2xl font-semibold'>
+            Easily Adapt to Routstr-Client + eCash
+          </h3>
+          <p className='text-muted-foreground mx-auto max-w-3xl text-lg'>
+            Popular AI coding tools can seamlessly integrate with our
+            eCash-powered infrastructure. These applications require minimal
+            configuration changes to unlock private, instant micropayments and
+            eliminate traditional payment friction - making AI coding truly
+            permissionless and efficient.
+          </p>
+        </div>
+
+        <motion.div
+          variants={staggerContainer}
+          initial='initial'
+          whileInView='animate'
+          viewport={{ once: true }}
+          className='mx-auto grid max-w-7xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4'
+        >
+          {apps.map((app, index) => (
+            <motion.div
+              key={app.name}
+              variants={fadeInUp}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
+              viewport={{ once: true }}
+            >
+              <AppCard {...app} />
+            </motion.div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          viewport={{ once: true }}
+          className='mt-16'
+        >
+          <Card className='bg-card/50 border-border/50 hover:bg-card/80 from-background/80 to-background/60 border-primary/20 mx-auto max-w-4xl bg-gradient-to-r p-8 backdrop-blur-sm transition-all duration-300 hover:shadow-lg'>
+            <div className='flex flex-col items-center gap-6 md:flex-row'>
+              <div className='flex-shrink-0'>
+                <motion.div
+                  className='bg-primary/10 rounded-full p-3'
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: 'spring', stiffness: 300 }}
+                >
+                  <Code className='text-primary h-8 w-8' />
+                </motion.div>
+              </div>
+              <div className='text-center md:text-left'>
+                <h3 className='mb-2 text-2xl font-bold'>
+                  One-Line Integration with eCash
+                </h3>
+                <p className='text-muted-foreground mb-4'>
+                  <strong>Any OpenAI-compatible tool</strong> can be adapted to
+                  work with our eCash infrastructure in minutes. Just update
+                  your API endpoint to unlock instant, private micropayments
+                  with zero KYC, no credit cards, and sub-cent precision for
+                  truly permissionless AI access.
+                </p>
+                <div className='flex flex-wrap justify-center gap-2 md:justify-start'>
+                  <Badge variant='outline' className='text-xs'>
+                    eCash Powered
+                  </Badge>
+                  <Badge variant='outline' className='text-xs'>
+                    Zero KYC
+                  </Badge>
+                  <Badge variant='outline' className='text-xs'>
+                    Instant Payments
+                  </Badge>
+                  <Badge variant='outline' className='text-xs'>
+                    Sub-cent Precision
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      </motion.div>
+    </section>
+  );
+}
 
 export default function LandingPage() {
   const { isAuthenticated } = useNostrAuth();
@@ -347,6 +584,8 @@ export default function LandingPage() {
             </motion.div>
           </motion.div>
         </section>
+
+        <MajorApps />
 
         <section className='container px-4 py-16'>
           <motion.div
