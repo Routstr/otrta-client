@@ -356,13 +356,14 @@ async fn refresh_models_for_provider(
         }
     };
 
-    let deleted_count = match delete_models_for_provider(db, provider.id).await {
-        Ok(count) => count,
-        Err(e) => {
-            eprintln!("Failed to delete existing models for provider: {}", e);
-            return Err("Failed to delete existing models for provider".to_string());
-        }
-    };
+    // FIXME: better model update
+    // let deleted_count = match delete_models_for_provider(db, provider.id).await {
+    //     Ok(count) => count,
+    //     Err(e) => {
+    //         eprintln!("Failed to delete existing models for provider: {}", e);
+    //         return Err("Failed to delete existing models for provider".to_string());
+    //     }
+    // };
 
     let mut models_added = 0;
 
@@ -381,10 +382,10 @@ async fn refresh_models_for_provider(
         success: true,
         models_updated: 0,
         models_added,
-        models_marked_removed: deleted_count as i32,
+        models_marked_removed: 0 as i32,
         message: Some(format!(
             "Successfully deleted {} existing models and added {} new models for provider {}",
-            deleted_count, models_added, provider.id
+            0, models_added, provider.id
         )),
     })
 }
