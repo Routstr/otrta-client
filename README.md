@@ -1,16 +1,10 @@
-⚠️ **Don't be reckless:** This project is in early development, it does however work with real sats! Always use amounts you don't mind loosing.
-
-**⚠️ IMPORTANT NOTE**: This README describes the project's end goal and vision. The current implementation is in early development, experimental, and not yet stable for production use. Features described here represent the intended functionality which is still being actively developed.
-
-**Millisatoshi Precision Support** - Both server and client now support millisatoshi (msat) micropayments for ultra-precise billing! No more rounding errors or overpayment waste - pay exactly what you consume down to the millisatoshi level.
-
-# Wallet Gateway
+# otrta routstr client
 
 A privacy-focused payment gateway that enables anonymous micropayments using e-cash notes (also known as Cashu notes) for accessing Large Language Models via the OpenAI API.
 
 ## Project Overview
 
-Wallet Gateway is a privacy-focused payment gateway that enables anonymous micropayments using e-cash notes (also known as Cashu notes) for accessing Large Language Models via the OpenAI API. On the client side, it provides a Local Proxy that manages these notes using the Local Proxy Wallet. The Local Proxy modifies API requests to include the notes. On the server side, the 402 Server acts as a wrapper around the OpenAI API, handling note redemption, payment processing, and change generation with the help of the Server's Wallet.
+otrta Gateway is a privacy-focused payment gateway that enables anonymous micropayments using e-cash notes (also known as Cashu notes) for accessing Large Language Models via the OpenAI API. On the client side, it provides a Local Proxy that manages these notes using the Local Proxy Wallet. The Local Proxy modifies API requests to include the notes. On the server side, the 402 Server acts as a wrapper around the OpenAI API, handling note redemption, payment processing, and change generation with the help of the Server's Wallet.
 
 ### Key Features
 
