@@ -4,10 +4,10 @@
 WITH ranked_models AS (
     SELECT 
         id,
-        provider_id,
+        provider,
         name,
         ROW_NUMBER() OVER (
-            PARTITION BY provider_id, name 
+            PARTITION BY provider, name 
             ORDER BY updated_at DESC NULLS LAST, created_at DESC, id DESC
         ) as rn
     FROM models
@@ -21,4 +21,4 @@ WHERE id IN (
 
 -- Create unique constraint to ensure one model per provider per name
 CREATE UNIQUE INDEX idx_models_provider_name_unique 
-ON models (provider_id, name); 
+ON models (provider, name); 

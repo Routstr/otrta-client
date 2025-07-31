@@ -63,7 +63,7 @@ services:
     ports:
       - 5436:5432
     volumes:
-      - otrta_db_client_prod:/var/lib/postgresql/data
+      - otrta_db_client_prod1:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d otrta"]
@@ -73,7 +73,7 @@ services:
 
   otrta-tor:
     image: dockurr/tor
-    container_name: tor_proxy
+    container_name: otrta-tor
     restart: unless-stopped
     ports:
       - "9050:9050/tcp"
@@ -96,5 +96,6 @@ networks:
 
 volumes:
   backend_cache_client_prod: {}
-  otrta_db_client_prod: {}
+  otrta_db_client_prod1: {}
   wallet_data_client_prod: {}
+  tor-data: {}
