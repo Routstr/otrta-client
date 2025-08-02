@@ -3,9 +3,9 @@ services:
     container_name: otrta-ui-client-prod
     build:
       context: ui
-    environment:
-      - NEXT_PUBLIC_API_URL=http://otrta-rust-client:3333
-      - NEXT_PUBLIC_ENABLE_AUTHENTICATION=true
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:3333
+        - NEXT_PUBLIC_ENABLE_AUTHENTICATION=true
     networks:
       - otrta-network
     ports:
@@ -19,7 +19,7 @@ services:
       dockerfile: Dockerfile.client
     environment:
       # Runtime Environment
-      # - RUST_LOG=debug
+      - RUST_LOG=debug
       - APP_ENVIRONMENT=production
 
       - APP_APPLICATION__PORT=3333
