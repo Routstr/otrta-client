@@ -1,6 +1,7 @@
 use crate::{
     db::{
         api_keys::get_api_key_by_id,
+        mint::{get_mint_by_url, get_mint_by_url_for_organization},
         models::get_model,
         provider::{get_default_provider, get_default_provider_for_organization_new},
         transaction::{add_transaction, TransactionDirection, TransactionType},
@@ -303,7 +304,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     };
 
     eprintln!(
-        "Processing request for model: {:?}, is_free: {}, cost: {}",
+        "Processing request for model: {:?}, is_free: {}, cost_msats: {}",
         model_name,
         is_free_model,
         match model {
@@ -316,7 +317,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.json(&body_data);
     }
 
-    let cost = match model {
+    let cost_msats = match model {
         Some(model) => model
             .min_cost_per_request
             .unwrap_or_else(|| state.default_msats_per_request as i64),
@@ -337,10 +338,71 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             .into_response();
     };
 
+    let mint_url = server_config.mints.first().unwrap();
+    let mint_currency_unit =
+        match get_mint_by_url_for_organization(&state.db, mint_url, &org_id).await {
+            Ok(Some(mint)) => mint.currency_unit,
+            Ok(None) => match get_mint_by_url(&state.db, mint_url).await {
+                Ok(Some(mint)) => mint.currency_unit,
+                Ok(None) => {
+                    eprintln!(
+                        "Mint not found for URL: {} (neither organization-specific nor global)",
+                        mint_url
+                    );
+                    "msat".to_string()
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Error fetching global mint info for URL: {}: {}",
+                        mint_url, e
+                    );
+                    "msat".to_string()
+                }
+            },
+            Err(e) => {
+                eprintln!(
+                    "Error fetching mint info for URL: {} and organization: {}: {}",
+                    mint_url, org_id, e
+                );
+                "msat".to_string()
+            }
+        };
+
+    let cost = if mint_currency_unit == "sat" {
+        (cost_msats + 999) / 1000
+    } else {
+        cost_msats
+    };
+
+    eprintln!(
+        "Cost calculation: model={:?}, cost_msats={}, mint_unit={}, final_cost={}",
+        model_name, cost_msats, mint_currency_unit, cost
+    );
+
     let token = if is_free_model {
+        eprintln!(
+            "Recording free model transaction: model={:?}, provider={}, user={:?}",
+            model_name, server_config.url, user_id
+        );
+        add_transaction(
+            &state.db,
+            "",
+            "0",
+            TransactionDirection::Outgoing,
+            api_key_id,
+            user_id,
+            transaction_type.clone(),
+            Some(&server_config.url),
+            Some(&mint_currency_unit),
+            model_name.as_deref(),
+        )
+        .await
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to record free model transaction: {}", e);
+            uuid::Uuid::new_v4()
+        });
         String::new()
     } else {
-        // Get wallet from organization ID directly since we already have it
         let wallet = match state
             .multimint_manager
             .get_or_create_multimint(&org_id)
@@ -369,11 +431,14 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         let token_result = send_with_retry(
             &wallet,
             cost,
-            server_config.mints.first().unwrap(),
+            mint_url,
             Some(3),
             &state.db,
             api_key_id,
             user_id,
+            Some(&server_config.url),
+            Some(&mint_currency_unit),
+            model_name.as_deref(),
         )
         .await;
 
@@ -381,13 +446,13 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             Ok(token) => token,
             Err(e) => {
                 eprintln!(
-                    "Payment token generation failed for model: {:?}, cost: {} msats, error: {:?}",
-                    model_name, cost, e
+                    "Payment token generation failed for model: {:?}, cost: {} {}, error: {:?}",
+                    model_name, cost, mint_currency_unit, e
                 );
 
                 // If the model should be free or cost is 0, continue without payment
                 if is_free_model || cost == 0 {
-                    eprintln!("Model is free or zero cost, proceeding without payment token");
+                    eprintln!("Model is free or zero cost, proceeding without payment token (transaction already recorded)");
                     String::new()
                 } else {
                     return (
@@ -397,11 +462,13 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                                 "message": "Insufficient funds or mint connectivity issues",
                                 "type": "payment_error",
                                 "code": "insufficient_funds",
-                                "details": {
-                                    "model": model_name,
-                                    "cost_msats": cost,
-                                    "is_free_model": is_free_model
-                                }
+                                                            "details": {
+                                "model": model_name,
+                                "cost_msats": cost_msats,
+                                "cost_final": cost,
+                                "currency_unit": mint_currency_unit,
+                                "is_free_model": is_free_model
+                            }
                             }
                         })),
                     )
@@ -460,6 +527,9 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         api_key_id,
                         user_id,
                         transaction_type.clone(),
+                        Some(&server_config.url),
+                        Some(&mint_currency_unit),
+                        model_name.as_deref(),
                     )
                     .await
                     .unwrap();
@@ -504,6 +574,9 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     api_key_id,
                     user_id,
                     transaction_type.clone(),
+                    Some(&server_config.url),
+                    Some(&mint_currency_unit),
+                    model_name.as_deref(),
                 )
                 .await
                 .unwrap();
@@ -566,6 +639,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             }
         };
         let res = wallet.receive(&token).await.unwrap();
+        println!("{:?}", server_config);
         add_transaction(
             &state.db,
             &token,
@@ -574,6 +648,9 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             api_key_id,
             user_id,
             transaction_type,
+            Some(&server_config.url),
+            Some(&mint_currency_unit),
+            model_name.as_deref(),
         )
         .await
         .unwrap();

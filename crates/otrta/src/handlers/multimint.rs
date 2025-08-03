@@ -98,10 +98,7 @@ pub async fn send_multimint_token_handler(
         ..Default::default()
     };
 
-    match wallet
-        .send(payload.amount, send_options, &state.db, None, None)
-        .await
-    {
+    match wallet.send_simple(payload.amount, send_options).await {
         Ok(token) => Ok(Json(MultimintSendTokenResponse {
             tokens: token,
             success: true,

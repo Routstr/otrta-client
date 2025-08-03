@@ -165,15 +165,18 @@ export function TransactionsMonitor({
     }
 
     return (
-      <div className='rounded-md border'>
+      <div className='overflow-x-auto rounded-md border'>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Token</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Direction</TableHead>
-              <TableHead>Amount (msats)</TableHead>
-              <TableHead>Created At</TableHead>
+              <TableHead className='min-w-[200px]'>Token</TableHead>
+              <TableHead className='min-w-[80px]'>Type</TableHead>
+              <TableHead className='min-w-[100px]'>Direction</TableHead>
+              <TableHead className='min-w-[120px]'>Amount</TableHead>
+              <TableHead className='min-w-[80px]'>Unit</TableHead>
+              <TableHead className='min-w-[150px]'>Provider</TableHead>
+              <TableHead className='min-w-[120px]'>Model</TableHead>
+              <TableHead className='min-w-[150px]'>Created At</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -217,6 +220,58 @@ export function TransactionsMonitor({
                 </TableCell>
                 <TableCell className='font-semibold'>
                   {transaction.amount}
+                </TableCell>
+                <TableCell>
+                  {transaction.unit ? (
+                    <span
+                      className={cn(
+                        'rounded-full px-2 py-1 text-xs font-medium',
+                        transaction.unit === 'sat'
+                          ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                      )}
+                    >
+                      {transaction.unit}
+                    </span>
+                  ) : (
+                    <span className='text-muted-foreground text-sm'>-</span>
+                  )}
+                </TableCell>
+                <TableCell className='max-w-[200px]'>
+                  {transaction.provider_url ? (
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <div className='cursor-pointer truncate text-sm'>
+                          {(() => {
+                            try {
+                              return new URL(transaction.provider_url).hostname;
+                            } catch {
+                              return transaction.provider_url;
+                            }
+                          })()}
+                        </div>
+                      </HoverCardTrigger>
+                      <HoverCardContent className='w-[300px] p-3'>
+                        <div className='text-sm'>
+                          <div className='font-medium'>Provider URL</div>
+                          <div className='text-muted-foreground font-mono text-xs break-all'>
+                            {transaction.provider_url}
+                          </div>
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  ) : (
+                    <span className='text-muted-foreground text-sm'>-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {transaction.model ? (
+                    <span className='rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-200'>
+                      {transaction.model}
+                    </span>
+                  ) : (
+                    <span className='text-muted-foreground text-sm'>-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {new Date(transaction.created_at).toLocaleString()}
