@@ -87,6 +87,8 @@ export function CollectSats() {
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch active mints for selection
@@ -104,19 +106,50 @@ export function CollectSats() {
   // Generate QR code when token is generated
   useEffect(() => {
     if (generatedToken) {
-      QRCode.toDataURL(generatedToken, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff',
-        },
-      })
-        .then(setQrCodeDataUrl)
-        .catch((err) => {
+      setIsGeneratingQr(true);
+      setQrError(null);
+      setQrCodeDataUrl('');
+
+      // Add a small delay to ensure the UI updates
+      const generateQr = async () => {
+        try {
+          console.log(
+            'Generating QR code for token:',
+            generatedToken.substring(0, 50) + '...'
+          );
+
+          const dataUrl = await QRCode.toDataURL(generatedToken, {
+            width: 300,
+            margin: 2,
+            errorCorrectionLevel: 'M',
+            type: 'image/png',
+            color: {
+              dark: '#000000',
+              light: '#ffffff',
+            },
+          });
+
+          console.log('QR code generated successfully');
+          setQrCodeDataUrl(dataUrl);
+          setQrError(null);
+        } catch (err) {
           console.error('Error generating QR code:', err);
+          const errorMessage =
+            err instanceof Error ? err.message : 'Unknown error';
+          setQrError(`Failed to generate QR code: ${errorMessage}`);
           toast.error('Failed to generate QR code');
-        });
+        } finally {
+          setIsGeneratingQr(false);
+        }
+      };
+
+      // Small delay to ensure UI state updates
+      setTimeout(generateQr, 100);
+    } else {
+      // Reset QR code state when token is cleared
+      setQrCodeDataUrl('');
+      setIsGeneratingQr(false);
+      setQrError(null);
     }
   }, [generatedToken]);
 
@@ -179,6 +212,8 @@ export function CollectSats() {
   const handleReset = () => {
     setGeneratedToken(null);
     setQrCodeDataUrl('');
+    setIsGeneratingQr(false);
+    setQrError(null);
     setCopied(false);
     form.reset();
   };
@@ -380,13 +415,49 @@ export function CollectSats() {
                         className='h-auto max-w-full'
                       />
                     </div>
+                  ) : qrError ? (
+                    <div className='flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-red-300 bg-red-50'>
+                      <div className='text-center'>
+                        <QrCode className='mx-auto mb-2 h-8 w-8 text-red-400' />
+                        <p className='text-sm text-red-600'>
+                          Failed to generate QR code
+                        </p>
+                        <p className='mt-1 text-xs text-red-500'>{qrError}</p>
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          className='mt-2'
+                          onClick={() => {
+                            setQrError(null);
+                            setIsGeneratingQr(true);
+                            // Trigger regeneration by clearing and setting token again
+                            const token = generatedToken;
+                            setGeneratedToken(null);
+                            setTimeout(() => setGeneratedToken(token), 50);
+                          }}
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
                     <div className='flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-gray-300'>
                       <div className='text-center'>
-                        <QrCode className='mx-auto mb-2 h-8 w-8 text-gray-400' />
-                        <p className='text-sm text-gray-500'>
-                          Generating QR code...
-                        </p>
+                        {isGeneratingQr ? (
+                          <>
+                            <Loader2 className='mx-auto mb-2 h-8 w-8 animate-spin text-gray-400' />
+                            <p className='text-sm text-gray-500'>
+                              Generating QR code...
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <QrCode className='mx-auto mb-2 h-8 w-8 text-gray-400' />
+                            <p className='text-sm text-gray-500'>
+                              QR code will appear here
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
