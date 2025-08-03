@@ -154,14 +154,16 @@ pub async fn create_mint_handler(
         }
         Err(e) => {
             eprintln!("Failed to create mint: {}", e);
-            if e.to_string()
-                .contains("duplicate key value violates unique constraint")
+            let error_string = e.to_string();
+            if error_string.contains("duplicate key value violates unique constraint")
+                && (error_string.contains("mints_mint_url_key")
+                    || error_string.contains("mints_mint_url_organization_id_unique"))
             {
                 Err((
                     StatusCode::CONFLICT,
                     Json(json!({
                         "error": {
-                            "message": "A mint with this URL already exists",
+                            "message": "A mint with this URL already exists for your organization",
                             "type": "duplicate_error"
                         }
                     })),
