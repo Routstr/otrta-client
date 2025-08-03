@@ -169,7 +169,6 @@ export function TransactionsMonitor({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className='min-w-[200px]'>Token</TableHead>
               <TableHead className='min-w-[80px]'>Type</TableHead>
               <TableHead className='min-w-[100px]'>Direction</TableHead>
               <TableHead className='min-w-[120px]'>Amount</TableHead>
@@ -177,25 +176,12 @@ export function TransactionsMonitor({
               <TableHead className='min-w-[150px]'>Provider</TableHead>
               <TableHead className='min-w-[120px]'>Model</TableHead>
               <TableHead className='min-w-[150px]'>Created At</TableHead>
+              <TableHead className='min-w-[200px]'>Token</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data?.data.map((transaction) => (
               <TableRow key={transaction.id}>
-                <TableCell className='max-w-[300px]'>
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <div className='text-primary cursor-pointer truncate font-mono text-sm'>
-                        {transaction.token}
-                      </div>
-                    </HoverCardTrigger>
-                    <HoverCardContent className='bg-card/80 border-primary/20 w-[400px] border p-4 backdrop-blur-sm'>
-                      <div className='text-primary bg-muted/30 max-h-[200px] overflow-auto rounded-md p-2 font-mono text-xs'>
-                        {transaction.token}
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                </TableCell>
                 <TableCell>
                   <div className='flex items-center gap-1'>
                     <span
@@ -275,6 +261,20 @@ export function TransactionsMonitor({
                 </TableCell>
                 <TableCell>
                   {new Date(transaction.created_at).toLocaleString()}
+                </TableCell>
+                <TableCell className='max-w-[300px]'>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <div className='text-primary cursor-pointer truncate font-mono text-sm'>
+                        {transaction.token}
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent className='bg-card/80 border-primary/20 w-[400px] border p-4 backdrop-blur-sm'>
+                      <div className='text-primary bg-muted/30 max-h-[200px] overflow-auto rounded-md p-2 font-mono text-xs'>
+                        {transaction.token}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 </TableCell>
               </TableRow>
             ))}

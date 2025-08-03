@@ -222,7 +222,13 @@ impl ProxyModelFromApi {
             model_type: self.model_type.clone(), // self.architecture.as_ref().and_then(|a| a.).clone(),
             description: self.description.clone(),
             context_length: self.top_provider.as_ref().and_then(|tp| tp.context_length),
-            is_free: self.is_free.unwrap_or(false),
+            is_free: self.sats_pricing.as_ref().map(|p| p.prompt).unwrap_or(0.0) == 0.0
+                && self
+                    .sats_pricing
+                    .as_ref()
+                    .map(|p| p.completion)
+                    .unwrap_or(0.0)
+                    == 0.0,
             created_at: chrono::Utc::now(),
             updated_at: Some(chrono::Utc::now()),
             last_seen_at: Some(chrono::Utc::now()),

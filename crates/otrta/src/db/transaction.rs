@@ -100,7 +100,6 @@ pub async fn add_transaction(
     unit: Option<&str>,
     model: Option<&str>,
 ) -> Result<Uuid, sqlx::Error> {
-    println!("{:?} {:?} {:?}", provider_url, unit, model);
     let rec = sqlx::query!(
         r#"
         INSERT INTO transactions (id, created_at, token, amount, direction, api_key_id, user_id, type, provider_url, unit, model)
