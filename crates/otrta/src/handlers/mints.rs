@@ -1,9 +1,11 @@
 use crate::{
     db::mint::{
-        create_mint_for_organization, delete_mint_for_organization,
-        get_active_mints_for_organization, get_mint_by_id_for_organization,
+        create_mint_for_organization, create_mint_units, delete_mint_for_organization,
+        discover_mint_keysets, get_active_mints_for_organization,
+        get_active_mints_with_units_for_organization, get_mint_by_id_for_organization,
         get_mints_for_organization, set_mint_active_status_for_organization,
-        update_mint_for_organization, CreateMintRequest, Mint, MintListResponse, UpdateMintRequest,
+        update_mint_for_organization, CreateMintRequest, Mint, MintListResponse, MintWithUnits,
+        UpdateMintRequest,
     },
     handlers::wallet::get_user_friendly_wallet_error_message,
     models::{AppState, TopupMintRequest, TopupMintResponse, UserContext},
@@ -56,6 +58,36 @@ pub async fn get_active_mints_handler(
                 Json(json!({
                     "error": {
                         "message": "Failed to retrieve active mints",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct MintWithUnitsResponse {
+    pub mints: Vec<MintWithUnits>,
+    pub total: i32,
+}
+
+pub async fn get_active_mints_with_units_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+) -> Result<Json<MintWithUnitsResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match get_active_mints_with_units_for_organization(&state.db, &user_ctx.organization_id).await {
+        Ok(mints) => {
+            let total = mints.len() as i32;
+            Ok(Json(MintWithUnitsResponse { mints, total }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get active mints with units: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve active mints with units",
                         "type": "database_error"
                     }
                 })),
@@ -143,13 +175,33 @@ pub async fn create_mint_handler(
     match create_mint_for_organization(&state.db, request.clone(), &user_ctx.organization_id).await
     {
         Ok(mint) => {
-            let currency_unit = mint
-                .currency_unit
-                .parse::<cdk::nuts::CurrencyUnit>()
-                .unwrap_or(cdk::nuts::CurrencyUnit::Sat);
-            if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
-                eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
+            let keysets = match discover_mint_keysets(&mint.mint_url).await {
+                Ok(keysets) => keysets,
+                Err(e) => {
+                    eprintln!(
+                        "Failed to discover keysets for mint {}: {}. Using default.",
+                        mint.mint_url, e
+                    );
+                    vec![]
+                }
+            };
+
+            if let Err(e) = create_mint_units(&state.db, mint.id, &keysets).await {
+                eprintln!("Failed to create mint units for mint {}: {}", mint.id, e);
             }
+
+            for keyset in &keysets {
+                if keyset.active {
+                    let currency_unit = keyset
+                        .unit
+                        .parse::<cdk::nuts::CurrencyUnit>()
+                        .unwrap_or(cdk::nuts::CurrencyUnit::Msat);
+                    if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
+                        eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
+                    }
+                }
+            }
+
             Ok(Json(mint))
         }
         Err(e) => {
@@ -357,7 +409,10 @@ pub async fn topup_mint_handler(
                     }
                 }
 
-                if let Some(mint_wallet) = wallet.get_wallet_for_mint(&payload.mint_url).await {
+                if let Some(mint_wallet) = wallet
+                    .get_wallet_for_mint_with_token(&payload.mint_url, &token)
+                    .await
+                {
                     match mint_wallet.receive(&token).await {
                         Ok(amount) => Ok(Json(TopupMintResponse {
                             success: true,

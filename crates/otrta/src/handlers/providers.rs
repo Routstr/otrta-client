@@ -1,4 +1,8 @@
 use crate::{
+    db::mint::{
+        create_mint_for_organization, create_mint_units, discover_mint_keysets,
+        get_mint_by_url_for_organization, CreateMintRequest,
+    },
     db::provider::{
         activate_provider_for_organization, create_custom_provider,
         create_custom_provider_for_organization, deactivate_provider_for_organization,
@@ -56,6 +60,76 @@ async fn validate_tor_availability() -> bool {
         Ok(_) => true,
         Err(_) => false,
     }
+}
+
+async fn auto_create_mints_for_provider(
+    db: &crate::db::Pool,
+    organization_id: &uuid::Uuid,
+    mints: &[String],
+    multimint_manager: &crate::multimint_manager::MultimintManager,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for mint_url in mints {
+        if let Ok(None) = get_mint_by_url_for_organization(db, mint_url, organization_id).await {
+            eprintln!("Creating mint for provider: {}", mint_url);
+
+            let mint_request = CreateMintRequest {
+                mint_url: mint_url.clone(),
+                currency_unit: Some("msat".to_string()),
+                name: None,
+            };
+
+            match create_mint_for_organization(db, mint_request, organization_id).await {
+                Ok(mint) => {
+                    let keysets = match discover_mint_keysets(&mint.mint_url).await {
+                        Ok(keysets) => keysets,
+                        Err(e) => {
+                            eprintln!(
+                                "Failed to discover keysets for mint {}: {}. Using default.",
+                                mint.mint_url, e
+                            );
+                            vec![crate::db::mint::KeysetInfo {
+                                id: "default".to_string(),
+                                unit: "msat".to_string(),
+                                active: true,
+                            }]
+                        }
+                    };
+
+                    if let Err(e) = create_mint_units(db, mint.id, &keysets).await {
+                        eprintln!("Failed to create mint units for mint {}: {}", mint.id, e);
+                    }
+
+                    if let Ok(wallet) = multimint_manager
+                        .get_or_create_multimint(organization_id)
+                        .await
+                    {
+                        for keyset in &keysets {
+                            if keyset.active {
+                                let currency_unit = keyset
+                                    .unit
+                                    .parse::<cdk::nuts::CurrencyUnit>()
+                                    .unwrap_or(cdk::nuts::CurrencyUnit::Msat);
+                                if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await
+                                {
+                                    eprintln!(
+                                        "Failed to add mint to wallet {}: {:?}",
+                                        mint.mint_url, e
+                                    );
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    eprintln!("Successfully created mint: {}", mint_url);
+                }
+                Err(e) => {
+                    eprintln!("Failed to create mint {}: {}", mint_url, e);
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -303,6 +377,20 @@ pub async fn create_custom_provider_handler(
 
     match result {
         Ok(provider) => {
+            if let Err(e) = auto_create_mints_for_provider(
+                &state.db,
+                &user_ctx.organization_id,
+                &provider.mints,
+                &state.multimint_manager,
+            )
+            .await
+            {
+                eprintln!(
+                    "Warning: Failed to auto-create mints for provider {}: {}",
+                    provider.id, e
+                );
+            }
+
             if let Err(e) = activate_provider_for_organization(
                 &state.db,
                 &user_ctx.organization_id,
