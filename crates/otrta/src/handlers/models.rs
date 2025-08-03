@@ -356,25 +356,114 @@ async fn refresh_models_for_provider(
         }
     };
 
-    // FIXME: better model update
-    // let deleted_count = match delete_models_for_provider(db, provider.id).await {
-    //     Ok(count) => count,
-    //     Err(e) => {
-    //         eprintln!("Failed to delete existing models for provider: {}", e);
-    //         return Err("Failed to delete existing models for provider".to_string());
-    //     }
-    // };
+    // Atomic model replacement: delete old and insert new models in a single transaction
+    // to ensure models are always available in the database
+    let mut transaction = match db.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            return Err(format!("Failed to begin transaction: {}", e));
+        }
+    };
+
+    // Delete existing models for this provider within the transaction
+    let deleted_count = match sqlx::query!("DELETE FROM models WHERE provider_id = $1", provider.id)
+        .execute(&mut *transaction)
+        .await
+    {
+        Ok(result) => result.rows_affected(),
+        Err(e) => {
+            let _ = transaction.rollback().await;
+            return Err(format!(
+                "Failed to delete existing models for provider: {}",
+                e
+            ));
+        }
+    };
 
     let mut models_added = 0;
+    let mut failed_models = Vec::new();
 
+    // Insert all new models within the same transaction
     for proxy_model in &proxy_models_data.data {
-        match upsert_model(db, proxy_model, provider.id).await {
+        let model_record = proxy_model.to_model_record(provider.id);
+
+        let result = sqlx::query!(
+            r#"
+            INSERT INTO models (
+                name, provider_id, input_cost, output_cost, min_cash_per_request, 
+                min_cost_per_request, provider, soft_deleted, model_type, 
+                description, context_length, is_free, created_at, updated_at, last_seen_at,
+                modality, input_modalities, output_modalities, tokenizer, instruct_type,
+                created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,
+                web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
+                is_moderated
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW(), NOW(),
+                $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+            )
+            "#,
+            model_record.name,
+            model_record.provider_id,
+            model_record.input_cost,
+            model_record.output_cost,
+            model_record.min_cash_per_request,
+            model_record.min_cash_per_request,
+            model_record.provider,
+            model_record.soft_deleted,
+            model_record.model_type,
+            model_record.description,
+            model_record.context_length,
+            model_record.is_free,
+            model_record.modality,
+            model_record.input_modalities.as_deref(),
+            model_record.output_modalities.as_deref(),
+            model_record.tokenizer,
+            model_record.instruct_type,
+            model_record.created_timestamp,
+            model_record.prompt_cost,
+            model_record.completion_cost,
+            model_record.request_cost,
+            model_record.image_cost,
+            model_record.web_search_cost,
+            model_record.internal_reasoning_cost,
+            model_record.max_cost,
+            model_record.max_completion_tokens,
+            model_record.is_moderated,
+        )
+        .execute(&mut *transaction)
+        .await;
+
+        match result {
             Ok(_) => {
                 models_added += 1;
             }
             Err(e) => {
                 eprintln!("Failed to insert model {}: {}", proxy_model.name, e);
+                failed_models.push(proxy_model.name.clone());
             }
+        }
+    }
+
+    // If there were any failed model insertions, rollback the transaction
+    if !failed_models.is_empty() {
+        let _ = transaction.rollback().await;
+        return Err(format!(
+            "Failed to insert models: {}. Transaction rolled back to maintain data consistency.",
+            failed_models.join(", ")
+        ));
+    }
+
+    // Commit the transaction
+    match transaction.commit().await {
+        Ok(_) => {
+            eprintln!(
+                "Successfully replaced {} models with {} new models for provider {}",
+                deleted_count, models_added, provider.id
+            );
+        }
+        Err(e) => {
+            return Err(format!("Failed to commit transaction: {}", e));
         }
     }
 
@@ -382,10 +471,10 @@ async fn refresh_models_for_provider(
         success: true,
         models_updated: 0,
         models_added,
-        models_marked_removed: 0 as i32,
+        models_marked_removed: deleted_count as i32,
         message: Some(format!(
-            "Successfully deleted {} existing models and added {} new models for provider {}",
-            0, models_added, provider.id
+            "Successfully replaced {} existing models with {} new models for provider {}",
+            deleted_count, models_added, provider.id
         )),
     })
 }
