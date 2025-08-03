@@ -10,7 +10,10 @@ import {
   type Mint,
   type UpdateMintRequest,
 } from '@/lib/api/services/mints';
-import { MultimintService } from '@/lib/api/services/multimint';
+import {
+  MultimintService,
+  type MintWithBalances,
+} from '@/lib/api/services/multimint';
 import {
   Card,
   CardContent,
@@ -53,7 +56,8 @@ import { cn } from '@/lib/utils';
 
 interface MintCardProps {
   mint: Mint;
-  balance?: number;
+  balance?: number; // Legacy single balance for backward compatibility
+  mintWithBalances?: MintWithBalances; // New multi-unit balance information
   className?: string;
 }
 
@@ -62,7 +66,12 @@ type MintEditFormData = {
   currency_unit: string;
 };
 
-export function MintCard({ mint, balance, className }: MintCardProps) {
+export function MintCard({
+  mint,
+  balance,
+  mintWithBalances,
+  className,
+}: MintCardProps) {
   const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
@@ -181,6 +190,10 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
 
   const displayName =
     mint.name || MultimintService.getMintDisplayName(mint.mint_url);
+
+  // Use multi-unit balances if available, otherwise fall back to legacy single balance
+  const hasMultiUnitBalances =
+    mintWithBalances && mintWithBalances.unit_balances.length > 0;
   const formattedBalance =
     balance !== undefined
       ? MultimintService.formatBalance(balance, mint.currency_unit)
@@ -353,29 +366,78 @@ export function MintCard({ mint, balance, className }: MintCardProps) {
       </CardHeader>
 
       <CardContent className='pt-0'>
-        <div className='flex items-center justify-between'>
-          <div className='space-y-1'>
-            <p className='text-muted-foreground text-sm'>Balance</p>
-            {formattedBalance ? (
-              <>
-                <p className='text-lg font-semibold'>
-                  {formattedBalance.primary}
-                </p>
-                {formattedBalance.secondary && (
-                  <p className='text-muted-foreground text-sm'>
-                    {formattedBalance.secondary}
-                  </p>
+        <div className='space-y-3'>
+          {hasMultiUnitBalances ? (
+            <div>
+              <p className='text-muted-foreground mb-2 text-sm'>
+                Balances by Unit
+              </p>
+              <div className='space-y-2'>
+                {mintWithBalances!.unit_balances.map((unitBalance) => {
+                  const formatted = MultimintService.formatBalance(
+                    unitBalance.balance,
+                    unitBalance.unit
+                  );
+                  return (
+                    <div
+                      key={unitBalance.unit}
+                      className='flex items-center justify-between py-1'
+                    >
+                      <div className='space-y-1'>
+                        <p className='text-sm font-medium'>
+                          {formatted?.primary ||
+                            `${unitBalance.balance} ${unitBalance.unit}`}
+                        </p>
+                        {formatted?.secondary && (
+                          <p className='text-muted-foreground text-xs'>
+                            {formatted.secondary}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant='outline' className='text-xs'>
+                        {unitBalance.unit}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+              {mintWithBalances!.unit_balances.length > 1 && (
+                <div className='mt-2 border-t pt-2'>
+                  <div className='flex items-center justify-between'>
+                    <p className='text-sm font-medium'>Total Balance</p>
+                    <p className='text-sm font-semibold'>
+                      {mintWithBalances!.total_balance}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className='flex items-center justify-between'>
+              <div className='space-y-1'>
+                <p className='text-muted-foreground text-sm'>Balance</p>
+                {formattedBalance ? (
+                  <>
+                    <p className='text-lg font-semibold'>
+                      {formattedBalance.primary}
+                    </p>
+                    {formattedBalance.secondary && (
+                      <p className='text-muted-foreground text-sm'>
+                        {formattedBalance.secondary}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className='text-muted-foreground text-sm'>Loading...</p>
                 )}
-              </>
-            ) : (
-              <p className='text-muted-foreground text-sm'>Loading...</p>
-            )}
-          </div>
+              </div>
 
-          <div className='space-y-1 text-right'>
-            <p className='text-muted-foreground text-sm'>Currency</p>
-            <p className='text-sm font-medium'>{mint.currency_unit}</p>
-          </div>
+              <div className='space-y-1 text-right'>
+                <p className='text-muted-foreground text-sm'>Currency</p>
+                <p className='text-sm font-medium'>{mint.currency_unit}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {!mint.is_active && (
