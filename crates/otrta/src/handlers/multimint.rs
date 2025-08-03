@@ -1,8 +1,8 @@
 use crate::{
     models::{
-        AppState, MintBalance, MultimintBalanceResponse, MultimintSendTokenRequest,
-        MultimintSendTokenResponse, TransferBetweenMintsRequest, TransferBetweenMintsResponse,
-        UserContext,
+        AppState, MintBalance, MintUnitBalance, MintWithBalances, MultimintBalanceResponse,
+        MultimintSendTokenRequest, MultimintSendTokenResponse, TransferBetweenMintsRequest,
+        TransferBetweenMintsResponse, UserContext,
     },
     multimint::LocalMultimintSendOptions,
 };
@@ -34,8 +34,11 @@ pub async fn get_multimint_balance_handler(
         }
     };
 
-    // Get complete multimint balance information
-    let multimint_balance = match wallet.get_total_balance().await {
+    // Get complete multimint balance information with unit support
+    let multimint_balance = match wallet
+        .get_balances_by_units(&state.db, &user_ctx.organization_id)
+        .await
+    {
         Ok(balance) => balance,
         Err(e) => {
             eprintln!("Failed to get multimint balance: {:?}", e);
@@ -63,9 +66,35 @@ pub async fn get_multimint_balance_handler(
         })
         .collect();
 
+    // Convert mints_with_balances from multimint module to models module
+    let mints_with_balances = multimint_balance
+        .mints_with_balances
+        .into_iter()
+        .map(|mwb| MintWithBalances {
+            mint_id: mwb.mint_id,
+            mint_url: mwb.mint_url,
+            mint_name: mwb.mint_name,
+            unit_balances: mwb
+                .unit_balances
+                .into_iter()
+                .map(|ub| MintUnitBalance {
+                    mint_id: ub.mint_id,
+                    mint_url: ub.mint_url,
+                    mint_name: ub.mint_name,
+                    unit: ub.unit,
+                    balance: ub.balance,
+                    proof_count: ub.proof_count,
+                })
+                .collect(),
+            total_balance: mwb.total_balance,
+        })
+        .collect();
+
     let response = MultimintBalanceResponse {
         total_balance: multimint_balance.total_balance,
         balances_by_mint,
+        balances_by_unit: multimint_balance.balances_by_unit,
+        mints_with_balances,
     };
 
     Ok(Json(response))

@@ -27,7 +27,10 @@ import {
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { MintService } from '@/lib/api/services/mints';
-import { MultimintService } from '@/lib/api/services/multimint';
+import {
+  MultimintService,
+  type MintWithBalances,
+} from '@/lib/api/services/multimint';
 import { useState } from 'react';
 
 export default function Page() {
@@ -54,6 +57,15 @@ export default function Page() {
   const mints = mintsData?.mints || [];
   const activeMints = mints.filter((mint) => mint.is_active);
 
+  // Create a map from mint_url to MintWithBalances for easy lookup
+  const mintBalancesMap = new Map<string, MintWithBalances>(
+    balanceData?.mints_with_balances.map((mintWithBalances) => [
+      mintWithBalances.mint_url,
+      mintWithBalances,
+    ]) || []
+  );
+
+  // Legacy balance map for backward compatibility
   const balanceMap = new Map(
     balanceData?.balances_by_mint.map((balance) => [
       balance.mint_url,
@@ -240,36 +252,12 @@ export default function Page() {
             ) : (
               <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
                 {activeMints.slice(0, 6).map((mint) => {
+                  const mintWithBalances = mintBalancesMap.get(mint.mint_url);
                   const balanceInfo = balanceMap.get(mint.mint_url);
-                  const balance = balanceInfo?.balance || 0;
-                  const unit =
-                    balanceInfo?.unit || mint.currency_unit || 'Msat';
                   const mintUrl = new URL(mint.mint_url);
-
-                  const formatBalanceWithUnit = (
-                    amount: number,
-                    unit: string
-                  ) => {
-                    if (unit.toLowerCase() === 'msat') {
-                      const sats = Math.floor(amount / 1000);
-                      return {
-                        primary: `${amount.toLocaleString('en-US')} msat`,
-                        secondary: `(${sats.toLocaleString('en-US')} sats)`,
-                      };
-                    } else if (unit.toLowerCase() === 'sat') {
-                      const msats = amount * 1000;
-                      return {
-                        primary: `${amount.toLocaleString('en-US')} sats`,
-                        secondary: `(${msats.toLocaleString('en-US')} msat)`,
-                      };
-                    }
-                    return {
-                      primary: `${amount.toLocaleString('en-US')} ${unit}`,
-                      secondary: '',
-                    };
-                  };
-
-                  const formattedBalance = formatBalanceWithUnit(balance, unit);
+                  
+                  // Use multi-unit balances if available, otherwise fall back to legacy single balance
+                  const hasMultiUnitBalances = mintWithBalances && mintWithBalances.unit_balances.length > 0;
 
                   return (
                     <Card
@@ -295,20 +283,76 @@ export default function Page() {
                         </div>
                       </CardHeader>
                       <CardContent className='pt-0'>
-                        <div className='flex items-center justify-between'>
-                          <div>
-                            <p className='text-lg font-semibold'>
-                              {formattedBalance.primary}
-                            </p>
-                            {formattedBalance.secondary && (
-                              <p className='text-muted-foreground text-sm'>
-                                {formattedBalance.secondary}
+                        <div className='space-y-3'>
+                          {hasMultiUnitBalances ? (
+                            <div>
+                              <p className='text-muted-foreground mb-2 text-xs'>
+                                Balances by Unit
                               </p>
-                            )}
-                            <p className='text-muted-foreground text-xs'>
-                              Balance
-                            </p>
-                          </div>
+                              <div className='space-y-1'>
+                                {mintWithBalances!.unit_balances.map((unitBalance) => {
+                                  const formatted = MultimintService.formatBalance(
+                                    unitBalance.balance,
+                                    unitBalance.unit
+                                  );
+                                  return (
+                                    <div
+                                      key={unitBalance.unit}
+                                      className='flex items-center justify-between py-1'
+                                    >
+                                      <div>
+                                        <p className='text-sm font-medium'>
+                                          {formatted?.primary ||
+                                            `${unitBalance.balance} ${unitBalance.unit}`}
+                                        </p>
+                                        {formatted?.secondary && (
+                                          <p className='text-muted-foreground text-xs'>
+                                            {formatted.secondary}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <Badge variant='outline' className='text-xs'>
+                                        {unitBalance.unit}
+                                      </Badge>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {mintWithBalances!.unit_balances.length > 1 && (
+                                <div className='mt-2 border-t pt-2'>
+                                  <div className='flex items-center justify-between'>
+                                    <p className='text-xs font-medium'>Total Balance</p>
+                                    <p className='text-xs font-semibold'>
+                                      {mintWithBalances!.total_balance}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              {(() => {
+                                const balance = balanceInfo?.balance || 0;
+                                const unit = balanceInfo?.unit || mint.currency_unit || 'msat';
+                                const formatted = MultimintService.formatBalance(balance, unit);
+                                return (
+                                  <>
+                                    <p className='text-lg font-semibold'>
+                                      {formatted?.primary || `${balance} ${unit}`}
+                                    </p>
+                                    {formatted?.secondary && (
+                                      <p className='text-muted-foreground text-sm'>
+                                        {formatted.secondary}
+                                      </p>
+                                    )}
+                                    <p className='text-muted-foreground text-xs'>
+                                      Balance
+                                    </p>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
