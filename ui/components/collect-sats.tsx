@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
 import Image from 'next/image';
+import { UR, UREncoder } from '@gandlaf21/bc-ur';
+import { Buffer } from 'buffer';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -87,8 +89,11 @@ export function CollectSats() {
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [urEncoder, setUrEncoder] = useState<UREncoder | null>(null);
+  const [isAnimatedQr, setIsAnimatedQr] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch active mints for selection
@@ -103,12 +108,34 @@ export function CollectSats() {
     queryFn: () => MultimintService.getMultimintBalance(),
   });
 
+  // Function to create UR-based animated QR codes for large tokens
+  const createUrEncoder = (token: string, fragmentLength: number = 150) => {
+    try {
+      const messageBuffer = Buffer.from(token);
+      const ur = UR.fromBuffer(messageBuffer);
+      const firstSeqNum = 0;
+      return new UREncoder(ur, fragmentLength, firstSeqNum);
+    } catch (error) {
+      console.error('Failed to create UR encoder:', error);
+      return null;
+    }
+  };
+
+  // Function to determine if token should use animated QR
+  const shouldUseAnimatedQr = (token: string) => {
+    // Use animated QR for tokens longer than 800 characters
+    // This is similar to the Vue implementation's logic of checking proof count
+    return token.length > 800;
+  };
+
   // Generate QR code when token is generated
   useEffect(() => {
     if (generatedToken) {
       setIsGeneratingQr(true);
       setQrError(null);
       setQrCodeDataUrl('');
+      setUrEncoder(null);
+      setIsAnimatedQr(false);
 
       // Add a small delay to ensure the UI updates
       const generateQr = async () => {
@@ -117,20 +144,54 @@ export function CollectSats() {
             'Generating QR code for token:',
             generatedToken.substring(0, 50) + '...'
           );
+          console.log('Token length:', generatedToken.length, 'characters');
 
-          const dataUrl = await QRCode.toDataURL(generatedToken, {
-            width: 300,
-            margin: 2,
-            errorCorrectionLevel: 'M',
-            type: 'image/png',
-            color: {
-              dark: '#000000',
-              light: '#ffffff',
-            },
-          });
+          // Check if token should use animated QR
+          if (shouldUseAnimatedQr(generatedToken)) {
+            console.log(
+              'Token too large for single QR code, creating UR-based animated QR...'
+            );
 
-          console.log('QR code generated successfully');
-          setQrCodeDataUrl(dataUrl);
+            // Create UR encoder for animated QR codes
+            const encoder = createUrEncoder(generatedToken, 150); // 150 char fragments
+            if (!encoder) {
+              throw new Error('Failed to create UR encoder');
+            }
+
+            setUrEncoder(encoder);
+            setIsAnimatedQr(true);
+
+            // Generate initial QR code frame
+            const initialFragment = encoder.nextPart();
+            const dataUrl = await QRCode.toDataURL(initialFragment, {
+              width: 350,
+              margin: 2,
+              errorCorrectionLevel: 'M',
+              type: 'image/png',
+              color: {
+                dark: '#000000',
+                light: '#ffffff',
+              },
+            });
+            setQrCodeDataUrl(dataUrl);
+
+            console.log('UR-based animated QR code setup successfully');
+          } else {
+            // Single QR code for smaller tokens
+            const dataUrl = await QRCode.toDataURL(generatedToken, {
+              width: 350,
+              margin: 2,
+              errorCorrectionLevel: 'M',
+              type: 'image/png',
+              color: {
+                dark: '#000000',
+                light: '#ffffff',
+              },
+            });
+            setQrCodeDataUrl(dataUrl);
+            console.log('Single QR code generated successfully');
+          }
+
           setQrError(null);
         } catch (err) {
           console.error('Error generating QR code:', err);
@@ -144,14 +205,42 @@ export function CollectSats() {
       };
 
       // Small delay to ensure UI state updates
-      setTimeout(generateQr, 100);
+      setTimeout(generateQr, 500);
     } else {
       // Reset QR code state when token is cleared
       setQrCodeDataUrl('');
+      setUrEncoder(null);
+      setIsAnimatedQr(false);
       setIsGeneratingQr(false);
       setQrError(null);
     }
   }, [generatedToken]);
+
+  // Auto-cycle through UR-based QR frames
+  useEffect(() => {
+    if (isAnimatedQr && urEncoder) {
+      const interval = setInterval(async () => {
+        try {
+          const fragment = urEncoder.nextPart();
+          const dataUrl = await QRCode.toDataURL(fragment, {
+            width: 350,
+            margin: 2,
+            errorCorrectionLevel: 'M',
+            type: 'image/png',
+            color: {
+              dark: '#000000',
+              light: '#ffffff',
+            },
+          });
+          setQrCodeDataUrl(dataUrl);
+        } catch (error) {
+          console.error('Error updating QR frame:', error);
+        }
+      }, 500); // Change frame every 500ms
+
+      return () => clearInterval(interval);
+    }
+  }, [isAnimatedQr, urEncoder]);
 
   async function onSubmit(values: FormValues) {
     // Validate with current balance before submitting
@@ -212,6 +301,8 @@ export function CollectSats() {
   const handleReset = () => {
     setGeneratedToken(null);
     setQrCodeDataUrl('');
+    setUrEncoder(null);
+    setIsAnimatedQr(false);
     setIsGeneratingQr(false);
     setQrError(null);
     setCopied(false);
@@ -240,7 +331,7 @@ export function CollectSats() {
   );
 
   return (
-    <Card className='mx-auto w-full max-w-2xl'>
+    <Card className='mx-auto w-full max-w-4xl'>
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>
           <SendIcon className='h-5 w-5' />
@@ -405,15 +496,22 @@ export function CollectSats() {
 
               <TabsContent value='qr' className='space-y-4'>
                 <div className='flex flex-col items-center space-y-4'>
+                  {/* UR-based QR code display */}
                   {qrCodeDataUrl ? (
-                    <div className='rounded-lg border bg-white p-4 shadow-sm'>
-                      <Image
-                        src={qrCodeDataUrl}
-                        alt='Token QR Code'
-                        width={300}
-                        height={300}
-                        className='h-auto max-w-full'
-                      />
+                    <div className='flex justify-center'>
+                      <div className='rounded-lg border bg-white p-6 shadow-sm'>
+                        <Image
+                          src={qrCodeDataUrl}
+                          alt={
+                            isAnimatedQr
+                              ? 'Animated Token QR Code'
+                              : 'Token QR Code'
+                          }
+                          width={350}
+                          height={350}
+                          className='h-auto max-w-full'
+                        />
+                      </div>
                     </div>
                   ) : qrError ? (
                     <div className='flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-red-300 bg-red-50'>
@@ -461,9 +559,6 @@ export function CollectSats() {
                       </div>
                     </div>
                   )}
-                  <p className='text-muted-foreground text-center text-sm'>
-                    Scan this QR code to receive the ecash token
-                  </p>
                 </div>
               </TabsContent>
             </Tabs>
