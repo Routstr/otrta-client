@@ -127,10 +127,6 @@ async fn main() {
         .route("/api/mints", get(handlers::get_all_mints_handler))
         .route("/api/mints", post(handlers::create_mint_handler))
         .route("/api/mints/active", get(handlers::get_active_mints_handler))
-        .route(
-            "/api/mints/active-with-units",
-            get(handlers::get_active_mints_with_units_handler),
-        )
         .route("/api/mints/{id}", get(handlers::get_mint_handler))
         .route("/api/mints/{id}", put(handlers::update_mint_handler))
         .route("/api/mints/{id}", delete(handlers::delete_mint_handler))

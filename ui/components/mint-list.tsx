@@ -3,10 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, AlertCircle, Wallet, RefreshCw } from 'lucide-react';
 import { MintService } from '@/lib/api/services/mints';
-import {
-  MultimintService,
-  type MintWithBalances,
-} from '@/lib/api/services/multimint';
+import { MultimintService } from '@/lib/api/services/multimint';
 import { MintCard } from './mint-card';
 import { AddMintForm } from './add-mint-form';
 import {
@@ -63,15 +60,6 @@ export function MintList({
   const activeMints = mints.filter((mint) => mint.is_active);
   const inactiveMints = mints.filter((mint) => !mint.is_active);
 
-  // Create a map from mint_url to MintWithBalances for easy lookup
-  const mintBalancesMap = new Map<string, MintWithBalances>(
-    balanceData?.mints_with_balances.map((mintWithBalances) => [
-      mintWithBalances.mint_url,
-      mintWithBalances,
-    ]) || []
-  );
-
-  // Legacy balance map for backward compatibility
   const balanceMap = new Map(
     balanceData?.balances_by_mint.map((balance) => [
       balance.mint_url,
@@ -220,7 +208,6 @@ export function MintList({
                   key={mint.id}
                   mint={mint}
                   balance={balanceMap.get(mint.mint_url)}
-                  mintWithBalances={mintBalancesMap.get(mint.mint_url)}
                 />
               ))}
             </div>
@@ -239,7 +226,6 @@ export function MintList({
                   key={mint.id}
                   mint={mint}
                   balance={balanceMap.get(mint.mint_url)}
-                  mintWithBalances={mintBalancesMap.get(mint.mint_url)}
                 />
               ))}
             </div>
@@ -265,7 +251,6 @@ export function MintList({
                   key={mint.id}
                   mint={mint}
                   balance={balanceMap.get(mint.mint_url)}
-                  mintWithBalances={mintBalancesMap.get(mint.mint_url)}
                 />
               ))}
             </div>

@@ -39,40 +39,6 @@ export const SetMintActiveRequestSchema = z.object({
 
 export type Mint = z.infer<typeof MintSchema>;
 export type MintListResponse = z.infer<typeof MintListResponseSchema>;
-
-// Schema for mint unit
-export const MintUnitSchema = z.object({
-  id: z.number(),
-  mint_id: z.number(),
-  unit: z.string(),
-  keyset_id: z.string(),
-  active: z.boolean(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-// Schema for mint with units
-export const MintWithUnitsSchema = z.object({
-  id: z.number(),
-  mint_url: z.string(),
-  currency_unit: z.string(),
-  is_active: z.boolean(),
-  name: z.string().nullable(),
-  organization_id: z.string().nullable().optional(),
-  created_at: z.string(),
-  updated_at: z.string(),
-  supported_units: z.array(MintUnitSchema),
-});
-
-// Schema for mint with units response
-export const MintWithUnitsResponseSchema = z.object({
-  mints: z.array(MintWithUnitsSchema),
-  total: z.number(),
-});
-
-export type MintUnit = z.infer<typeof MintUnitSchema>;
-export type MintWithUnits = z.infer<typeof MintWithUnitsSchema>;
-export type MintWithUnitsResponse = z.infer<typeof MintWithUnitsResponseSchema>;
 export type CreateMintRequest = z.infer<typeof CreateMintRequestSchema>;
 export type UpdateMintRequest = z.infer<typeof UpdateMintRequestSchema>;
 export type SetMintActiveRequest = z.infer<typeof SetMintActiveRequestSchema>;
@@ -98,21 +64,6 @@ export class MintService {
     } catch (error) {
       console.error('Error fetching active mints:', error);
       throw new Error('Failed to fetch active mints. Please try again.');
-    }
-  }
-
-  // Get active mints with their supported units
-  static async getActiveMintsWithUnits(): Promise<MintWithUnitsResponse> {
-    try {
-      const response = await apiClient.get<MintWithUnitsResponse>(
-        '/api/mints/active-with-units'
-      );
-      return MintWithUnitsResponseSchema.parse(response);
-    } catch (error) {
-      console.error('Error fetching active mints with units:', error);
-      throw new Error(
-        'Failed to fetch active mints with units. Please try again.'
-      );
     }
   }
 

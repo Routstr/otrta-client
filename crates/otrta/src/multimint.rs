@@ -19,8 +19,6 @@ fn convert_currency_unit_from_cdk(unit: cdk::nuts::CurrencyUnit) -> CurrencyUnit
 pub struct LocalMultimintBalance {
     pub total_balance: u64,
     pub balances_by_mint: Vec<LocalMintBalance>,
-    pub balances_by_unit: std::collections::HashMap<String, u64>,
-    pub mints_with_balances: Vec<crate::db::mint::MintWithBalances>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,17 +105,9 @@ impl MultimintWalletWrapper {
             })
             .collect();
 
-        let mut balances_by_unit = std::collections::HashMap::new();
-        for mint_balance in &balances_by_mint {
-            let unit_str = mint_balance.unit.to_string();
-            *balances_by_unit.entry(unit_str).or_insert(0) += mint_balance.balance;
-        }
-
         Ok(LocalMultimintBalance {
             total_balance: balance.total_balance,
             balances_by_mint,
-            balances_by_unit,
-            mints_with_balances: Vec::new(),
         })
     }
 
@@ -127,105 +117,6 @@ impl MultimintWalletWrapper {
     ) -> Result<u64, Box<dyn std::error::Error>> {
         let balance = self.inner.get_mint_balance(mint_url).await?;
         Ok(balance)
-    }
-
-    pub async fn get_balances_by_units(
-        &self,
-        db: &crate::db::Pool,
-        organization_id: &uuid::Uuid,
-    ) -> Result<LocalMultimintBalance, Box<dyn std::error::Error>> {
-        use crate::db::mint::{
-            get_active_mints_with_units_for_organization, MintUnitBalance, MintWithBalances,
-        };
-
-        let mints_with_units =
-            get_active_mints_with_units_for_organization(db, organization_id).await?;
-        let mut mints_with_balances = Vec::new();
-        let mut total_balance = 0u64;
-        let mut balances_by_unit = std::collections::HashMap::new();
-        let mut legacy_balances_by_mint = Vec::new();
-
-        for mint_with_units in mints_with_units {
-            let mut unit_balances = Vec::new();
-
-            // Get the total balance for this mint from the wallet
-            let (mint_balance, proof_count) = match self
-                .get_wallet_for_mint(&mint_with_units.mint.mint_url)
-                .await
-            {
-                Some(wallet) => {
-                    let balance = wallet.balance().await.unwrap_or(0);
-                    (balance, 0) // TODO: Get actual proof count from wallet
-                }
-                None => (0, 0),
-            };
-
-            // For now, assign the full mint balance to the primary unit
-            // In the future, we can enhance this to track separate balances per unit
-            if let Some(primary_unit) = mint_with_units.supported_units.first() {
-                if primary_unit.active {
-                    unit_balances.push(MintUnitBalance {
-                        mint_id: mint_with_units.mint.id,
-                        mint_url: mint_with_units.mint.mint_url.clone(),
-                        mint_name: mint_with_units.mint.name.clone(),
-                        unit: primary_unit.unit.clone(),
-                        balance: mint_balance,
-                        proof_count,
-                    });
-
-                    *balances_by_unit
-                        .entry(primary_unit.unit.clone())
-                        .or_insert(0) += mint_balance;
-                }
-
-                // Add zero balances for other supported units to show they exist
-                for unit in mint_with_units.supported_units.iter().skip(1) {
-                    if unit.active {
-                        unit_balances.push(MintUnitBalance {
-                            mint_id: mint_with_units.mint.id,
-                            mint_url: mint_with_units.mint.mint_url.clone(),
-                            mint_name: mint_with_units.mint.name.clone(),
-                            unit: unit.unit.clone(),
-                            balance: 0, // For now, only primary unit has balance
-                            proof_count: 0,
-                        });
-                    }
-                }
-            }
-
-            if !unit_balances.is_empty() {
-                // Add legacy format for backward compatibility
-                let primary_unit = &unit_balances[0];
-                legacy_balances_by_mint.push(LocalMintBalance {
-                    mint_url: mint_with_units.mint.mint_url.clone(),
-                    balance: mint_balance,
-                    unit: convert_currency_unit_from_cdk(
-                        primary_unit
-                            .unit
-                            .parse()
-                            .unwrap_or(cdk::nuts::CurrencyUnit::Msat),
-                    ),
-                    proof_count: primary_unit.proof_count,
-                });
-
-                mints_with_balances.push(MintWithBalances {
-                    mint_id: mint_with_units.mint.id,
-                    mint_url: mint_with_units.mint.mint_url,
-                    mint_name: mint_with_units.mint.name,
-                    unit_balances,
-                    total_balance: mint_balance,
-                });
-            }
-
-            total_balance += mint_balance;
-        }
-
-        Ok(LocalMultimintBalance {
-            total_balance,
-            balances_by_mint: legacy_balances_by_mint,
-            balances_by_unit,
-            mints_with_balances,
-        })
     }
 
     pub async fn send(
@@ -282,18 +173,6 @@ impl MultimintWalletWrapper {
     pub async fn get_wallet_for_mint(&self, mint_url: &str) -> Option<CdkWalletWrapper> {
         self.inner
             .get_wallet_for_mint(mint_url)
-            .await
-            .map(CdkWalletWrapper::new)
-    }
-
-    pub async fn get_wallet_for_mint_with_token(
-        &self,
-        mint_url: &str,
-        token: &str,
-    ) -> Option<CdkWalletWrapper> {
-        println!("{:?}", token);
-        self.inner
-            .get_wallet_for_mint_with_token(mint_url, token)
             .await
             .map(CdkWalletWrapper::new)
     }

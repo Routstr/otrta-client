@@ -286,30 +286,9 @@ pub struct MintBalance {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct MintUnitBalance {
-    pub mint_id: i32,
-    pub mint_url: String,
-    pub mint_name: Option<String>,
-    pub unit: String,
-    pub balance: u64,
-    pub proof_count: usize,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct MintWithBalances {
-    pub mint_id: i32,
-    pub mint_url: String,
-    pub mint_name: Option<String>,
-    pub unit_balances: Vec<MintUnitBalance>,
-    pub total_balance: u64,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct MultimintBalanceResponse {
     pub total_balance: u64,
     pub balances_by_mint: Vec<MintBalance>,
-    pub balances_by_unit: std::collections::HashMap<String, u64>,
-    pub mints_with_balances: Vec<MintWithBalances>,
 }
 
 #[derive(Deserialize)]
