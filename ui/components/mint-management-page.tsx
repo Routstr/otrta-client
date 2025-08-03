@@ -123,7 +123,7 @@ export function MintManagementPage() {
     ) {
       const lightningRequest: TopupRequest = {
         amount: topupForm.amount,
-        unit: 'sat',
+        unit: currencyUnit,
         mint_url: topupForm.mint_url,
         // description: 'Multimint Lightning Topup',
       };

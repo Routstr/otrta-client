@@ -97,6 +97,9 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
 
     setUrlError('');
     createMintMutation.mutate(formData);
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   const handleUrlChange = (url: string) => {

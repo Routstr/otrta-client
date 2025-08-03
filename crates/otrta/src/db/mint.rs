@@ -14,8 +14,8 @@ pub enum CurrencyUnit {
 impl std::fmt::Display for CurrencyUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CurrencyUnit::Sat => write!(f, "Sat"),
-            CurrencyUnit::Msat => write!(f, "Msat"),
+            CurrencyUnit::Sat => write!(f, "sat"),
+            CurrencyUnit::Msat => write!(f, "msat"),
         }
     }
 }
@@ -148,7 +148,7 @@ pub async fn get_mint_by_url_for_organization(
 }
 
 pub async fn create_mint(db: &Pool, request: CreateMintRequest) -> Result<Mint, sqlx::Error> {
-    let currency_unit = request.currency_unit.unwrap_or_else(|| "Msat".to_string());
+    let currency_unit = request.currency_unit.unwrap_or_else(|| "msat".to_string());
 
     let mint = sqlx::query_as::<_, Mint>(
         "INSERT INTO mints (mint_url, currency_unit, is_active, name, organization_id, updated_at)
@@ -274,7 +274,7 @@ pub async fn create_mint_for_organization(
     request: CreateMintRequest,
     organization_id: &Uuid,
 ) -> Result<Mint, sqlx::Error> {
-    let currency_unit = request.currency_unit.unwrap_or_else(|| "Msat".to_string());
+    let currency_unit = request.currency_unit.unwrap_or_else(|| "msat".to_string());
 
     let mint = sqlx::query_as::<_, Mint>(
         "INSERT INTO mints (mint_url, currency_unit, is_active, name, organization_id, updated_at)
