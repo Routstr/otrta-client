@@ -13,7 +13,3 @@ CREATE TABLE providers (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert some default test data
-INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_default) VALUES
-('otrta ai', 'https://ecash.otrta.me', ARRAY['https://ecashmint.otrta.me'], false, 0, 0, TRUE)
-

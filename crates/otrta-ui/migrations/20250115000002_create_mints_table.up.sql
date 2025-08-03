@@ -9,8 +9,3 @@ CREATE TABLE mints (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Insert a default mint for testing
-INSERT INTO mints (mint_url, currency_unit, is_active, name) VALUES
-('https://mint.minibits.cash/Bitcoin', 'Msat', true, 'Minibits'),
-('https://testnut.cashu.space', 'Msat', true, 'Testnut'); 
