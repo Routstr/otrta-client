@@ -312,7 +312,7 @@ export default function LandingPage() {
             </Button>
             <Button variant='ghost' size='sm' asChild>
               <Link
-                href='https://github.com/9qeklajc/ecash-402-client'
+                href='https://github.com/Routstr/otrta-client.git'
                 target='_blank'
               >
                 <Github className='h-4 w-4' />
@@ -394,7 +394,7 @@ export default function LandingPage() {
               )}
               <Button variant='outline' size='lg' asChild>
                 <Link
-                  href='https://github.com/9qeklajc/ecash-402-client'
+                  href='https://github.com/Routstr/otrta-client.git'
                   target='_blank'
                 >
                   <Github className='mr-2 h-4 w-4' />
@@ -1247,7 +1247,7 @@ export default function LandingPage() {
               <motion.div variants={fadeInUp}>
                 <Button variant='outline' size='lg' asChild>
                   <Link
-                    href='https://github.com/9qeklajc/ecash-402-client'
+                    href='https://github.com/Routstr/otrta-client.git'
                     target='_blank'
                   >
                     Explore Code
@@ -1327,7 +1327,7 @@ export default function LandingPage() {
               </Button>
               <Button variant='ghost' size='sm' asChild>
                 <Link
-                  href='https://github.com/9qeklajc/ecash-402-client'
+                  href='https://github.com/Routstr/otrta-client.git'
                   target='_blank'
                 >
                   <Github className='h-4 w-4' />

@@ -262,7 +262,7 @@ http://localhost:3333
         </div>
 
         <motion.a
-          href='https://github.com/9qeklajc/ecash-402-client'
+          href='https://github.com/Routstr/otrta-client.git'
           target='_blank'
           rel='noopener noreferrer'
           className='group block'
