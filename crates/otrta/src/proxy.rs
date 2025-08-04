@@ -338,35 +338,73 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             .into_response();
     };
 
-    let mint_url = server_config.mints.first().unwrap();
-    let mint_currency_unit =
-        match get_mint_by_url_for_organization(&state.db, mint_url, &org_id).await {
-            Ok(Some(mint)) => mint.currency_unit,
-            Ok(None) => match get_mint_by_url(&state.db, mint_url).await {
+    // Helper function to get mint info and sort by priority (msat first)
+    async fn get_sorted_mints_with_info(
+        db: &crate::db::Pool,
+        mint_urls: &[String],
+        org_id: &uuid::Uuid,
+    ) -> Vec<(String, String)> {
+        let mut mints_with_units = Vec::new();
+
+        for mint_url in mint_urls {
+            let currency_unit = match get_mint_by_url_for_organization(db, mint_url, org_id).await {
                 Ok(Some(mint)) => mint.currency_unit,
                 Ok(None) => {
-                    eprintln!(
-                        "Mint not found for URL: {} (neither organization-specific nor global)",
-                        mint_url
-                    );
-                    "msat".to_string()
+                    match get_mint_by_url(db, mint_url).await {
+                        Ok(Some(mint)) => mint.currency_unit,
+                        Ok(None) => {
+                            eprintln!("Mint not found for URL: {} (neither organization-specific nor global)", mint_url);
+                            "msat".to_string()
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "Error fetching global mint info for URL: {}: {}",
+                                mint_url, e
+                            );
+                            "msat".to_string()
+                        }
+                    }
                 }
                 Err(e) => {
                     eprintln!(
-                        "Error fetching global mint info for URL: {}: {}",
-                        mint_url, e
+                        "Error fetching mint info for URL: {} and organization: {}: {}",
+                        mint_url, org_id, e
                     );
                     "msat".to_string()
                 }
-            },
-            Err(e) => {
-                eprintln!(
-                    "Error fetching mint info for URL: {} and organization: {}: {}",
-                    mint_url, org_id, e
-                );
-                "msat".to_string()
-            }
-        };
+            };
+            mints_with_units.push((mint_url.clone(), currency_unit));
+        }
+
+        // Sort mints: msat first, then sat
+        mints_with_units.sort_by(|a, b| match (a.1.as_str(), b.1.as_str()) {
+            ("msat", "sat") => std::cmp::Ordering::Less,
+            ("sat", "msat") => std::cmp::Ordering::Greater,
+            _ => std::cmp::Ordering::Equal,
+        });
+
+        mints_with_units
+    }
+
+    let sorted_mints = get_sorted_mints_with_info(&state.db, &server_config.mints, &org_id).await;
+    if sorted_mints.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "No valid mints found for this provider",
+                    "type": "configuration_error",
+                    "code": "no_valid_mints"
+                }
+            })),
+        )
+            .into_response();
+    }
+
+    // Start with the first (highest priority) mint for initial cost calculation
+    let (initial_mint_url, initial_mint_currency_unit) = sorted_mints.first().unwrap();
+    let mut mint_url = initial_mint_url.clone();
+    let mut mint_currency_unit = initial_mint_currency_unit.clone();
 
     let cost = if mint_currency_unit == "sat" {
         (cost_msats + 999) / 1000
@@ -375,8 +413,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     };
 
     eprintln!(
-        "Cost calculation: model={:?}, cost_msats={}, mint_unit={}, final_cost={}",
-        model_name, cost_msats, mint_currency_unit, cost
+        "Cost calculation: model={:?}, cost_msats={}, mint_unit={}, final_cost={}, available_mints={}",
+        model_name, cost_msats, mint_currency_unit, cost, sorted_mints.len()
     );
 
     let token = if is_free_model {
@@ -428,54 +466,110 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             }
         };
 
-        let token_result = send_with_retry(
-            &wallet,
-            cost,
-            mint_url,
-            Some(3),
-            &state.db,
-            api_key_id,
-            user_id,
-            Some(&server_config.url),
-            Some(&mint_currency_unit),
-            model_name.as_deref(),
-        )
-        .await;
+        // Try each mint in priority order until payment succeeds
+        let mut successful_mint_url = None;
+        let mut successful_currency_unit = None;
+        let mut _final_cost = 0;
+        let mut token = String::new();
+        let mut _last_error = None;
 
-        match token_result {
-            Ok(token) => token,
-            Err(e) => {
-                eprintln!(
-                    "Payment token generation failed for model: {:?}, cost: {} {}, error: {:?}",
-                    model_name, cost, mint_currency_unit, e
-                );
+        for (current_mint_url, current_currency_unit) in &sorted_mints {
+            let current_cost = if current_currency_unit == "sat" {
+                (cost_msats + 999) / 1000
+            } else {
+                cost_msats
+            };
 
-                // If the model should be free or cost is 0, continue without payment
-                if is_free_model || cost == 0 {
-                    eprintln!("Model is free or zero cost, proceeding without payment token (transaction already recorded)");
-                    String::new()
-                } else {
-                    return (
-                        StatusCode::PAYMENT_REQUIRED,
-                        Json(json!({
-                            "error": {
-                                "message": "Insufficient funds or mint connectivity issues",
-                                "type": "payment_error",
-                                "code": "insufficient_funds",
-                                                            "details": {
-                                "model": model_name,
-                                "cost_msats": cost_msats,
-                                "cost_final": cost,
-                                "currency_unit": mint_currency_unit,
-                                "is_free_model": is_free_model
-                            }
-                            }
-                        })),
-                    )
-                        .into_response();
+            eprintln!(
+                "Attempting payment with mint: {}, unit: {}, cost: {}",
+                current_mint_url, current_currency_unit, current_cost
+            );
+
+            let token_result = send_with_retry(
+                &wallet,
+                current_cost,
+                current_mint_url,
+                Some(3),
+                &state.db,
+                api_key_id,
+                user_id,
+                Some(&server_config.url),
+                Some(current_currency_unit),
+                model_name.as_deref(),
+            )
+            .await;
+
+            match token_result {
+                Ok(success_token) => {
+                    eprintln!(
+                        "Payment successful with mint: {}, unit: {}, cost: {}",
+                        current_mint_url, current_currency_unit, current_cost
+                    );
+                    successful_mint_url = Some(current_mint_url.clone());
+                    successful_currency_unit = Some(current_currency_unit.clone());
+                    _final_cost = current_cost;
+                    token = success_token;
+                    break;
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Payment failed with mint: {}, unit: {}, cost: {}, error: {:?}",
+                        current_mint_url, current_currency_unit, current_cost, e
+                    );
+                    _last_error = Some(e);
+                    continue;
                 }
             }
         }
+
+        // If no mint succeeded, handle the failure
+        if successful_mint_url.is_none() {
+            eprintln!(
+                "All mints exhausted. Payment token generation failed for model: {:?}, tried {} mints",
+                model_name, sorted_mints.len()
+            );
+
+            // If the model should be free or cost is 0, continue without payment
+            if is_free_model || cost == 0 {
+                eprintln!("Model is free or zero cost, proceeding without payment token");
+                token = String::new();
+            } else {
+                return (
+                    StatusCode::PAYMENT_REQUIRED,
+                    Json(json!({
+                        "error": {
+                            "message": "Insufficient funds across all available mints",
+                            "type": "payment_error",
+                            "code": "insufficient_funds_all_mints",
+                            "details": {
+                                "model": model_name,
+                                "cost_msats": cost_msats,
+                                "mints_tried": sorted_mints.len(),
+                                "mints": sorted_mints.iter().map(|(url, unit)| {
+                                    json!({
+                                        "url": url,
+                                        "currency_unit": unit,
+                                        "cost": if unit == "sat" { (cost_msats + 999) / 1000 } else { cost_msats }
+                                    })
+                                }).collect::<Vec<_>>()
+                            }
+                        }
+                    })),
+                )
+                    .into_response();
+            }
+        } else {
+            // Update the variables for successful payment
+            mint_url = successful_mint_url.unwrap();
+            mint_currency_unit = successful_currency_unit.unwrap();
+
+            eprintln!(
+                "Final payment successful: mint={}, unit={}, cost={}",
+                mint_url, mint_currency_unit, _final_cost
+            );
+        }
+
+        token
     };
 
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
@@ -639,7 +733,10 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             }
         };
         let res = wallet.receive(&token).await.unwrap();
-        println!("{:?}", server_config);
+        eprintln!(
+            "Token redemption after failed request: mint={}, amount={:?}",
+            mint_url, res
+        );
         add_transaction(
             &state.db,
             &token,
