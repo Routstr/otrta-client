@@ -134,3 +134,7 @@
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+.glass {
+  backdrop-filter: blur(8px);
+}

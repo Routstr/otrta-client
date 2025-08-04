@@ -308,6 +308,9 @@ export default function LandingPage() {
             className='absolute right-4 flex items-center space-x-3'
           >
             <Button variant='ghost' size='sm' asChild>
+              <Link href='/documentation'>Documentation</Link>
+            </Button>
+            <Button variant='ghost' size='sm' asChild>
               <Link
                 href='https://github.com/9qeklajc/ecash-402-client'
                 target='_blank'
@@ -1319,6 +1322,9 @@ export default function LandingPage() {
               Privacy-focused AI payments with e-cash technology
             </p>
             <div className='flex items-center space-x-4'>
+              <Button variant='ghost' size='sm' asChild>
+                <Link href='/documentation'>Documentation</Link>
+              </Button>
               <Button variant='ghost' size='sm' asChild>
                 <Link
                   href='https://github.com/9qeklajc/ecash-402-client'
