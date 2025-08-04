@@ -15,7 +15,6 @@ import {
   Download,
   Settings,
   Puzzle,
-  Zap,
   Play,
   CreditCard,
   ChevronRight,
@@ -30,7 +29,6 @@ type PageType =
   | 'x-cashu-protocols'
   | 'nostr'
   | 'vision'
-  | 'otrta-client'
   | 'overview';
 
 interface NavItem {
@@ -77,20 +75,9 @@ const navigationItems: NavItem[] = [
     ],
   },
   {
-    title: 'Features',
-    icon: Zap,
-    children: [
-      {
-        title: 'OTRTA Client',
-        page: 'otrta-client',
-        icon: Settings,
-      },
-      {
-        title: 'Vision',
-        page: 'vision',
-        icon: BookOpen,
-      },
-    ],
+    title: 'Vision',
+    icon: BookOpen,
+    page: 'vision',
   },
   {
     title: 'Protocols',

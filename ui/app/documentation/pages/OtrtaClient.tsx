@@ -11,7 +11,6 @@ import {
   Globe,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { NavigationLinks } from './NavigationLinks';
 
 export function OtrtaClient() {
   return (
@@ -291,15 +290,6 @@ http://localhost:3333
           </div>
         </motion.a>
       </section>
-
-      {/* Navigation */}
-      <div className='border-t pt-8'>
-        <NavigationLinks
-          currentSection='otrta-client'
-          variant='compact'
-          showTitle={false}
-        />
-      </div>
     </div>
   );
 }

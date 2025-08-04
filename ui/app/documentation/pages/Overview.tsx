@@ -41,26 +41,6 @@ export function Overview() {
         <Card className='glass bg-card/50 hover:bg-card/80 border-border/50 transition-all hover:shadow-lg'>
           <CardHeader>
             <CardTitle className='flex items-center gap-2 text-xl'>
-              ⚡ Features
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className='text-muted-foreground mb-4'>
-              Explore OTRTA&apos;s powerful features including e-cash payments,
-              privacy features, and team collaboration.
-            </p>
-            <Link
-              href='/documentation/otrta-client'
-              className='text-primary inline-flex items-center gap-1 font-medium hover:underline'
-            >
-              Explore Features →
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card className='glass bg-card/50 hover:bg-card/80 border-border/50 transition-all hover:shadow-lg'>
-          <CardHeader>
-            <CardTitle className='flex items-center gap-2 text-xl'>
               💳 Protocols
             </CardTitle>
           </CardHeader>
@@ -94,6 +74,26 @@ export function Overview() {
               className='text-primary inline-flex items-center gap-1 font-medium hover:underline'
             >
               Install Now →
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className='glass bg-card/50 hover:bg-card/80 border-border/50 transition-all hover:shadow-lg'>
+          <CardHeader>
+            <CardTitle className='flex items-center gap-2 text-xl'>
+              🔮 Vision
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className='text-muted-foreground mb-4'>
+              Explore the future of AI service delivery through intelligent,
+              adaptive payment systems and smart client architecture.
+            </p>
+            <Link
+              href='/documentation/vision'
+              className='text-primary inline-flex items-center gap-1 font-medium hover:underline'
+            >
+              Read Vision →
             </Link>
           </CardContent>
         </Card>

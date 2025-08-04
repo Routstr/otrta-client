@@ -241,10 +241,7 @@ export class MultimintService {
     switch (unit.toLowerCase()) {
       case 'msat':
         const sats = Math.floor(balance / 1000);
-        const primaryMsat =
-          balance >= 1000
-            ? `${(balance / 1000).toFixed(1)}k msat`
-            : `${balance.toLocaleString('en-US')} msat`;
+        const primaryMsat = `${balance.toLocaleString('en-US')} msat`;
         return {
           primary: primaryMsat,
           secondary: `(${sats.toLocaleString('en-US')} sats)`,

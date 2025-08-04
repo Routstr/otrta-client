@@ -2,15 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Network,
-  Users,
-  Shield,
-  Star,
-  Wallet,
-  Key,
-  Activity,
-} from 'lucide-react';
+import { Network, Users, Shield, Star, Wallet, Activity } from 'lucide-react';
 import { NavigationLinks } from './NavigationLinks';
 
 export function Nostr() {
@@ -160,81 +152,6 @@ export function Nostr() {
                 <li>Automated status updates</li>
                 <li>Community transparency</li>
               </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Nostr Data Storage */}
-      <Card id='nostr-data-storage'>
-        <CardHeader>
-          <CardTitle className='flex items-center gap-2'>
-            <Key className='h-5 w-5' />
-            Nostr Data Storage
-            <Badge variant='secondary'>Encrypted</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className='space-y-4'>
-          <p className='text-muted-foreground'>
-            Leveraging Nostr&apos;s encrypted storage capabilities for secure
-            wallet and API key management across the Routstr ecosystem.
-          </p>
-
-          <div className='grid grid-cols-1 gap-6 md:grid-cols-2'>
-            <div className='space-y-3'>
-              <div className='flex items-center gap-2'>
-                <Wallet className='h-4 w-4' />
-                <h4 className='font-semibold'>NIP60 Wallet Storage</h4>
-              </div>
-              <p className='text-muted-foreground text-sm'>
-                Cashu wallet balances are stored securely on Nostr relays using
-                NIP60 protocol with NIP44 encryption.
-              </p>
-              <ul className='text-muted-foreground list-inside list-disc space-y-1 text-xs'>
-                <li>NIP60 protocol compliance</li>
-                <li>NIP44 encrypted storage</li>
-                <li>Cashu balance management</li>
-                <li>Relay-based synchronization</li>
-                <li>Cross-device accessibility</li>
-              </ul>
-            </div>
-
-            <div className='space-y-3'>
-              <div className='flex items-center gap-2'>
-                <Key className='h-4 w-4' />
-                <h4 className='font-semibold'>API Key Management</h4>
-              </div>
-              <p className='text-muted-foreground text-sm'>
-                Routstr API keys are stored and synchronized using NIP44
-                encryption, accessible at chat.routstr.com.
-              </p>
-              <ul className='text-muted-foreground list-inside list-disc space-y-1 text-xs'>
-                <li>NIP44 encrypted key storage</li>
-                <li>Cross-device synchronization</li>
-                <li>Secure key management</li>
-                <li>Relay-based distribution</li>
-                <li>User-controlled access</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className='space-y-4'>
-            <h4 className='font-semibold'>Storage Benefits</h4>
-            <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-              <Alert>
-                <Shield className='h-4 w-4' />
-                <AlertDescription>
-                  <strong>Decentralized Security:</strong> End-to-end encryption
-                  with no single point of failure and user-controlled data
-                </AlertDescription>
-              </Alert>
-              <Alert>
-                <Network className='h-4 w-4' />
-                <AlertDescription>
-                  <strong>Seamless Sync:</strong> Real-time synchronization
-                  across multiple devices with automatic backups
-                </AlertDescription>
-              </Alert>
             </div>
           </div>
         </CardContent>

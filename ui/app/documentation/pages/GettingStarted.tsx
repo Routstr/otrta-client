@@ -15,13 +15,32 @@ export function GettingStarted() {
       <div className='space-y-12'>
         <section id='interface-demo'>
           <div className='mb-8 w-full'>
-            <Image
-              src='/app.gif'
-              alt='Routstr-Client Interface Demo'
-              width={1200}
-              height={600}
-              className='h-auto w-full rounded-lg border shadow-md'
-            />
+            <div className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
+              <div className='space-y-2'>
+                <Image
+                  src='/overview1.gif'
+                  alt='OTRTA Client Interface Overview - Dashboard and Wallet'
+                  width={600}
+                  height={400}
+                  className='h-auto w-full rounded-lg border shadow-md'
+                />
+                <p className='text-muted-foreground text-center text-sm'>
+                  Dashboard and Wallet Management
+                </p>
+              </div>
+              <div className='space-y-2'>
+                <Image
+                  src='/overview2.gif'
+                  alt='OTRTA Client Interface Overview - Providers and Models'
+                  width={600}
+                  height={400}
+                  className='h-auto w-full rounded-lg border shadow-md'
+                />
+                <p className='text-muted-foreground text-center text-sm'>
+                  Providers and AI Model Management
+                </p>
+              </div>
+            </div>
           </div>
           <div className='space-y-6'>
             <section id='features-overview'>

@@ -129,7 +129,7 @@ export function ToolIntegrations() {
 
               <div className='mb-6'>
                 <Image
-                  src='/roocode.gif'
+                  src='/roo.gif'
                   alt='Roo Code multi-agent system in action'
                   width={800}
                   height={450}
@@ -197,7 +197,7 @@ export function ToolIntegrations() {
 
               <div className='mb-6'>
                 <Image
-                  src='/kilocode.gif'
+                  src='/kilo.gif'
                   alt='Kilo Code orchestrator mode demonstration'
                   width={800}
                   height={450}

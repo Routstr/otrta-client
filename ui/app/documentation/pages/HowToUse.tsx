@@ -1,4 +1,5 @@
 import React from 'react';
+import { ExternalLink } from 'lucide-react';
 import { NavigationLinks } from './NavigationLinks';
 import { SectionHeading } from './SectionLinkCopy';
 
@@ -34,9 +35,15 @@ export function HowToUse() {
               <div className='flex-1'>
                 <p className='mb-2 font-medium'>Live Service URL:</p>
                 <div className='rounded-lg border bg-white p-3 dark:bg-gray-800'>
-                  <code className='font-mono text-sm text-blue-600 dark:text-blue-400'>
-                    https://otrta.routstr.com/
-                  </code>
+                  <a
+                    href='https://otrta.routstr.com/'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='group flex items-center gap-2 font-mono text-sm text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                  >
+                    <span>otrta.routstr.com</span>
+                    <ExternalLink className='h-4 w-4 transition-transform group-hover:translate-x-0.5' />
+                  </a>
                 </div>
               </div>
               <div className='flex-1'>
@@ -99,9 +106,15 @@ export function HowToUse() {
                 </h4>
                 <p className='text-muted-foreground mb-3'>
                   Visit{' '}
-                  <code className='bg-muted rounded px-2 py-1'>
-                    https://otrta.routstr.com/
-                  </code>{' '}
+                  <a
+                    href='https://otrta.routstr.com/'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='bg-muted group inline-flex items-center gap-1 rounded px-2 py-1 text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                  >
+                    <span>otrta.routstr.com</span>
+                    <ExternalLink className='h-3 w-3 transition-transform group-hover:translate-x-0.5' />
+                  </a>{' '}
                   and authenticate using your Nostr keys. Once logged in, add
                   e-cash tokens to your wallet using supported Cashu mints or
                   the built-in wallet features.
@@ -155,7 +168,7 @@ export function HowToUse() {
                 <div className='rounded-lg border bg-white p-4 dark:bg-gray-800'>
                   <p className='mb-2 font-medium'>Server Base URL:</p>
                   <code className='font-mono text-sm text-purple-600 dark:text-purple-400'>
-                    https://otrta.routstr.com
+                    https://server.otrta.routstr.com
                   </code>
                 </div>
               </div>
@@ -217,9 +230,15 @@ export function HowToUse() {
           <p className='text-muted-foreground mb-4'>
             Getting started with Routstr Client gateway is simple. You can use
             either our live service at{' '}
-            <code className='bg-muted rounded px-2 py-1'>
-              https://ecash.client.otrta.me/
-            </code>{' '}
+            <a
+              href='https://otrta.routstr.com/'
+              target='_blank'
+              rel='noopener noreferrer'
+              className='bg-muted group inline-flex items-center gap-1 rounded px-2 py-1 text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+            >
+              <span>otrta.routstr.com</span>
+              <ExternalLink className='h-3 w-3 transition-transform group-hover:translate-x-0.5' />
+            </a>{' '}
             or run locally. Simply replace your OpenAI endpoint and add your
             e-cash header.
           </p>
@@ -228,7 +247,7 @@ export function HowToUse() {
             <div>
               <h4 className='mb-2 font-semibold'>Using Live Service:</h4>
               <pre className='overflow-x-auto rounded-md bg-gray-100 p-4 text-sm dark:bg-gray-800'>
-                <code>{`curl -X POST https://otrta.routstr.com/v1/chat/completions \\
+                <code>{`curl -X POST https://server.otrta.routstr.com/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "X-Cashu: your-ecash-token" \\
   -d @request.json`}</code>

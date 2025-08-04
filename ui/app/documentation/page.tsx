@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function DocumentationPage() {
-  redirect('/documentation/getting-started');
+  redirect('/documentation/overview');
 }

@@ -10,7 +10,6 @@ import { ToolIntegrations } from '../pages/ToolIntegrations';
 import { XCashuProtocols } from '../pages/XCashuProtocols';
 import { Nostr } from '../pages/Nostr';
 import { Vision } from '../pages/Vision';
-import { OtrtaClient } from '../pages/OtrtaClient';
 import { Overview } from '../pages/Overview';
 
 type PageType =
@@ -21,7 +20,6 @@ type PageType =
   | 'x-cashu-protocols'
   | 'nostr'
   | 'vision'
-  | 'otrta-client'
   | 'overview';
 
 const pageComponents: Record<PageType, React.ComponentType> = {
@@ -32,7 +30,6 @@ const pageComponents: Record<PageType, React.ComponentType> = {
   'x-cashu-protocols': XCashuProtocols,
   nostr: Nostr,
   vision: Vision,
-  'otrta-client': OtrtaClient,
   overview: Overview,
 };
 
@@ -44,7 +41,6 @@ const pageTitles: Record<PageType, string> = {
   'x-cashu-protocols': 'X-Cashu Protocols',
   nostr: 'Nostr Integration',
   vision: 'Vision',
-  'otrta-client': 'OTRTA Client',
   overview: 'Overview',
 };
 

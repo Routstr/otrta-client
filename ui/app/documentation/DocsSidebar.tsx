@@ -8,12 +8,10 @@ import {
   Download,
   Settings,
   Puzzle,
-  Zap,
   Play,
   CreditCard,
   Eye,
   Lightbulb,
-  Code,
   ChevronRight,
 } from 'lucide-react';
 
@@ -25,7 +23,6 @@ type PageType =
   | 'x-cashu-protocols'
   | 'nostr'
   | 'vision'
-  | 'otrta-client'
   | 'overview';
 
 interface NavItem {
@@ -72,20 +69,9 @@ const navigationItems: NavItem[] = [
     ],
   },
   {
-    title: 'Features',
-    icon: Zap,
-    children: [
-      {
-        title: 'OTRTA Client',
-        page: 'otrta-client',
-        icon: Code,
-      },
-      {
-        title: 'Vision',
-        page: 'vision',
-        icon: Lightbulb,
-      },
-    ],
+    title: 'Vision',
+    icon: Lightbulb,
+    page: 'vision',
   },
   {
     title: 'Protocols',
