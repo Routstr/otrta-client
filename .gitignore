@@ -119,3 +119,4 @@ dist/
 
 # System files
 *.DS_Store
+crates/otrta-ui/configuration/local.yaml
