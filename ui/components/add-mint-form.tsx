@@ -18,13 +18,24 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface AddMintFormProps {
   trigger?: React.ReactNode;
   onSuccess?: () => void;
 }
+
+const CURRENCY_OPTIONS = [
+  { value: 'sat', label: 'sat (Satoshis)' },
+  { value: 'msat', label: 'msat (Millisatoshis)' },
+];
 
 const POPULAR_MINTS = [
   {
@@ -44,6 +55,7 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState<CreateMintRequest>({
     mint_url: '',
+    currency_unit: 'sat',
     name: '',
   });
   const [urlError, setUrlError] = useState<string>('');
@@ -66,6 +78,7 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
   const resetForm = () => {
     setFormData({
       mint_url: '',
+      currency_unit: 'sat',
       name: '',
     });
     setUrlError('');
@@ -204,10 +217,24 @@ export function AddMintForm({ trigger, onSuccess }: AddMintFormProps) {
             </div>
 
             <div className='space-y-2'>
-              <p className='text-muted-foreground text-sm'>
-                Supported currency units will be automatically detected from the
-                mint.
-              </p>
+              <Label htmlFor='currency_unit'>Currency Unit</Label>
+              <Select
+                value={formData.currency_unit}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, currency_unit: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
