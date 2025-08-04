@@ -22,6 +22,11 @@ import { Button } from '@/components/ui/button';
 import { TruncatedUrl } from '@/components/ui/truncated-url';
 import { formatDistanceToNow } from 'date-fns';
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
+import {
   Copy,
   ShieldIcon,
   CheckIcon,
@@ -291,7 +296,7 @@ export default function ProvidersPage() {
                       </div>
 
                       {/* Second row: Badges */}
-                      <div className='flex flex-wrap gap-1'>
+                      <div className='flex flex-wrap items-center gap-1'>
                         {provider.is_default_for_org && (
                           <Badge className='bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-100'>
                             <CheckIcon className='mr-1 h-3 w-3' />
@@ -306,6 +311,27 @@ export default function ProvidersPage() {
                             <Eye className='mr-1 h-3 w-3' />
                             Custom
                           </Badge>
+                        )}
+                        {!provider.has_msat_support && (
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <AlertTriangle className='h-4 w-4 cursor-help text-yellow-600' />
+                            </HoverCardTrigger>
+                            <HoverCardContent className='w-80'>
+                              <div className='text-sm'>
+                                <p className='mb-1 font-medium text-yellow-800 dark:text-yellow-200'>
+                                  Msat Precision Warning
+                                </p>
+                                <p className='text-yellow-700 dark:text-yellow-300'>
+                                  This provider&apos;s mints only support
+                                  satoshi precision. Payments in millisatoshis
+                                  (msat) will be rounded down to the nearest
+                                  satoshi, which may result in small amounts of
+                                  ecash being lost.
+                                </p>
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
                         )}
                       </div>
 

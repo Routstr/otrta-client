@@ -44,6 +44,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -266,6 +271,32 @@ export function MintCard({
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      {watchedValues.currency_unit === 'msat' && (
+                        <div className='mt-2 flex items-center gap-2'>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <AlertCircle className='h-4 w-4 cursor-help text-yellow-600' />
+                            </HoverCardTrigger>
+                            <HoverCardContent className='w-80'>
+                              <div className='text-sm'>
+                                <p className='mb-1 font-medium text-yellow-800 dark:text-yellow-200'>
+                                  Msat Display Warning
+                                </p>
+                                <p className='text-yellow-700 dark:text-yellow-300'>
+                                  While you can display values in millisatoshis
+                                  (msat), the underlying mint only supports
+                                  satoshi precision. Payments will be rounded
+                                  down to the nearest satoshi, which may result
+                                  in small amounts of ecash being lost.
+                                </p>
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                          <span className='text-xs text-yellow-700 dark:text-yellow-300'>
+                            Millisatoshi display precision warning
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <DialogFooter>
                       <Button

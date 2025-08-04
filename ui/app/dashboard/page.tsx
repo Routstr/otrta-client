@@ -255,9 +255,11 @@ export default function Page() {
                   const mintWithBalances = mintBalancesMap.get(mint.mint_url);
                   const balanceInfo = balanceMap.get(mint.mint_url);
                   const mintUrl = new URL(mint.mint_url);
-                  
+
                   // Use multi-unit balances if available, otherwise fall back to legacy single balance
-                  const hasMultiUnitBalances = mintWithBalances && mintWithBalances.unit_balances.length > 0;
+                  const hasMultiUnitBalances =
+                    mintWithBalances &&
+                    mintWithBalances.unit_balances.length > 0;
 
                   return (
                     <Card
@@ -290,38 +292,46 @@ export default function Page() {
                                 Balances by Unit
                               </p>
                               <div className='space-y-1'>
-                                {mintWithBalances!.unit_balances.map((unitBalance) => {
-                                  const formatted = MultimintService.formatBalance(
-                                    unitBalance.balance,
-                                    unitBalance.unit
-                                  );
-                                  return (
-                                    <div
-                                      key={unitBalance.unit}
-                                      className='flex items-center justify-between py-1'
-                                    >
-                                      <div>
-                                        <p className='text-sm font-medium'>
-                                          {formatted?.primary ||
-                                            `${unitBalance.balance} ${unitBalance.unit}`}
-                                        </p>
-                                        {formatted?.secondary && (
-                                          <p className='text-muted-foreground text-xs'>
-                                            {formatted.secondary}
+                                {mintWithBalances!.unit_balances.map(
+                                  (unitBalance) => {
+                                    const formatted =
+                                      MultimintService.formatBalance(
+                                        unitBalance.balance,
+                                        unitBalance.unit
+                                      );
+                                    return (
+                                      <div
+                                        key={unitBalance.unit}
+                                        className='flex items-center justify-between py-1'
+                                      >
+                                        <div>
+                                          <p className='text-sm font-medium'>
+                                            {formatted?.primary ||
+                                              `${unitBalance.balance} ${unitBalance.unit}`}
                                           </p>
-                                        )}
+                                          {formatted?.secondary && (
+                                            <p className='text-muted-foreground text-xs'>
+                                              {formatted.secondary}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <Badge
+                                          variant='outline'
+                                          className='text-xs'
+                                        >
+                                          {unitBalance.unit}
+                                        </Badge>
                                       </div>
-                                      <Badge variant='outline' className='text-xs'>
-                                        {unitBalance.unit}
-                                      </Badge>
-                                    </div>
-                                  );
-                                })}
+                                    );
+                                  }
+                                )}
                               </div>
                               {mintWithBalances!.unit_balances.length > 1 && (
                                 <div className='mt-2 border-t pt-2'>
                                   <div className='flex items-center justify-between'>
-                                    <p className='text-xs font-medium'>Total Balance</p>
+                                    <p className='text-xs font-medium'>
+                                      Total Balance
+                                    </p>
                                     <p className='text-xs font-semibold'>
                                       {mintWithBalances!.total_balance}
                                     </p>
@@ -333,12 +343,17 @@ export default function Page() {
                             <div>
                               {(() => {
                                 const balance = balanceInfo?.balance || 0;
-                                const unit = balanceInfo?.unit || mint.currency_unit || 'msat';
-                                const formatted = MultimintService.formatBalance(balance, unit);
+                                const unit =
+                                  balanceInfo?.unit ||
+                                  mint.currency_unit ||
+                                  'msat';
+                                const formatted =
+                                  MultimintService.formatBalance(balance, unit);
                                 return (
                                   <>
                                     <p className='text-lg font-semibold'>
-                                      {formatted?.primary || `${balance} ${unit}`}
+                                      {formatted?.primary ||
+                                        `${balance} ${unit}`}
                                     </p>
                                     {formatted?.secondary && (
                                       <p className='text-muted-foreground text-sm'>

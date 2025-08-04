@@ -14,6 +14,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TruncatedUrl } from '@/components/ui/truncated-url';
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
+import {
   ServerIcon,
   CheckIcon,
   ShieldCheck,
@@ -22,6 +27,7 @@ import {
   ChevronDown,
   ChevronUp,
   CoinsIcon,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -142,6 +148,26 @@ export function DefaultProviderCard() {
                   Custom
                 </Badge>
               )}
+              {!defaultProvider.has_msat_support && (
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <AlertTriangle className='h-4 w-4 cursor-help text-yellow-600' />
+                  </HoverCardTrigger>
+                  <HoverCardContent className='w-80'>
+                    <div className='text-sm'>
+                      <p className='mb-1 font-medium text-yellow-800 dark:text-yellow-200'>
+                        Msat Precision Warning
+                      </p>
+                      <p className='text-yellow-700 dark:text-yellow-300'>
+                        This provider&apos;s mints only support satoshi
+                        precision. Payments in millisatoshis (msat) will be
+                        rounded down to the nearest satoshi, which may result in
+                        small amounts of ecash being lost.
+                      </p>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              )}
             </div>
 
             <div className='text-muted-foreground flex items-center gap-1 text-sm'>
@@ -194,6 +220,7 @@ export function DefaultProviderCard() {
             <div className='text-muted-foreground mb-3 text-sm font-medium'>
               Supported Mints:
             </div>
+
             <div className='grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3'>
               {defaultProvider.mints.map((mint, index) => (
                 <div

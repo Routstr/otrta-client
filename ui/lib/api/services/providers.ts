@@ -16,6 +16,7 @@ export interface Provider {
   is_active_for_org: boolean;
   is_default_for_org: boolean;
   is_editable: boolean;
+  has_msat_support: boolean;
 }
 
 export interface ProviderListResponse {
