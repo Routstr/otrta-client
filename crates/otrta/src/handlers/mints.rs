@@ -18,6 +18,34 @@ use axum::{
 use serde_json::{self, json};
 use std::{str::FromStr, sync::Arc};
 
+pub fn select_preferred_keyset(
+    keysets: &[crate::db::mint::KeysetInfo],
+) -> Option<crate::db::mint::KeysetInfo> {
+    if let Some(keyset) = keysets
+        .iter()
+        .find(|k| k.active && k.unit.to_lowercase() == "msat")
+    {
+        return Some(keyset.clone());
+    }
+
+    if let Some(keyset) = keysets
+        .iter()
+        .find(|k| k.active && k.unit.to_lowercase() == "sat")
+    {
+        return Some(keyset.clone());
+    }
+
+    if let Some(keyset) = keysets.iter().find(|k| k.unit.to_lowercase() == "msat") {
+        return Some(keyset.clone());
+    }
+
+    if let Some(keyset) = keysets.iter().find(|k| k.unit.to_lowercase() == "sat") {
+        return Some(keyset.clone());
+    }
+
+    None
+}
+
 pub async fn get_all_mints_handler(
     State(state): State<Arc<AppState>>,
     Extension(user_ctx): Extension<UserContext>,
@@ -179,27 +207,38 @@ pub async fn create_mint_handler(
                 Ok(keysets) => keysets,
                 Err(e) => {
                     eprintln!(
-                        "Failed to discover keysets for mint {}: {}. Using default.",
+                        "Failed to discover keysets for mint {}: {}. Skipping mint creation.",
                         mint.mint_url, e
                     );
                     vec![]
                 }
             };
 
-            if let Err(e) = create_mint_units(&state.db, mint.id, &keysets).await {
-                eprintln!("Failed to create mint units for mint {}: {}", mint.id, e);
-            }
+            // Select the preferred keyset (msat > sat > none)
+            let selected_keyset = if !keysets.is_empty() {
+                select_preferred_keyset(&keysets)
+            } else {
+                None
+            };
 
-            for keyset in &keysets {
-                if keyset.active {
-                    let currency_unit = keyset
-                        .unit
-                        .parse::<cdk::nuts::CurrencyUnit>()
-                        .unwrap_or(cdk::nuts::CurrencyUnit::Msat);
-                    if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
-                        eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
-                    }
+            if let Some(keyset) = selected_keyset {
+                // Only create mint units for the selected keyset
+                if let Err(e) = create_mint_units(&state.db, mint.id, &[keyset.clone()]).await {
+                    eprintln!("Failed to create mint units for mint {}: {}", mint.id, e);
                 }
+
+                let currency_unit = keyset
+                    .unit
+                    .parse::<cdk::nuts::CurrencyUnit>()
+                    .unwrap_or(cdk::nuts::CurrencyUnit::Msat);
+                if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
+                    eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
+                }
+            } else {
+                eprintln!(
+                    "No suitable keyset (msat or sat) found for mint {}.",
+                    mint.mint_url
+                );
             }
 
             Ok(Json(mint))

@@ -117,7 +117,7 @@ pub struct MintWithUnits {
     pub supported_units: Vec<MintUnit>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeysetInfo {
     pub id: String,
     pub unit: String,

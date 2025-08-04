@@ -1,20 +1,22 @@
 use crate::{
-    db::mint::{
-        create_mint_for_organization, create_mint_units, discover_mint_keysets,
-        get_mint_by_url_for_organization, CreateMintRequest,
+    db::{
+        mint::{
+            create_mint_for_organization, create_mint_units, discover_mint_keysets,
+            get_mint_by_url_for_organization, CreateMintRequest,
+        },
+        provider::{
+            activate_provider_for_organization, create_custom_provider,
+            create_custom_provider_for_organization, deactivate_provider_for_organization,
+            delete_custom_provider, delete_custom_provider_for_organization,
+            get_active_providers_for_organization, get_available_providers_for_organization,
+            get_default_provider_for_organization_new, get_provider_by_id_for_organization,
+            refresh_providers_from_nostr, set_default_provider_for_organization_new,
+            update_custom_provider, update_custom_provider_for_organization,
+            CreateCustomProviderRequest, ProviderListResponse, ProviderWithStatus,
+            RefreshProvidersResponse, UpdateCustomProviderRequest,
+        },
     },
-    db::provider::{
-        activate_provider_for_organization, create_custom_provider,
-        create_custom_provider_for_organization, deactivate_provider_for_organization,
-        delete_custom_provider, delete_custom_provider_for_organization,
-        get_active_providers_for_organization, get_available_providers_for_organization,
-        get_default_provider_for_organization_new, get_provider_by_id_for_organization,
-        refresh_providers_from_nostr, set_default_provider_for_organization_new,
-        update_custom_provider, update_custom_provider_for_organization,
-        CreateCustomProviderRequest, ProviderListResponse, ProviderWithStatus,
-        RefreshProvidersResponse, UpdateCustomProviderRequest,
-    },
-    handlers::models::refresh_models_internal,
+    handlers::{models::refresh_models_internal, select_preferred_keyset},
     models::{AppState, UserContext},
 };
 use axum::{
@@ -72,30 +74,38 @@ async fn auto_create_mints_for_provider(
         if let Ok(None) = get_mint_by_url_for_organization(db, mint_url, organization_id).await {
             eprintln!("Creating mint for provider: {}", mint_url);
 
+            let keysets = match discover_mint_keysets(mint_url).await {
+                Ok(keysets) => keysets,
+                Err(e) => {
+                    eprintln!(
+                        "Failed to discover keysets for mint {}: {}. Skipping mint creation.",
+                        mint_url, e
+                    );
+                    continue;
+                }
+            };
+
+            let selected_keyset = match select_preferred_keyset(&keysets) {
+                Some(keyset) => keyset,
+                None => {
+                    eprintln!(
+                        "No suitable keyset (msat or sat) found for mint {}. Skipping mint creation.",
+                        mint_url
+                    );
+                    continue;
+                }
+            };
+
             let mint_request = CreateMintRequest {
                 mint_url: mint_url.clone(),
-                currency_unit: Some("msat".to_string()),
+                currency_unit: Some(selected_keyset.unit.clone()),
                 name: None,
             };
 
             match create_mint_for_organization(db, mint_request, organization_id).await {
                 Ok(mint) => {
-                    let keysets = match discover_mint_keysets(&mint.mint_url).await {
-                        Ok(keysets) => keysets,
-                        Err(e) => {
-                            eprintln!(
-                                "Failed to discover keysets for mint {}: {}. Using default.",
-                                mint.mint_url, e
-                            );
-                            vec![crate::db::mint::KeysetInfo {
-                                id: "default".to_string(),
-                                unit: "msat".to_string(),
-                                active: true,
-                            }]
-                        }
-                    };
-
-                    if let Err(e) = create_mint_units(db, mint.id, &keysets).await {
+                    if let Err(e) = create_mint_units(db, mint.id, &[selected_keyset.clone()]).await
+                    {
                         eprintln!("Failed to create mint units for mint {}: {}", mint.id, e);
                     }
 
@@ -103,25 +113,19 @@ async fn auto_create_mints_for_provider(
                         .get_or_create_multimint(organization_id)
                         .await
                     {
-                        for keyset in &keysets {
-                            if keyset.active {
-                                let currency_unit = keyset
-                                    .unit
-                                    .parse::<cdk::nuts::CurrencyUnit>()
-                                    .unwrap_or(cdk::nuts::CurrencyUnit::Msat);
-                                if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await
-                                {
-                                    eprintln!(
-                                        "Failed to add mint to wallet {}: {:?}",
-                                        mint.mint_url, e
-                                    );
-                                }
-                                break;
-                            }
+                        let currency_unit = selected_keyset
+                            .unit
+                            .parse::<cdk::nuts::CurrencyUnit>()
+                            .unwrap_or(cdk::nuts::CurrencyUnit::Msat);
+                        if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
+                            eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
                         }
                     }
 
-                    eprintln!("Successfully created mint: {}", mint_url);
+                    eprintln!(
+                        "Successfully created mint: {} with {} unit",
+                        mint_url, selected_keyset.unit
+                    );
                 }
                 Err(e) => {
                     eprintln!("Failed to create mint {}: {}", mint_url, e);
@@ -680,5 +684,82 @@ mod tests {
             false
         )); // onion disabled
         assert!(!is_valid_provider_url("invalid.onion.format", true)); // invalid onion format
+    }
+
+    #[test]
+    fn test_select_preferred_keyset() {
+        use crate::db::mint::KeysetInfo;
+
+        // Test with active msat keyset (should be preferred)
+        let keysets = vec![
+            KeysetInfo {
+                id: "keyset1".to_string(),
+                unit: "sat".to_string(),
+                active: true,
+            },
+            KeysetInfo {
+                id: "keyset2".to_string(),
+                unit: "msat".to_string(),
+                active: true,
+            },
+        ];
+        let selected = select_preferred_keyset(&keysets);
+        assert!(selected.is_some());
+        assert_eq!(selected.unwrap().unit, "msat");
+
+        // Test with only active sat keyset
+        let keysets = vec![
+            KeysetInfo {
+                id: "keyset1".to_string(),
+                unit: "sat".to_string(),
+                active: true,
+            },
+            KeysetInfo {
+                id: "keyset2".to_string(),
+                unit: "usd".to_string(),
+                active: true,
+            },
+        ];
+        let selected = select_preferred_keyset(&keysets);
+        assert!(selected.is_some());
+        assert_eq!(selected.unwrap().unit, "sat");
+
+        // Test with only inactive msat keyset
+        let keysets = vec![
+            KeysetInfo {
+                id: "keyset1".to_string(),
+                unit: "msat".to_string(),
+                active: false,
+            },
+            KeysetInfo {
+                id: "keyset2".to_string(),
+                unit: "usd".to_string(),
+                active: true,
+            },
+        ];
+        let selected = select_preferred_keyset(&keysets);
+        assert!(selected.is_some());
+        assert_eq!(selected.unwrap().unit, "msat");
+
+        // Test with no suitable keysets
+        let keysets = vec![
+            KeysetInfo {
+                id: "keyset1".to_string(),
+                unit: "usd".to_string(),
+                active: true,
+            },
+            KeysetInfo {
+                id: "keyset2".to_string(),
+                unit: "eur".to_string(),
+                active: false,
+            },
+        ];
+        let selected = select_preferred_keyset(&keysets);
+        assert!(selected.is_none());
+
+        // Test with empty keysets
+        let keysets = vec![];
+        let selected = select_preferred_keyset(&keysets);
+        assert!(selected.is_none());
     }
 }
