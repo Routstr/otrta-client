@@ -279,8 +279,6 @@ pub async fn refresh_models_background(
         )
     };
 
-    eprintln!("Background refresh completed: {}", message);
-
     Ok(Json(RefreshModelsResponse {
         success,
         models_updated: 0,

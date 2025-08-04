@@ -17,6 +17,7 @@ use crate::db::provider::{
 };
 use crate::db::{organizations, users};
 use crate::error::AppError;
+use crate::handlers::mints::select_preferred_keyset;
 use crate::models::{AppState, CreateOrganizationRequest, UserContext};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
@@ -428,7 +429,6 @@ async fn setup_first_time_user_defaults(
     app_state: &Arc<AppState>,
     org_id: &uuid::Uuid,
 ) -> Result<(), AppError> {
-    // Check if organization already has a default provider
     if get_default_provider_for_organization_new(&app_state.db, org_id)
         .await
         .map_err(|e| AppError::DatabaseError(e.to_string()))?
@@ -443,7 +443,6 @@ async fn setup_first_time_user_defaults(
         org_id
     );
 
-    // Get all available providers for this organization
     let available_providers =
         get_available_providers_for_organization(&app_state.db, org_id, false)
             .await
@@ -454,7 +453,6 @@ async fn setup_first_time_user_defaults(
         return Ok(());
     }
 
-    // Find the first global (non-custom) provider or fall back to any provider
     let default_provider = available_providers
         .iter()
         .find(|p| !p.provider.is_custom)
@@ -465,7 +463,6 @@ async fn setup_first_time_user_defaults(
         default_provider.provider.name, org_id
     );
 
-    // Activate the provider for the organization
     if let Err(e) =
         activate_provider_for_organization(&app_state.db, org_id, default_provider.provider.id)
             .await
@@ -477,7 +474,6 @@ async fn setup_first_time_user_defaults(
         return Ok(());
     }
 
-    // Set as default provider
     if let Err(e) = set_default_provider_for_organization_new(
         &app_state.db,
         org_id,
@@ -492,9 +488,7 @@ async fn setup_first_time_user_defaults(
         return Ok(());
     }
 
-    // Add provider's mints to the database for this organization
     for mint_url in &default_provider.provider.mints {
-        // Check if mint already exists for this organization
         let skip_mint =
             match crate::db::mint::get_mints_for_organization(&app_state.db, org_id).await {
                 Ok(existing_mints) => existing_mints.iter().any(|m| m.mint_url == *mint_url),
@@ -503,34 +497,184 @@ async fn setup_first_time_user_defaults(
                         "Failed to check existing mints for organization {}: {}",
                         org_id, e
                     );
-                    false // Continue trying to add the mint if we can't check
+                    false
                 }
             };
 
         if skip_mint {
-            continue; // Skip if mint already exists
+            continue;
         }
 
-        let create_mint_request = crate::db::mint::CreateMintRequest {
-            mint_url: mint_url.clone(),
-            currency_unit: Some("sat".to_string()),
-            name: None,
+        // Try to get mint name from existing mint, but create with proper keyset discovery
+        let mint_name = match find_existing_mint_for_copy(&app_state.db, mint_url).await {
+            Ok(Some(existing_mint)) => {
+                info!(
+                    "Found existing mint '{}' for {}, will use name but discover keysets",
+                    existing_mint.name.as_deref().unwrap_or("None"),
+                    mint_url
+                );
+                existing_mint.name
+            }
+            Ok(None) => {
+                info!(
+                    "No existing mint found for {}, will discover keysets",
+                    mint_url
+                );
+                None
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to check existing mint {}: {}, will discover keysets",
+                    mint_url, e
+                );
+                None
+            }
         };
 
-        if let Err(e) =
-            create_mint_for_organization(&app_state.db, create_mint_request, org_id).await
-        {
-            warn!(
-                "Failed to add mint {} for organization {}: {}",
-                mint_url, org_id, e
-            );
-        } else {
-            info!("Added mint {} for organization {}", mint_url, org_id);
+        // Create mint in DB first with msat default (will be updated if keysets discovered)
+        let create_mint_request = crate::db::mint::CreateMintRequest {
+            mint_url: mint_url.clone(),
+            currency_unit: Some("msat".to_string()),
+            name: mint_name.clone(),
+        };
+
+        match create_mint_for_organization(&app_state.db, create_mint_request, org_id).await {
+            Ok(mint) => {
+                // Discover keysets from the mint API (following create_mint_handler pattern)
+                let keysets = match crate::db::mint::discover_mint_keysets(&mint.mint_url).await {
+                    Ok(keysets) => keysets,
+                    Err(e) => {
+                        warn!(
+                            "Failed to discover keysets for mint {}: {}. Using default msat.",
+                            mint.mint_url, e
+                        );
+                        vec![]
+                    }
+                };
+
+                // Select the preferred keyset (msat > sat > none)
+                let selected_keyset = if !keysets.is_empty() {
+                    select_preferred_keyset(&keysets)
+                } else {
+                    None
+                };
+
+                if let Some(keyset) = selected_keyset {
+                    info!(
+                        "Selected keyset with unit '{}' for mint {}",
+                        keyset.unit, mint.mint_url
+                    );
+
+                    // Create mint units for the selected keyset
+                    if let Err(e) = crate::db::mint::create_mint_units(
+                        &app_state.db,
+                        mint.id,
+                        &[keyset.clone()],
+                    )
+                    .await
+                    {
+                        warn!("Failed to create mint units for mint {}: {}", mint.id, e);
+                    }
+
+                    // Add mint to wallet with the correct currency unit
+                    if let Ok(wallet) = app_state
+                        .multimint_manager
+                        .get_or_create_multimint(org_id)
+                        .await
+                    {
+                        let currency_unit = keyset
+                            .unit
+                            .parse::<cdk::nuts::CurrencyUnit>()
+                            .unwrap_or(cdk::nuts::CurrencyUnit::Msat);
+
+                        if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
+                            warn!(
+                                "Failed to add mint {} to wallet for organization {}: {:?}",
+                                mint.mint_url, org_id, e
+                            );
+                        } else {
+                            info!(
+                                "Successfully added mint {} with {} unit to wallet for organization {}",
+                                mint.mint_url, keyset.unit, org_id
+                            );
+                        }
+                    } else {
+                        warn!(
+                            "Failed to get or create multimint wallet for organization {}",
+                            org_id
+                        );
+                    }
+
+                    info!(
+                        "Added mint {} with currency unit {} and name '{}' for organization {}",
+                        mint_url,
+                        keyset.unit,
+                        mint_name.as_deref().unwrap_or("None"),
+                        org_id
+                    );
+                } else {
+                    warn!(
+                        "No suitable keyset (msat or sat) found for mint {}. Using default msat.",
+                        mint.mint_url
+                    );
+
+                    // Fallback: add to wallet with default msat
+                    if let Ok(wallet) = app_state
+                        .multimint_manager
+                        .get_or_create_multimint(org_id)
+                        .await
+                    {
+                        if let Err(e) = wallet
+                            .add_mint(&mint.mint_url, cdk::nuts::CurrencyUnit::Msat)
+                            .await
+                        {
+                            warn!(
+                                "Failed to add mint {} to wallet for organization {}: {:?}",
+                                mint.mint_url, org_id, e
+                            );
+                        } else {
+                            info!(
+                                "Successfully added mint {} with default msat unit to wallet for organization {}",
+                                mint.mint_url, org_id
+                            );
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to add mint {} for organization {}: {}",
+                    mint_url, org_id, e
+                );
+            }
         }
     }
 
     info!("Successfully set up defaults for organization {}", org_id);
     Ok(())
+}
+
+async fn find_existing_mint_for_copy(
+    db: &sqlx::PgPool,
+    mint_url: &str,
+) -> Result<Option<crate::db::mint::Mint>, sqlx::Error> {
+    let msat_mint = sqlx::query_as::<_, crate::db::mint::Mint>(
+        "SELECT id, mint_url, currency_unit, is_active, name, organization_id, created_at, updated_at
+         FROM mints
+         WHERE mint_url = $1 AND currency_unit = 'msat'
+         LIMIT 1",
+    )
+    .bind(mint_url)
+    .fetch_optional(db)
+    .await?;
+
+    if msat_mint.is_some() {
+        return Ok(msat_mint);
+    }
+
+    // Second priority: Look for any existing mint with this URL
+    let any_mint = crate::db::mint::get_mint_by_url(db, mint_url).await?;
+    Ok(any_mint)
 }
 
 async fn ensure_organization_multimint(
