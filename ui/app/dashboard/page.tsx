@@ -49,7 +49,7 @@ export default function Page() {
   const { data: balanceData, isLoading: isLoadingBalance } = useQuery({
     queryKey: ['multimint-balance'],
     queryFn: () => MultimintService.getMultimintBalance(),
-    refetchInterval: 10000,
+    refetchInterval: 1000,
     retry: 3,
     retryDelay: 1000,
   });
