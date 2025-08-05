@@ -163,7 +163,8 @@ http://localhost:3333
             Admin Configuration
           </h2>
           <p className='text-muted-foreground text-lg'>
-            Configure admin access by setting up whitelisted Nostr public keys that can perform administrative actions.
+            Configure admin access by setting up whitelisted Nostr public keys
+            that can perform administrative actions.
           </p>
         </div>
 
@@ -174,7 +175,8 @@ http://localhost:3333
               Setup Admin Access
             </h3>
             <p className='mb-4 text-sm text-purple-800 dark:text-purple-200'>
-              You can configure specific Nostr public keys to have administrative privileges by setting the{' '}
+              You can configure specific Nostr public keys to have
+              administrative privileges by setting the{' '}
               <code className='rounded bg-purple-100 px-2 py-1 text-xs dark:bg-purple-900'>
                 WHITELISTED_NPUBS
               </code>{' '}
@@ -204,7 +206,10 @@ http://localhost:3333
 
             <div className='mt-4 rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30'>
               <p className='text-sm text-blue-800 dark:text-blue-200'>
-                💡 <strong>Note:</strong> Only the Nostr public keys listed in WHITELISTED_NPUBS will have administrative access to manage the system. Make sure to use your actual npub key(s) instead of the example provided.
+                💡 <strong>Note:</strong> Only the Nostr public keys listed in
+                WHITELISTED_NPUBS will have administrative access to manage the
+                system. Make sure to use your actual npub key(s) instead of the
+                example provided.
               </p>
             </div>
           </div>

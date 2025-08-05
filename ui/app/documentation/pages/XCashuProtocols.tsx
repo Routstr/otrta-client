@@ -1,6 +1,9 @@
 import React from 'react';
+import { Code } from 'lucide-react';
+import { NavigationLinks } from './NavigationLinks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SequenceDiagram } from '@/components/ui/sequence-diagram';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Table,
@@ -10,12 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Code } from 'lucide-react';
-import { NavigationLinks } from './NavigationLinks';
 
 export function XCashuProtocols() {
   return (
-    <div className='w-full space-y-8'>
+    <div className='mx-auto max-w-6xl space-y-8 p-6'>
       <div className='space-y-4' id='overview'>
         <h1 className='text-4xl font-bold tracking-tight'>Payment Protocol</h1>
         <p className='text-muted-foreground text-xl'>
@@ -77,31 +78,82 @@ export function XCashuProtocols() {
 
           <div>
             <h4 className='mb-2 font-semibold'>Flow (Sequence Diagram):</h4>
-            <div className='bg-muted rounded-lg p-4'>
-              <div className='space-y-3 text-sm'>
-                <div className='font-medium'>Payment Flow:</div>
-                <ol className='space-y-2'>
-                  <li>
-                    1. Client → ClientWallet: Prepare exact (or over) value note
-                  </li>
-                  <li>2. ClientWallet → Client: Returns note</li>
-                  <li>3. Client → Provider: API Request + X-Cashu header</li>
-                  <li>
-                    4. Provider → ProviderWallet: Redeem note & compute
-                    usage/fee
-                  </li>
-                  <li>
-                    5. ProviderWallet → Provider: Usage result, optionally issue
-                    change note
-                  </li>
-                  <li>
-                    6. Provider → Client: API response (+ X-Cashu header if
-                    change)
-                  </li>
-                  <li>
-                    7. Client → ClientWallet: Store change note for next use
-                  </li>
-                </ol>
+            <div className='bg-muted overflow-x-auto rounded-lg p-4'>
+              <div className='min-w-[600px]'>
+                <SequenceDiagram
+                  participants={[
+                    'ClientWallet',
+                    'Client',
+                    'Provider',
+                    'ProviderWallet',
+                  ]}
+                  steps={[
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Client',
+                        to: 'ClientWallet',
+                        message: 'Prepare exact (or over) value note',
+                        type: 'arrow',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'ClientWallet',
+                        to: 'Client',
+                        message: 'Returns note',
+                        type: 'return',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Client',
+                        to: 'Provider',
+                        message: 'API Request + X-Cashu header',
+                        type: 'arrow',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Provider',
+                        to: 'ProviderWallet',
+                        message: 'Redeem note & compute usage/fee',
+                        type: 'arrow',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'ProviderWallet',
+                        to: 'Provider',
+                        message: 'Usage result, optionally issue change note',
+                        type: 'return',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Provider',
+                        to: 'Client',
+                        message: 'API response (+ X-Cashu header if change)',
+                        type: 'return',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Client',
+                        to: 'ClientWallet',
+                        message: 'Store change note for next use',
+                        type: 'arrow',
+                      },
+                    },
+                  ]}
+                  className='w-full'
+                />
               </div>
             </div>
           </div>
@@ -160,32 +212,127 @@ export function XCashuProtocols() {
 
           <div>
             <h4 className='mb-2 font-semibold'>Flow:</h4>
-            <div className='bg-muted rounded-lg p-4'>
-              <div className='space-y-3 text-sm'>
-                <div className='font-medium'>Token-Based Flow:</div>
-                <ol className='space-y-2'>
-                  <li>1. Client → ClientDB/External: Get persistent token</li>
-                  <li>2. ClientDB/External → Client: Return stored token</li>
-                  <li>3. Loop while token has balance:</li>
-                  <ul className='ml-4 space-y-1'>
-                    <li>• Client → Provider: API Request + X-Cashu header</li>
-                    <li>
-                      • Provider → ProviderDB: Deduct usage from token balance
-                    </li>
-                    <li>• ProviderDB → Provider: Balance updated</li>
-                  </ul>
-                  <li>
-                    4a. If sufficient balance: Provider → Client: API Response
-                  </li>
-                  <li>
-                    4b. If insufficient balance: Provider → Client: HTTP 402
-                    Payment Required
-                  </li>
-                  <li>
-                    5. Client → ClientDB/External: Update token balance or
-                    request new token
-                  </li>
-                </ol>
+            <div className='bg-muted overflow-x-auto rounded-lg p-4'>
+              <div className='min-w-[800px]'>
+                <SequenceDiagram
+                  participants={[
+                    'ClientDB/External',
+                    'Client',
+                    'Provider',
+                    'ProviderDB',
+                  ]}
+                  steps={[
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Client',
+                        to: 'ClientDB/External',
+                        message: 'Get persistent token',
+                        type: 'arrow',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'ClientDB/External',
+                        to: 'Client',
+                        message: 'Return stored token',
+                        type: 'return',
+                      },
+                    },
+                    {
+                      type: 'loop',
+                      condition: 'Token has balance',
+                      steps: [
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Client',
+                            to: 'Provider',
+                            message: 'API Request + X-Cashu header',
+                            type: 'arrow',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Provider',
+                            to: 'ProviderDB',
+                            message: 'Deduct usage from token balance',
+                            type: 'arrow',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'ProviderDB',
+                            to: 'Provider',
+                            message: 'Balance updated',
+                            type: 'return',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      type: 'alt',
+                      condition: 'Sufficient balance',
+                      steps: [
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Provider',
+                            to: 'Client',
+                            message: 'API Response (+ balance optional)',
+                            type: 'return',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Client',
+                            to: 'ClientDB/External',
+                            message: 'Update token balance',
+                            type: 'arrow',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      type: 'alt',
+                      condition: 'Insufficient balance',
+                      steps: [
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Provider',
+                            to: 'Client',
+                            message: 'HTTP 402 Payment Required',
+                            type: 'return',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Client',
+                            to: 'ClientDB/External',
+                            message: 'Request new token',
+                            type: 'arrow',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'ClientDB/External',
+                            to: 'Client',
+                            message: 'Provide fresh token',
+                            type: 'return',
+                          },
+                        },
+                      ],
+                    },
+                  ]}
+                  className='min-h-[600px] w-full'
+                />
               </div>
             </div>
           </div>
@@ -230,31 +377,184 @@ export function XCashuProtocols() {
           <div>
             <h4 className='mb-2 font-semibold'>Flow:</h4>
             <div className='bg-muted overflow-x-auto rounded-lg p-4'>
-              <div className='space-y-3 text-sm'>
-                <div className='font-medium'>API Key Flow:</div>
-                <ol className='space-y-2'>
-                  <li>1. Client → Wallet: Get ecash for API key purchase</li>
-                  <li>2. Wallet → Client: Provide ecash payment</li>
-                  <li>3. Client → Provider: Request API key + ecash payment</li>
-                  <li>4. Provider → ProviderDB: Create account with credits</li>
-                  <li>5. Provider → Client: Return API key</li>
-                  <li>6. Loop: Using API key for requests</li>
-                  <ul className='ml-4 space-y-1'>
-                    <li>• Client → Provider: API Request + API key</li>
-                    <li>• Provider → ProviderDB: Check/deduct credits</li>
-                    <li>• ProviderDB → Provider: Credit status</li>
-                  </ul>
-                  <li>
-                    7a. If credits available: Provider → Client: API Response
-                  </li>
-                  <li>
-                    7b. If credits exhausted: Provider → Client: HTTP 402
-                    Payment Required
-                  </li>
-                  <li>
-                    8. For top-up: Client gets ecash and adds credits to account
-                  </li>
-                </ol>
+              <div className='min-w-[800px]'>
+                <SequenceDiagram
+                  participants={['Wallet', 'Client', 'Provider', 'ProviderDB']}
+                  steps={[
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Client',
+                        to: 'Wallet',
+                        message: 'Get ecash for API key purchase',
+                        type: 'arrow',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Wallet',
+                        to: 'Client',
+                        message: 'Provide ecash payment',
+                        type: 'return',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Client',
+                        to: 'Provider',
+                        message: 'Request API key + ecash payment',
+                        type: 'arrow',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Provider',
+                        to: 'ProviderDB',
+                        message: 'Create account with credits',
+                        type: 'arrow',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'ProviderDB',
+                        to: 'Provider',
+                        message: 'Account created',
+                        type: 'return',
+                      },
+                    },
+                    {
+                      type: 'message',
+                      content: {
+                        from: 'Provider',
+                        to: 'Client',
+                        message: 'Return API key',
+                        type: 'return',
+                      },
+                    },
+                    {
+                      type: 'loop',
+                      condition: 'Using API key',
+                      steps: [
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Client',
+                            to: 'Provider',
+                            message: 'API Request + API key',
+                            type: 'arrow',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Provider',
+                            to: 'ProviderDB',
+                            message: 'Check/deduct credits',
+                            type: 'arrow',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'ProviderDB',
+                            to: 'Provider',
+                            message: 'Credit status',
+                            type: 'return',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      type: 'alt',
+                      condition: 'Credits available',
+                      steps: [
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Provider',
+                            to: 'Client',
+                            message: 'API Response',
+                            type: 'return',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      type: 'alt',
+                      condition: 'Credits exhausted',
+                      steps: [
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Provider',
+                            to: 'Client',
+                            message: 'HTTP 402 Payment Required',
+                            type: 'return',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Client',
+                            to: 'Wallet',
+                            message: 'Get ecash for top-up',
+                            type: 'arrow',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Wallet',
+                            to: 'Client',
+                            message: 'Provide ecash payment',
+                            type: 'return',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Client',
+                            to: 'Provider',
+                            message: 'Top-up account + ecash payment',
+                            type: 'arrow',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Provider',
+                            to: 'ProviderDB',
+                            message: 'Add credits to existing account',
+                            type: 'arrow',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'ProviderDB',
+                            to: 'Provider',
+                            message: 'Credits added',
+                            type: 'return',
+                          },
+                        },
+                        {
+                          type: 'message',
+                          content: {
+                            from: 'Provider',
+                            to: 'Client',
+                            message: 'Top-up successful',
+                            type: 'return',
+                          },
+                        },
+                      ],
+                    },
+                  ]}
+                  className='min-h-[800px] w-full'
+                />
               </div>
             </div>
           </div>
@@ -344,7 +644,7 @@ export function XCashuProtocols() {
       </Card>
 
       <NavigationLinks
-        currentSection='x-cashu-protocols'
+        currentSection='xcashu-protocols'
         variant='compact'
         showTitle={false}
       />
