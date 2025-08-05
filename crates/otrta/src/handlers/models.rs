@@ -220,27 +220,12 @@ pub async fn refresh_models_background(
             }
         };
 
-        eprintln!(
-            "Found {} active providers for organization {}",
-            providers.len(),
-            org.name
-        );
-
         for (provider_index, provider) in providers.iter().enumerate() {
-            eprintln!(
-                "Refreshing models for provider: {} ({})",
-                provider.name, provider.id
-            );
-
             match refresh_models_for_provider(&state.db, &org.id, provider.id).await {
                 Ok(response) => {
                     total_models_added += response.models_added;
                     total_models_removed += response.models_marked_removed;
                     total_providers_processed += 1;
-                    eprintln!(
-                        "Successfully refreshed models for provider {} in organization {}: {} added, {} removed",
-                        provider.name, org.name, response.models_added, response.models_marked_removed
-                    );
                 }
                 Err(e) => {
                     let error_msg = format!(
@@ -447,8 +432,7 @@ async fn refresh_models_for_provider(
     if !failed_models.is_empty() {
         let _ = transaction.rollback().await;
         return Err(format!(
-            "Failed to insert models: {}. Transaction rolled back to maintain data consistency.",
-            failed_models.join(", ")
+            "Failed to insert models. Transaction rolled back to maintain data consistency.",
         ));
     }
 
