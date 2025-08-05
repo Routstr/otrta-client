@@ -17,6 +17,7 @@ use axum::{
     Json,
 };
 use serde_json::{self, json};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
@@ -206,8 +207,13 @@ pub async fn refresh_models_background(
         }
     };
 
-    for (org_index, org) in organizations.iter().enumerate() {
-        eprintln!("Processing organization: {} ({})", org.name, org.id);
+    let mut unique_providers: HashMap<String, (i32, uuid::Uuid)> = HashMap::new();
+
+    for org in organizations.iter() {
+        eprintln!(
+            "Collecting providers from organization: {} ({})",
+            org.name, org.id
+        );
 
         let providers = match get_active_providers_for_organization(&state.db, &org.id).await {
             Ok(providers) => providers,
@@ -220,42 +226,72 @@ pub async fn refresh_models_background(
             }
         };
 
-        for (provider_index, provider) in providers.iter().enumerate() {
-            match refresh_models_for_provider(&state.db, &org.id, provider.id).await {
-                Ok(response) => {
-                    total_models_added += response.models_added;
-                    total_models_removed += response.models_marked_removed;
-                    total_providers_processed += 1;
-                }
-                Err(e) => {
-                    let error_msg = format!(
-                        "Failed to refresh models for provider {} in organization {}: {}",
-                        provider.name, org.name, e
-                    );
-                    eprintln!("{}", error_msg);
-                    errors.push(error_msg);
-                }
+        for provider in providers.iter() {
+            if !unique_providers.contains_key(&provider.url) {
+                unique_providers.insert(provider.url.clone(), (provider.id, org.id));
+                eprintln!(
+                    "Added unique provider: {} (ID: {}) from org: {}",
+                    provider.url, provider.id, org.id
+                );
+            } else {
+                eprintln!(
+                    "Skipping duplicate provider URL: {} (ID: {}) from org: {}",
+                    provider.url, provider.id, org.id
+                );
             }
+        }
+    }
 
-            if provider_index < providers.len() - 1 {
-                sleep(Duration::from_millis(500)).await;
+    eprintln!(
+        "Found {} unique providers to process",
+        unique_providers.len()
+    );
+
+    for (provider_index, (provider_url, (provider_id, organization_id))) in
+        unique_providers.iter().enumerate()
+    {
+        eprintln!(
+            "Processing provider {}/{}: {} (ID: {})",
+            provider_index + 1,
+            unique_providers.len(),
+            provider_url,
+            provider_id
+        );
+
+        match refresh_models_for_provider(&state.db, organization_id, *provider_id).await {
+            Ok(response) => {
+                total_models_added += response.models_added;
+                total_models_removed += response.models_marked_removed;
+                total_providers_processed += 1;
+                eprintln!(
+                    "Successfully processed provider {}: added {}, removed {}",
+                    provider_url, response.models_added, response.models_marked_removed
+                );
+            }
+            Err(e) => {
+                let error_msg = format!(
+                    "Failed to refresh models for provider {} (ID: {}): {}",
+                    provider_url, provider_id, e
+                );
+                eprintln!("{}", error_msg);
+                errors.push(error_msg);
             }
         }
 
-        if org_index < organizations.len() - 1 {
-            sleep(Duration::from_secs(1)).await;
+        if provider_index < unique_providers.len() - 1 {
+            sleep(Duration::from_millis(500)).await;
         }
     }
 
     let success = errors.is_empty();
     let message = if success {
         format!(
-            "Successfully processed {} providers across {} organizations. Added {} models, removed {} models.",
+            "Successfully processed {} unique providers across {} organizations. Added {} models, removed {} models.",
             total_providers_processed, organizations.len(), total_models_added, total_models_removed
         )
     } else {
         format!(
-            "Processed {} providers with {} errors. Added {} models, removed {} models. Errors: {}",
+            "Processed {} unique providers with {} errors. Added {} models, removed {} models. Errors: {}",
             total_providers_processed,
             errors.len(),
             total_models_added,
