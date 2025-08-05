@@ -123,7 +123,12 @@ export function SearchPageComponent(props: Props) {
     [client, tempSearchCacheKey]
   );
 
-  const temporarySearches = getTemporarySearches();
+  const { data: temporarySearches = [] } = useQuery({
+    queryKey: tempSearchCacheKey,
+    queryFn: () => client.getQueryData<TemporarySearchResult[]>(tempSearchCacheKey) || [],
+    staleTime: 0,
+    gcTime: 0,
+  });
 
   const isFirstSearch = !effectiveGroupId;
 
