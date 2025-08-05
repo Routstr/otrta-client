@@ -19,7 +19,10 @@ pub struct ApplicationSettings {
     pub mint_url: String,
     #[serde(default)]
     pub enable_authentication: bool,
-    #[serde(default = "default_whitelisted_npubs", deserialize_with = "deserialize_npubs")]
+    #[serde(
+        default = "default_whitelisted_npubs",
+        deserialize_with = "deserialize_npubs"
+    )]
     pub whitelisted_npubs: Vec<String>,
 }
 
@@ -31,7 +34,7 @@ fn deserialize_npubs<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    use serde::de::{self, Visitor, Deserialize};
+    use serde::de::{self, Deserialize, Visitor};
     use std::fmt;
 
     struct NpubsVisitor;

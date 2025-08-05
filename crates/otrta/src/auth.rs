@@ -58,7 +58,10 @@ pub async fn bearer_auth_middleware(
                 info!("Added anonymous user context for bearer auth (authentication disabled)");
             }
             Err(e) => {
-                warn!("Failed to create anonymous user context for bearer auth: {}", e);
+                warn!(
+                    "Failed to create anonymous user context for bearer auth: {}",
+                    e
+                );
                 return e.into_response();
             }
         }
@@ -456,18 +459,19 @@ pub async fn ensure_default_organization_exists(
     Ok(organization)
 }
 
-async fn create_anonymous_user_context(
-    app_state: &Arc<AppState>,
-) -> Result<UserContext, AppError> {
+async fn create_anonymous_user_context(app_state: &Arc<AppState>) -> Result<UserContext, AppError> {
     // Create or get the default organization
     let organization = ensure_default_organization_exists(app_state).await?;
-    
+
     // Ensure organization multimint is set up
     if let Err(e) = ensure_organization_multimint(app_state, &organization.id).await {
-        warn!("Failed to ensure organization multimint for anonymous user: {}", e);
+        warn!(
+            "Failed to ensure organization multimint for anonymous user: {}",
+            e
+        );
         // Don't fail authentication if multimint setup fails
     }
-    
+
     // Create anonymous user context (no admin privileges)
     Ok(UserContext::new_with_admin_status(
         "anonymous".to_string(),

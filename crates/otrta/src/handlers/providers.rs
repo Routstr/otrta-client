@@ -603,34 +603,33 @@ pub async fn set_provider_default(
     Path(id): Path<i32>,
 ) -> Result<Json<crate::db::provider::Provider>, (StatusCode, Json<serde_json::Value>)> {
     // First, get the provider to access its mints
-    let provider = match get_provider_by_id_for_organization(&state.db, id, &user_ctx.organization_id)
-        .await
-    {
-        Ok(Some(provider)) => provider,
-        Ok(None) => {
-            return Err((
-                StatusCode::NOT_FOUND,
-                Json(json!({
-                    "error": {
-                        "message": "Provider not found",
-                        "type": "not_found"
-                    }
-                })),
-            ));
-        }
-        Err(e) => {
-            eprintln!("Failed to get provider {}: {}", id, e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": {
-                        "message": "Failed to retrieve provider",
-                        "type": "database_error"
-                    }
-                })),
-            ));
-        }
-    };
+    let provider =
+        match get_provider_by_id_for_organization(&state.db, id, &user_ctx.organization_id).await {
+            Ok(Some(provider)) => provider,
+            Ok(None) => {
+                return Err((
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": {
+                            "message": "Provider not found",
+                            "type": "not_found"
+                        }
+                    })),
+                ));
+            }
+            Err(e) => {
+                eprintln!("Failed to get provider {}: {}", id, e);
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {
+                            "message": "Failed to retrieve provider",
+                            "type": "database_error"
+                        }
+                    })),
+                ));
+            }
+        };
 
     // Auto-create mints for the provider if they don't exist
     if let Err(e) = auto_create_mints_for_provider(
