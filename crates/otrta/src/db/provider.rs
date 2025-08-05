@@ -489,7 +489,7 @@ pub async fn get_available_providers_for_organization(
             // Provider is editable if it's custom and either:
             // 1. User is admin (can edit any custom provider), or
             // 2. Provider belongs to the same organization
-            let is_editable = is_custom && (is_admin || provider_org_id == Some(*organization_id));
+            let is_editable = is_admin || (is_custom && provider_org_id == Some(*organization_id));
 
             ProviderWithStatus {
                 provider: Provider {
