@@ -514,20 +514,35 @@ async fn setup_first_time_user_defaults(
         .unwrap_or(&available_providers[0]);
 
     info!(
+        "Activating all {} providers for organization {}",
+        available_providers.len(),
+        org_id
+    );
+
+    for provider_with_models in &available_providers {
+        if let Err(e) = activate_provider_for_organization(
+            &app_state.db,
+            org_id,
+            provider_with_models.provider.id,
+        )
+        .await
+        {
+            warn!(
+                "Failed to activate provider {}: {}",
+                provider_with_models.provider.id, e
+            );
+            continue;
+        }
+        info!(
+            "Successfully activated provider {} for organization {}",
+            provider_with_models.provider.name, org_id
+        );
+    }
+
+    info!(
         "Setting provider {} as default for organization {}",
         default_provider.provider.name, org_id
     );
-
-    if let Err(e) =
-        activate_provider_for_organization(&app_state.db, org_id, default_provider.provider.id)
-            .await
-    {
-        warn!(
-            "Failed to activate provider {}: {}",
-            default_provider.provider.id, e
-        );
-        return Ok(());
-    }
 
     if let Err(e) = set_default_provider_for_organization_new(
         &app_state.db,
