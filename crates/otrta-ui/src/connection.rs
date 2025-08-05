@@ -17,8 +17,50 @@ pub struct ApplicationSettings {
     pub default_msats_per_request: u32,
     #[allow(dead_code)]
     pub mint_url: String,
+    #[serde(default)]
     pub enable_authentication: bool,
+    #[serde(default = "default_whitelisted_npubs", deserialize_with = "deserialize_npubs")]
     pub whitelisted_npubs: Vec<String>,
+}
+
+fn default_whitelisted_npubs() -> Vec<String> {
+    vec!["npub18kpn83drge7x9vz4cuhh7xta79sl4tfq55se4e554yj90s8y3f7qa49nps".to_string()]
+}
+
+fn deserialize_npubs<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor, Deserialize};
+    use std::fmt;
+
+    struct NpubsVisitor;
+
+    impl<'de> Visitor<'de> for NpubsVisitor {
+        type Value = Vec<String>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a string or array of strings")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Vec<String>, E>
+        where
+            E: de::Error,
+        {
+            // Handle comma-separated string
+            Ok(value.split(',').map(|s| s.trim().to_string()).collect())
+        }
+
+        fn visit_seq<S>(self, seq: S) -> Result<Vec<String>, S::Error>
+        where
+            S: de::SeqAccess<'de>,
+        {
+            // Handle array format
+            <Vec<String>>::deserialize(de::value::SeqAccessDeserializer::new(seq))
+        }
+    }
+
+    deserializer.deserialize_any(NpubsVisitor)
 }
 
 #[derive(Debug, serde::Deserialize, Clone)]
@@ -164,6 +206,10 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
                     }
                     if let Ok(val) = std::env::var("ENABLE_AUTHENTICATION") {
                         env_map.insert("application__enable_authentication".to_string(), val);
+                    }
+                    // Handle WHITELISTED_NPUBS
+                    if let Ok(val) = std::env::var("WHITELISTED_NPUBS") {
+                        env_map.insert("application__whitelisted_npubs".to_string(), val);
                     }
 
                     env_map

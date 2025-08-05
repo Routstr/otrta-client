@@ -25,7 +25,9 @@ services:
       - APP_APPLICATION__PORT=3333
       - APP_APPLICATION__HOST=0.0.0.0
       - APP_APPLICATION__MINT_URL=https://ecashmint.otrta.me
-      - APP_APPLICATION__DEFAULT_MSATS_PER_REQUEST=65536
+      - APP_APPLICATION__DEFAULT_MSATS_PER_REQUEST=131072
+      - APP_APPLICATION__WHITELISTED_NPUBS=
+      - APP_APPLICATION__ENABLE_AUTHENTICATION=true
 
       - APP_DATABASE__HOST=otrta-db-client
       - APP_DATABASE__PORT=5432
@@ -34,7 +36,7 @@ services:
       - APP_DATABASE__DATABASE_NAME=otrta
       - APP_DATABASE__REQUIRE_SSL=false
       - APP_DATABASE__CONNECTIONS=10
-      - APP_DATABASE__ENABLE_AUTHENTICATION=true
+
       # Wallet data persistence
       - WALLET_DATA_DIR=/app/wallet_data
       - TOR_SOCKS_PROXY=socks5h://otrta-tor:9050
@@ -63,7 +65,7 @@ services:
     ports:
       - 5436:5432
     volumes:
-      - otrta_db_client_prod1:/var/lib/postgresql/data
+      - otrta_db_client_prod_new:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d otrta"]
@@ -96,6 +98,6 @@ networks:
 
 volumes:
   backend_cache_client_prod: {}
-  otrta_db_client_prod1: {}
+  otrta_db_client_prod_new: {}
   wallet_data_client_prod: {}
   tor-data: {}

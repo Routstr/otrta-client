@@ -47,10 +47,21 @@ pub struct AuthState {
 
 pub async fn bearer_auth_middleware(
     State(auth_state): State<AuthState>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Response {
     if !auth_state.config.enabled {
+        // When authentication is disabled, create a default anonymous UserContext
+        match create_anonymous_user_context(&auth_state.app_state).await {
+            Ok(user_context) => {
+                request.extensions_mut().insert(user_context);
+                info!("Added anonymous user context for bearer auth (authentication disabled)");
+            }
+            Err(e) => {
+                warn!("Failed to create anonymous user context for bearer auth: {}", e);
+                return e.into_response();
+            }
+        }
         return next.run(request).await;
     }
 
@@ -152,6 +163,17 @@ pub async fn nostr_auth_middleware_with_context(
     next: Next,
 ) -> Response {
     if !auth_state.config.enabled {
+        // When authentication is disabled, create a default anonymous UserContext
+        match create_anonymous_user_context(&auth_state.app_state).await {
+            Ok(user_context) => {
+                request.extensions_mut().insert(user_context);
+                info!("Added anonymous user context (authentication disabled)");
+            }
+            Err(e) => {
+                warn!("Failed to create anonymous user context: {}", e);
+                return e.into_response();
+            }
+        }
         return next.run(request).await;
     }
 
@@ -414,8 +436,17 @@ async fn create_or_get_user_context(
 pub async fn ensure_default_organization_exists(
     app_state: &Arc<AppState>,
 ) -> Result<crate::models::Organization, AppError> {
+    // First try to get an existing organization
+    if let Ok(existing_orgs) = organizations::get_all_organizations(&app_state.db).await {
+        if let Some(org) = existing_orgs.first() {
+            info!("Using existing organization: {}", org.id);
+            return Ok(org.clone());
+        }
+    }
+
+    // If no organization exists, create a default one
     let create_org_request = CreateOrganizationRequest {
-        name: "Organization".to_string(),
+        name: "Default Organization".to_string(),
     };
 
     let organization =
@@ -423,6 +454,26 @@ pub async fn ensure_default_organization_exists(
     info!("Created default organization: {}", organization.id);
 
     Ok(organization)
+}
+
+async fn create_anonymous_user_context(
+    app_state: &Arc<AppState>,
+) -> Result<UserContext, AppError> {
+    // Create or get the default organization
+    let organization = ensure_default_organization_exists(app_state).await?;
+    
+    // Ensure organization multimint is set up
+    if let Err(e) = ensure_organization_multimint(app_state, &organization.id).await {
+        warn!("Failed to ensure organization multimint for anonymous user: {}", e);
+        // Don't fail authentication if multimint setup fails
+    }
+    
+    // Create anonymous user context (no admin privileges)
+    Ok(UserContext::new_with_admin_status(
+        "anonymous".to_string(),
+        organization,
+        false,
+    ))
 }
 
 async fn setup_first_time_user_defaults(

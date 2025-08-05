@@ -156,6 +156,61 @@ http://localhost:3333
         </div>
       </section>
 
+      <section id='admin-setup'>
+        <div className='mb-8'>
+          <h2 className='mb-4 flex items-center gap-3 text-3xl font-bold'>
+            <Terminal className='text-primary h-8 w-8' />
+            Admin Configuration
+          </h2>
+          <p className='text-muted-foreground text-lg'>
+            Configure admin access by setting up whitelisted Nostr public keys that can perform administrative actions.
+          </p>
+        </div>
+
+        <div className='space-y-6'>
+          <div className='rounded-lg border border-purple-200 bg-purple-50 p-6 dark:border-purple-800 dark:bg-purple-950/20'>
+            <h3 className='mb-3 flex items-center gap-2 font-semibold text-purple-900 dark:text-purple-100'>
+              <Globe className='h-5 w-5' />
+              Setup Admin Access
+            </h3>
+            <p className='mb-4 text-sm text-purple-800 dark:text-purple-200'>
+              You can configure specific Nostr public keys to have administrative privileges by setting the{' '}
+              <code className='rounded bg-purple-100 px-2 py-1 text-xs dark:bg-purple-900'>
+                WHITELISTED_NPUBS
+              </code>{' '}
+              environment variable in your{' '}
+              <code className='rounded bg-purple-100 px-2 py-1 text-xs dark:bg-purple-900'>
+                docker-compose.yaml
+              </code>{' '}
+              file.
+            </p>
+
+            <div className='space-y-4'>
+              <div>
+                <h4 className='mb-2 text-sm font-medium text-purple-900 dark:text-purple-100'>
+                  Configure Admin Npubs (in otrta-rust-client environment):
+                </h4>
+                <div className='rounded-lg border bg-purple-100 p-3 dark:bg-purple-900/30'>
+                  <pre className='text-xs text-purple-800 dark:text-purple-200'>
+                    <code>{`# Replace with your admin npub(s)
+- APP_APPLICATION__WHITELISTED_NPUBS=npub1your_admin_npub_here
+
+# Multiple admins (comma-separated)
+- APP_APPLICATION__WHITELISTED_NPUBS=npub1admin1,npub1admin2`}</code>
+                  </pre>
+                </div>
+              </div>
+            </div>
+
+            <div className='mt-4 rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30'>
+              <p className='text-sm text-blue-800 dark:text-blue-200'>
+                💡 <strong>Note:</strong> Only the Nostr public keys listed in WHITELISTED_NPUBS will have administrative access to manage the system. Make sure to use your actual npub key(s) instead of the example provided.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <NavigationLinks
         currentSection='installation'
         variant='compact'

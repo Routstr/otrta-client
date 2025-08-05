@@ -222,22 +222,21 @@ async fn main() {
         .route("/v1/{*path}", get(forward_any_request_get))
         .with_state(app_state.clone());
 
-    if auth_config.enabled {
-        let auth_state = AuthState {
-            config: auth_config.clone(),
-            app_state: app_state.clone(),
-        };
+    // Always apply middleware - the middleware itself handles the enabled/disabled logic
+    let auth_state = AuthState {
+        config: auth_config.clone(),
+        app_state: app_state.clone(),
+    };
 
-        unprotected_routes = unprotected_routes.layer(middleware::from_fn_with_state(
-            auth_state.clone(),
-            bearer_auth_middleware,
-        ));
+    unprotected_routes = unprotected_routes.layer(middleware::from_fn_with_state(
+        auth_state.clone(),
+        bearer_auth_middleware,
+    ));
 
-        protected_routes = protected_routes.layer(middleware::from_fn_with_state(
-            auth_state,
-            nostr_auth_middleware_with_context,
-        ));
-    }
+    protected_routes = protected_routes.layer(middleware::from_fn_with_state(
+        auth_state,
+        nostr_auth_middleware_with_context,
+    ));
 
     let app = protected_routes.merge(unprotected_routes);
 
