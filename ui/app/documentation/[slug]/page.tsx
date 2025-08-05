@@ -11,6 +11,7 @@ import { XCashuProtocols } from '../pages/XCashuProtocols';
 import { Nostr } from '../pages/Nostr';
 import { Vision } from '../pages/Vision';
 import { Overview } from '../pages/Overview';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 type PageType =
   | 'getting-started'
@@ -78,7 +79,7 @@ export default async function DocumentationSlugPage({ params }: Props) {
   return (
     <div className='bg-background min-h-screen'>
       <div className='bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b backdrop-blur'>
-        <div className='container flex h-16 items-center'>
+        <div className='container flex h-16 items-center justify-between'>
           <div className='ml-6 flex items-center space-x-4'>
             <Link
               href='/'
@@ -97,6 +98,9 @@ export default async function DocumentationSlugPage({ params }: Props) {
             <span className='text-primary text-sm font-medium'>
               Documentation
             </span>
+          </div>
+          <div className='absolute right-4'>
+            <ThemeToggle />
           </div>
         </div>
       </div>

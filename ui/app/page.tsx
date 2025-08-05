@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -318,6 +319,7 @@ export default function LandingPage() {
                 <Github className='h-4 w-4' />
               </Link>
             </Button>
+            <ThemeToggle />
             {isAuthenticated ? (
               <Button size='sm' asChild>
                 <Link href='/dashboard'>
