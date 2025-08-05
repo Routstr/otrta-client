@@ -98,12 +98,6 @@ export function SearchPageComponent(props: Props) {
     [effectiveGroupId]
   );
 
-  const getTemporarySearches = useCallback(() => {
-    return (
-      client.getQueryData<TemporarySearchResult[]>(tempSearchCacheKey) || []
-    );
-  }, [client, tempSearchCacheKey]);
-
   const setTemporarySearches = useCallback(
     (
       updater:
@@ -125,7 +119,8 @@ export function SearchPageComponent(props: Props) {
 
   const { data: temporarySearches = [] } = useQuery({
     queryKey: tempSearchCacheKey,
-    queryFn: () => client.getQueryData<TemporarySearchResult[]>(tempSearchCacheKey) || [],
+    queryFn: () =>
+      client.getQueryData<TemporarySearchResult[]>(tempSearchCacheKey) || [],
     staleTime: 0,
     gcTime: 0,
   });
