@@ -180,15 +180,12 @@ pub async fn send_token(
     };
 
     match wallet
-        .send(
+        .send_simple(
             payload.amount as u64,
             LocalMultimintSendOptions {
                 preferred_mint: Some(payload.mint_url),
                 ..Default::default()
             },
-            &state.db,
-            None,
-            None,
         )
         .await
     {

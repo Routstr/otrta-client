@@ -25,6 +25,7 @@ pub struct TokenRedeemResponse {
     pub message: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub default_msats_per_request: u32,
@@ -191,7 +192,6 @@ pub struct ProxyModelFromApi {
 
 impl ProxyModelFromApi {
     pub fn to_model_record(&self, provider_id: i32) -> ModelRecord {
-        // println!("{:?}", self);
         ModelRecord {
             id: uuid::Uuid::new_v4(),
             provider_id,
@@ -222,7 +222,13 @@ impl ProxyModelFromApi {
             model_type: self.model_type.clone(), // self.architecture.as_ref().and_then(|a| a.).clone(),
             description: self.description.clone(),
             context_length: self.top_provider.as_ref().and_then(|tp| tp.context_length),
-            is_free: self.is_free.unwrap_or(false),
+            is_free: self.sats_pricing.as_ref().map(|p| p.prompt).unwrap_or(0.0) == 0.0
+                && self
+                    .sats_pricing
+                    .as_ref()
+                    .map(|p| p.completion)
+                    .unwrap_or(0.0)
+                    == 0.0,
             created_at: chrono::Utc::now(),
             updated_at: Some(chrono::Utc::now()),
             last_seen_at: Some(chrono::Utc::now()),
@@ -286,9 +292,30 @@ pub struct MintBalance {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct MintUnitBalance {
+    pub mint_id: i32,
+    pub mint_url: String,
+    pub mint_name: Option<String>,
+    pub unit: String,
+    pub balance: u64,
+    pub proof_count: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MintWithBalances {
+    pub mint_id: i32,
+    pub mint_url: String,
+    pub mint_name: Option<String>,
+    pub unit_balances: Vec<MintUnitBalance>,
+    pub total_balance: u64,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct MultimintBalanceResponse {
     pub total_balance: u64,
     pub balances_by_mint: Vec<MintBalance>,
+    pub balances_by_unit: std::collections::HashMap<String, u64>,
+    pub mints_with_balances: Vec<MintWithBalances>,
 }
 
 #[derive(Deserialize)]

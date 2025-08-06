@@ -363,10 +363,6 @@ export function ApiKeySettings() {
                           <span className='font-medium'>User ID:</span>{' '}
                           {apiKey.user_id}
                         </div>
-                        <div className='truncate'>
-                          <span className='font-medium'>Organization:</span>{' '}
-                          {apiKey.organization_id}
-                        </div>
                         <div>
                           <span className='font-medium'>Created:</span>{' '}
                           {formatDate(apiKey.created_at)}

@@ -9,10 +9,31 @@ export const MintBalanceSchema = z.object({
   proof_count: z.number(),
 });
 
+// Schema for mint unit balance
+export const MintUnitBalanceSchema = z.object({
+  mint_id: z.number(),
+  mint_url: z.string(),
+  mint_name: z.string().nullable(),
+  unit: z.string(),
+  balance: z.number(),
+  proof_count: z.number(),
+});
+
+// Schema for mint with balances
+export const MintWithBalancesSchema = z.object({
+  mint_id: z.number(),
+  mint_url: z.string(),
+  mint_name: z.string().nullable(),
+  unit_balances: z.array(MintUnitBalanceSchema),
+  total_balance: z.number(),
+});
+
 // Schema for multimint balance response
 export const MultimintBalanceResponseSchema = z.object({
   total_balance: z.number(),
   balances_by_mint: z.array(MintBalanceSchema),
+  balances_by_unit: z.record(z.string(), z.number()),
+  mints_with_balances: z.array(MintWithBalancesSchema),
 });
 
 // Schema for multimint send request
@@ -72,6 +93,8 @@ export const RedeemTokenResponseSchema = z.object({
 });
 
 export type MintBalance = z.infer<typeof MintBalanceSchema>;
+export type MintUnitBalance = z.infer<typeof MintUnitBalanceSchema>;
+export type MintWithBalances = z.infer<typeof MintWithBalancesSchema>;
 export type MultimintBalanceResponse = z.infer<
   typeof MultimintBalanceResponseSchema
 >;
@@ -218,10 +241,7 @@ export class MultimintService {
     switch (unit.toLowerCase()) {
       case 'msat':
         const sats = Math.floor(balance / 1000);
-        const primaryMsat =
-          balance >= 1000
-            ? `${(balance / 1000).toFixed(1)}k msat`
-            : `${balance.toLocaleString('en-US')} msat`;
+        const primaryMsat = `${balance.toLocaleString('en-US')} msat`;
         return {
           primary: primaryMsat,
           secondary: `(${sats.toLocaleString('en-US')} sats)`,

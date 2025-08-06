@@ -3,9 +3,9 @@ services:
     container_name: otrta-ui-client-prod
     build:
       context: ui
-    environment:
-      - NEXT_PUBLIC_API_URL=http://otrta-rust-client:3333
-      - NEXT_PUBLIC_ENABLE_AUTHENTICATION=true
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:3333
+        - NEXT_PUBLIC_ENABLE_AUTHENTICATION=true
     networks:
       - otrta-network
     ports:
@@ -19,13 +19,15 @@ services:
       dockerfile: Dockerfile.client
     environment:
       # Runtime Environment
-      # - RUST_LOG=debug
+      - RUST_LOG=debug
       - APP_ENVIRONMENT=production
 
       - APP_APPLICATION__PORT=3333
       - APP_APPLICATION__HOST=0.0.0.0
       - APP_APPLICATION__MINT_URL=https://ecashmint.otrta.me
-      - APP_APPLICATION__DEFAULT_MSATS_PER_REQUEST=65536
+      - APP_APPLICATION__DEFAULT_MSATS_PER_REQUEST=131072
+      - APP_APPLICATION__WHITELISTED_NPUBS=
+      - APP_APPLICATION__ENABLE_AUTHENTICATION=true
 
       - APP_DATABASE__HOST=otrta-db-client
       - APP_DATABASE__PORT=5432
@@ -34,9 +36,10 @@ services:
       - APP_DATABASE__DATABASE_NAME=otrta
       - APP_DATABASE__REQUIRE_SSL=false
       - APP_DATABASE__CONNECTIONS=10
-      - APP_DATABASE__ENABLE_AUTHENTICATION=true
+
       # Wallet data persistence
       - WALLET_DATA_DIR=/app/wallet_data
+      - TOR_SOCKS_PROXY=socks5h://otrta-tor:9050
     ports:
       - 3333:3333
     networks:
@@ -62,7 +65,7 @@ services:
     ports:
       - 5436:5432
     volumes:
-      - otrta_db_client_prod:/var/lib/postgresql/data
+      - otrta_db_client_prod_new:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d otrta"]
@@ -70,11 +73,31 @@ services:
       timeout: 5s
       retries: 5
 
+  otrta-tor:
+    image: dockurr/tor
+    container_name: otrta-tor
+    restart: unless-stopped
+    ports:
+      - "9050:9050/tcp"
+      - "9053:9053/udp"
+    volumes:
+      - tor-data:/var/lib/tor
+    environment:
+      - SOCKS_TIMEOUT_SECONDS=60
+    networks:
+      - otrta-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9050"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 networks:
   otrta-network:
     external: true
 
 volumes:
   backend_cache_client_prod: {}
-  otrta_db_client_prod: {}
+  otrta_db_client_prod_new: {}
   wallet_data_client_prod: {}
+  tor-data: {}

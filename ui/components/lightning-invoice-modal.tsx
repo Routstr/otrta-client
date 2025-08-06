@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +14,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { MintService } from '@/lib/api/services/mints';
 
 interface LightningPaymentResponse {
   success: boolean;
@@ -35,6 +44,33 @@ export function LightningInvoiceModal() {
     amount: '',
     mint_url: '',
   });
+
+  // Fetch active mints
+  const { data: mintsData, isLoading: mintsLoading } = useQuery({
+    queryKey: ['active-mints'],
+    queryFn: () => MintService.getActiveMints(),
+    enabled: open, // Only fetch when modal is open
+  });
+
+  const activeMints = useMemo(() => mintsData?.mints || [], [mintsData?.mints]);
+
+  // Find the selected mint to get its currency unit
+  const selectedMint = formData.mint_url
+    ? activeMints.find((mint) => mint.mint_url === formData.mint_url)
+    : activeMints[0]; // Default to first mint if none selected
+
+  // Get the currency unit for the selected mint (default to 'sat' if no mint selected)
+  const currencyUnit = selectedMint?.currency_unit || 'sat';
+
+  // Set default mint URL when mints are loaded
+  useEffect(() => {
+    if (activeMints.length > 0 && !formData.mint_url) {
+      setFormData((prev) => ({
+        ...prev,
+        mint_url: activeMints[0].mint_url,
+      }));
+    }
+  }, [activeMints, formData.mint_url]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,7 +168,7 @@ export function LightningInvoiceModal() {
 
             <div className='grid grid-cols-2 gap-4'>
               <div className='space-y-2'>
-                <Label htmlFor='amount'>Amount (sats)</Label>
+                <Label htmlFor='amount'>Amount ({currencyUnit})</Label>
                 <Input
                   id='amount'
                   type='number'
@@ -148,15 +184,41 @@ export function LightningInvoiceModal() {
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='mint_url'>Mint URL (optional)</Label>
-                <Input
-                  id='mint_url'
-                  placeholder='https://mint.example.com'
-                  value={formData.mint_url}
-                  onChange={(e) =>
-                    setFormData({ ...formData, mint_url: e.target.value })
-                  }
-                />
+                <Label htmlFor='mint_url'>Select Mint</Label>
+                {mintsLoading ? (
+                  <div className='text-muted-foreground text-sm'>
+                    Loading mints...
+                  </div>
+                ) : activeMints.length > 0 ? (
+                  <Select
+                    value={formData.mint_url}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, mint_url: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Choose mint to pay from' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeMints.map((mint) => (
+                        <SelectItem key={mint.id} value={mint.mint_url}>
+                          <div className='flex flex-col'>
+                            <span>
+                              {mint.name || new URL(mint.mint_url).hostname}
+                            </span>
+                            <span className='text-muted-foreground text-xs'>
+                              {mint.currency_unit}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className='text-muted-foreground text-sm'>
+                    No active mints available
+                  </div>
+                )}
                 <p className='text-muted-foreground text-sm'>
                   Choose specific mint to pay from
                 </p>
@@ -167,7 +229,12 @@ export function LightningInvoiceModal() {
               <Button type='button' variant='outline' onClick={handleClose}>
                 Cancel
               </Button>
-              <Button type='submit' disabled={loading || !formData.invoice}>
+              <Button
+                type='submit'
+                disabled={
+                  loading || !formData.invoice || activeMints.length === 0
+                }
+              >
                 {loading ? 'Creating Quote...' : 'Create Payment Quote'}
               </Button>
             </DialogFooter>
@@ -184,11 +251,15 @@ export function LightningInvoiceModal() {
               </div>
               <div>
                 <Label className='text-muted-foreground'>Amount</Label>
-                <p>{payment.amount} sats</p>
+                <p>
+                  {payment.amount} {currencyUnit}
+                </p>
               </div>
               <div>
                 <Label className='text-muted-foreground'>Fee Reserve</Label>
-                <p>{payment.fee_reserve} sats</p>
+                <p>
+                  {payment.fee_reserve} {currencyUnit}
+                </p>
               </div>
               <div>
                 <Label className='text-muted-foreground'>Expires</Label>

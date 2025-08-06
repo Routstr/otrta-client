@@ -2,7 +2,7 @@ use crate::{
     db::{
         credit::{get_credits, CreditListResponse},
         transaction::{
-            get_api_key_statistics_for_user, get_all_transactions_for_user, ApiKeyStatistics,
+            get_all_transactions_for_user, get_api_key_statistics_for_user, ApiKeyStatistics,
             TransactionListResponse,
         },
     },

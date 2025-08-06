@@ -151,3 +151,33 @@ pub async fn user_belongs_to_organization(
 
     Ok(count.unwrap_or(0) > 0)
 }
+
+pub async fn get_all_organizations(pool: &PgPool) -> Result<Vec<Organization>, AppError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT id, name, created_at, updated_at, is_active
+        FROM organizations
+        WHERE is_active = true
+        ORDER BY created_at ASC
+        "#
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to get all organizations: {}", e);
+        AppError::DatabaseError(e.to_string())
+    })?;
+
+    let organizations = rows
+        .into_iter()
+        .map(|r| Organization {
+            id: r.id,
+            name: r.name,
+            created_at: r.created_at.unwrap_or_else(Utc::now),
+            updated_at: r.updated_at.unwrap_or_else(Utc::now),
+            is_active: r.is_active.unwrap_or(true),
+        })
+        .collect();
+
+    Ok(organizations)
+}

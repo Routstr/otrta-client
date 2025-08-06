@@ -1,8 +1,14 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { SchemaProps, search, GetSearchesResponse } from '@/src/api/web-search';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react';
+import { GetSearchesResponse } from '@/src/api/web-search';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import MessageInput from './messageInput';
 import { ResultCard } from './resultCard';
@@ -11,15 +17,16 @@ import { useModelSelectionStore } from '@/src/stores/model-selection';
 import { Badge } from '@/components/ui/badge';
 import { Brain, Sparkles } from 'lucide-react';
 import { extractModelName } from '@/lib/utils';
+import {
+  SearchManager,
+  TemporarySearchResult,
+} from '@/lib/services/search-manager';
+import { apiClient } from '@/lib/api/client';
+import { useConverstationStore } from '@/src/stores/converstation';
+import { getGroups } from '@/src/api/web-search';
 
 interface Props {
   searchData: GetSearchesResponse;
-}
-
-interface ApiError extends Error {
-  response?: {
-    status: number;
-  };
 }
 
 interface PendingSearch {
@@ -44,6 +51,7 @@ interface StreamingResult {
   created_at: string;
   isStreaming?: boolean;
   streamedText?: string;
+  isTemporary?: boolean;
 }
 
 export function SearchPageComponent(props: Props) {
@@ -51,44 +59,87 @@ export function SearchPageComponent(props: Props) {
   const [urls] = useState<string[]>([]);
   const { selectedModel } = useModelSelectionStore();
 
-  // Auto-scroll state management
+  const {
+    group_id: currentGroupId,
+    setFirstConversationActive,
+    checkHasActiveConversation,
+    ensureActiveGroup,
+    updateConversation,
+  } = useConverstationStore();
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScrollTop = useRef(0);
 
-  // Streaming state management
   const [pendingSearch, setPendingSearch] = useState<PendingSearch | null>(
     null
   );
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [streamingResults, setStreamingResults] = useState<
     Map<string, StreamingResult>
   >(new Map());
   const [searchToStream, setSearchToStream] = useState<string | null>(null);
+
+  const [savingSearches, setSavingSearches] = useState<Set<string>>(new Set());
+
+  const pollingIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const { data: proxyModels, isLoading: isLoadingProxyModels } = useQuery({
     queryKey: ['proxy-models'],
     queryFn: ModelService.listProxyModels,
   });
 
-  // Sort searches by creation date (oldest first for chat-like interface)
+  const effectiveGroupId = currentGroupId || props.searchData.group_id;
+
+  const tempSearchCacheKey = useMemo(
+    () => ['temporary_searches', effectiveGroupId],
+    [effectiveGroupId]
+  );
+
+  const setTemporarySearches = useCallback(
+    (
+      updater:
+        | TemporarySearchResult[]
+        | ((prev: TemporarySearchResult[]) => TemporarySearchResult[])
+    ) => {
+      client.setQueryData(
+        tempSearchCacheKey,
+        (oldData: TemporarySearchResult[] = []) => {
+          if (typeof updater === 'function') {
+            return updater(oldData);
+          }
+          return updater;
+        }
+      );
+    },
+    [client, tempSearchCacheKey]
+  );
+
+  const { data: temporarySearches = [] } = useQuery({
+    queryKey: tempSearchCacheKey,
+    queryFn: () =>
+      client.getQueryData<TemporarySearchResult[]>(tempSearchCacheKey) || [],
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  const isFirstSearch = !effectiveGroupId;
+
   const sortedSearches = [...props.searchData.searches].sort(
     (a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
 
-  // Combine real searches with streaming results
   const allResults = React.useMemo(() => {
     const results = [...sortedSearches];
 
-    // Add streaming results that aren't in the real searches yet
     streamingResults.forEach((streamingResult) => {
       const existsInReal = results.find((r) => r.id === streamingResult.id);
       if (!existsInReal) {
         results.push(streamingResult);
       } else {
-        // Update existing result with streaming state
         const index = results.findIndex((r) => r.id === streamingResult.id);
         if (index !== -1) {
           results[index] = { ...results[index], ...streamingResult };
@@ -96,13 +147,19 @@ export function SearchPageComponent(props: Props) {
       }
     });
 
+    temporarySearches.forEach((tempSearch) => {
+      results.push({
+        ...tempSearch,
+        isTemporary: true,
+      } as typeof tempSearch & { isTemporary: boolean });
+    });
+
     return results.sort(
       (a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
-  }, [sortedSearches, streamingResults]);
+  }, [sortedSearches, streamingResults, temporarySearches]);
 
-  // Stream text effect - made much faster
   const streamText = useCallback(
     (text: string, resultId: string, speed = 4) => {
       let index = 0;
@@ -143,7 +200,6 @@ export function SearchPageComponent(props: Props) {
     []
   );
 
-  // Check if user is near bottom of scroll container
   const checkIfNearBottom = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return false;
@@ -153,7 +209,6 @@ export function SearchPageComponent(props: Props) {
     return scrollHeight - scrollTop - clientHeight < threshold;
   }, []);
 
-  // Handle scroll events to detect manual scrolling
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -163,16 +218,13 @@ export function SearchPageComponent(props: Props) {
 
     setIsNearBottom(nearBottom);
 
-    // Detect if this is user-initiated scrolling
     if (Math.abs(currentScrollTop - lastScrollTop.current) > 5) {
       setIsUserScrolling(true);
 
-      // Clear existing timeout
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
 
-      // Reset user scrolling flag after a delay
       scrollTimeoutRef.current = setTimeout(() => {
         setIsUserScrolling(false);
       }, 1000);
@@ -246,65 +298,269 @@ export function SearchPageComponent(props: Props) {
     }
   }, [searchToStream, sortedSearches, streamingResults, streamText]);
 
-  const mutation = useMutation({
-    mutationKey: ['web_search'],
-    mutationFn: (registerForm: SchemaProps) => {
-      return search(registerForm);
-    },
-    onMutate: (variables) => {
-      // Immediately show the pending search
-      setPendingSearch({
-        query: variables.message,
-        timestamp: Date.now(),
+  // Save temporary search to database
+  const handleSaveSearch = async (searchData: {
+    query: string;
+    response: {
+      message: string;
+      sources?: Array<{
+        metadata: {
+          url: string;
+          title?: string | null;
+          description?: string | null;
+        };
+        content: string;
+      }> | null;
+    };
+  }) => {
+    // Wrap everything in a try-catch to prevent any errors from causing page refresh
+    try {
+      console.log('🚀 Starting save process for search:', searchData.query);
+      setSavingSearches((prev) => new Set(prev).add(searchData.query));
+
+      const activeGroupId = await ensureActiveGroup();
+      console.log('✅ Active group ensured:', activeGroupId);
+
+      const saveResponse = await SearchManager.getInstance().saveSearchToDb({
+        searchData,
+        group_id: activeGroupId,
       });
-    },
-    onSuccess: async (data) => {
-      console.log(data);
+      console.log('✅ Search saved to database:', saveResponse.id);
 
-      // Set the specific search ID to stream
-      setSearchToStream(data.id);
+      // Remove from temporary searches cache immediately
+      setTemporarySearches((prev) => {
+        const filtered = prev.filter(
+          (search) => search.query !== searchData.query
+        );
+        console.log(
+          '💾 Removing saved search from temporary cache. Remaining:',
+          filtered.length
+        );
+        return filtered;
+      });
 
-      await client.invalidateQueries({
-        queryKey: ['user_searches'],
+      const targetGroupId = saveResponse.group_id || activeGroupId;
+
+      // Update the permanent searches cache by adding the saved search
+      // This avoids invalidating and refetching, preserving temporary searches
+      client.setQueryData(
+        ['user_searches', targetGroupId],
+        (oldData: GetSearchesResponse | undefined) => {
+          if (!oldData) return oldData;
+
+          // Create a new search entry from the save response
+          const newSearch = {
+            id: saveResponse.id,
+            query: searchData.query,
+            response: searchData.response,
+            created_at: saveResponse.created_at,
+            was_encrypted: true, // Since we saved it encrypted
+          };
+
+          console.log(
+            '📝 Adding saved search to permanent cache:',
+            newSearch.id
+          );
+
+          return {
+            ...oldData,
+            searches: [...oldData.searches, newSearch].sort(
+              (a, b) =>
+                new Date(a.created_at).getTime() -
+                new Date(b.created_at).getTime()
+            ),
+          };
+        }
+      );
+
+      // Only refresh groups list (lightweight operation)
+      client.invalidateQueries({
+        queryKey: ['search_groups'],
         exact: true,
-        refetchType: 'active',
       });
-    },
-    onError: (error: ApiError) => {
-      console.error('Search failed:', error);
-      setPendingSearch(null);
-      setSearchToStream(null);
-    },
-    retry: (failureCount: number, error: ApiError) => {
-      if (error?.response?.status === 400 || error?.response?.status === 401) {
-        return false;
+
+      // Handle group activation without data refresh conflicts
+      if (saveResponse.group_id && saveResponse.group_id !== currentGroupId) {
+        console.log('🎯 Will activate group:', saveResponse.group_id);
+        const groupIdToActivate = saveResponse.group_id;
+
+        // Defer group switch but don't refresh data since we already updated the cache
+        setTimeout(() => {
+          try {
+            updateConversation(groupIdToActivate);
+            console.log(
+              '✅ Group activated without data refresh:',
+              groupIdToActivate
+            );
+          } catch (switchError) {
+            console.error('Error switching groups:', switchError);
+          }
+        }, 100);
       }
-      return failureCount < 2;
-    },
-  });
+
+      console.log(
+        '✅ Save process completed successfully for group:',
+        targetGroupId
+      );
+    } catch (error) {
+      console.error('❌ Error in save process:', error);
+      // Show user-friendly error without causing page refresh
+      setSearchError('Failed to save search. Please try again.');
+
+      // Still remove the search from temporary cache to prevent confusion
+      setTemporarySearches((prev) => {
+        const filtered = prev.filter(
+          (search) => search.query !== searchData.query
+        );
+        console.log(
+          '🔄 Removing failed search from temporary cache. Remaining:',
+          filtered.length
+        );
+        return filtered;
+      });
+    } finally {
+      // Always clean up the saving state
+      setSavingSearches((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(searchData.query);
+        return newSet;
+      });
+    }
+  };
+
+  // Discard temporary search from cache
+  const handleDiscardSearch = (searchId: string) => {
+    setTemporarySearches((prev) => {
+      const filtered = prev.filter((search) => search.id !== searchId);
+      console.log(
+        '🗑️ Discarding search from cache. Remaining temporary searches:',
+        filtered.length
+      );
+      return filtered;
+    });
+  };
+
+  // Helper function to collect groups and set up first conversation
+  const handlePostSearchGroupSetup = useCallback(async () => {
+    try {
+      console.log('🔍 Collecting groups after search completion...');
+      const allGroups = await getGroups({});
+      console.log('📋 Found groups:', allGroups);
+
+      if (allGroups.length > 0) {
+        // If no active group, set the most recently created one
+        if (!currentGroupId) {
+          const newestGroup = allGroups.reduce((newest, current) =>
+            new Date(current.created_at) > new Date(newest.created_at)
+              ? current
+              : newest
+          );
+
+          console.log(
+            '🎯 Setting up first conversation with group:',
+            newestGroup.id
+          );
+          setFirstConversationActive(newestGroup.id);
+
+          // Invalidate and refetch queries to refresh the UI
+          console.log('🔄 Invalidating queries...');
+          await Promise.all([
+            client.invalidateQueries({
+              queryKey: ['search_groups'],
+              exact: true,
+              refetchType: 'active',
+            }),
+            client.invalidateQueries({
+              queryKey: ['user_searches', newestGroup.id],
+              exact: true,
+              refetchType: 'active',
+            }),
+            client.invalidateQueries({
+              queryKey: ['user_searches'],
+              exact: false,
+              refetchType: 'active',
+            }),
+          ]);
+
+          console.log('✅ Group setup completed successfully');
+        } else {
+          console.log('👍 Active group already exists:', currentGroupId);
+        }
+      } else {
+        console.log('⚠️ No groups found after search');
+      }
+    } catch (error) {
+      console.error('❌ Failed to collect groups after search:', error);
+    }
+  }, [currentGroupId, setFirstConversationActive, client]);
 
   const onSubmit = async (message: string, modelId?: string) => {
     const effectiveModel = modelId || selectedModel;
-    await mutation.mutateAsync({
-      message: message,
-      group_id: props.searchData.group_id,
-      conversation:
-        allResults.length === 0
-          ? undefined
-          : [
-              {
-                human: allResults[allResults.length - 1].query,
-                assistant: allResults[allResults.length - 1].response.message,
-              },
-            ],
-      urls: urls.length === 0 ? undefined : urls,
-      model_id: effectiveModel === 'none' ? undefined : effectiveModel,
+
+    // Clear any previous errors
+    setSearchError(null);
+
+    // Immediately show the pending search
+    setPendingSearch({
+      query: message,
+      timestamp: Date.now(),
     });
+
+    console.log('🚀 Submitting temporary search...', {
+      message,
+      effectiveGroupId,
+      isFirstSearch,
+      currentGroupId,
+      hasActiveConversation: checkHasActiveConversation(),
+    });
+
+    try {
+      const tempResult =
+        await SearchManager.getInstance().submitTemporarySearch({
+          message: message,
+          group_id: effectiveGroupId || '',
+          conversation:
+            allResults.length === 0
+              ? undefined
+              : [
+                  {
+                    human: allResults[allResults.length - 1].query,
+                    assistant:
+                      allResults[allResults.length - 1].response.message,
+                  },
+                ],
+          urls: urls.length === 0 ? undefined : urls,
+          model_id: effectiveModel === 'none' ? undefined : effectiveModel,
+        });
+
+      console.log('[Search] Temporary search completed:', tempResult);
+
+      // Add to temporary searches cache
+      setTemporarySearches((prev) => {
+        const newTemp = [...prev, tempResult];
+        console.log(
+          '🔄 Adding temporary search to cache. Total temporary searches:',
+          newTemp.length
+        );
+        return newTemp;
+      });
+
+      // Clear pending search
+      setPendingSearch(null);
+    } catch (error) {
+      console.error('Search submission failed:', error);
+      setPendingSearch(null);
+      setSearchError(
+        error instanceof Error
+          ? error.message
+          : 'An unexpected error occurred while searching. Please try again.'
+      );
+    }
   };
 
   // Force scroll to bottom when search completes (after query invalidation)
   useEffect(() => {
-    if (!mutation.isPending && allResults.length > 0) {
+    if (!pendingSearch && allResults.length > 0) {
       // Small delay to ensure DOM has updated after query invalidation
       const timeoutId = setTimeout(() => {
         scrollToBottom();
@@ -314,7 +570,7 @@ export function SearchPageComponent(props: Props) {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [mutation.isPending, allResults.length, scrollToBottom]);
+  }, [pendingSearch, allResults.length, scrollToBottom]);
 
   const getSelectedModelInfo = () => {
     if (selectedModel === 'none') return null;
@@ -322,6 +578,154 @@ export function SearchPageComponent(props: Props) {
   };
 
   const selectedModelInfo = getSelectedModelInfo();
+
+  // Polling functions
+  const stopPolling = useCallback((searchId: string) => {
+    const interval = pollingIntervalsRef.current.get(searchId);
+    if (interval) {
+      console.log(`[Search] Stopping polling for search ${searchId}`);
+      clearInterval(interval);
+      pollingIntervalsRef.current.delete(searchId);
+    }
+  }, []);
+
+  const pollSearchStatus = useCallback(
+    async (searchId: string) => {
+      try {
+        const response = await apiClient.get<{
+          id: string;
+          status: string;
+          query: string;
+          started_at?: string;
+          completed_at?: string;
+          error_message?: string;
+          response?: unknown;
+        }>(`/api/search/${searchId}/status`);
+
+        console.log(`[Search] Polling status for ${searchId}:`, response);
+
+        if (response.status === 'completed' || response.status === 'failed') {
+          console.log(
+            `[Search] Search ${searchId} completed with status: ${response.status}`
+          );
+          stopPolling(searchId);
+
+          // Always try to set up groups after search completion if no current group
+          if (response.status === 'completed' && !currentGroupId) {
+            console.log('🔧 Triggering group setup after search completion...');
+            await handlePostSearchGroupSetup();
+          }
+
+          // Invalidate the main search query to refresh results
+          const queryKey = currentGroupId
+            ? ['user_searches', currentGroupId]
+            : ['user_searches', effectiveGroupId];
+
+          await client.invalidateQueries({
+            queryKey,
+            exact: true,
+            refetchType: 'active',
+          });
+
+          // Clear pending search if it matches
+          setPendingSearch((prev) => {
+            if (prev && response.query === prev.query) {
+              return null;
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error(`[Search] Error polling search ${searchId}:`, error);
+        if (
+          (error as { response?: { status?: number } })?.response?.status ===
+          404
+        ) {
+          stopPolling(searchId);
+        }
+      }
+    },
+    [
+      client,
+      effectiveGroupId,
+      currentGroupId,
+      stopPolling,
+      handlePostSearchGroupSetup,
+    ]
+  );
+
+  const startPolling = useCallback(
+    (searchId: string) => {
+      if (pollingIntervalsRef.current.has(searchId)) {
+        console.log(`[Search] Already polling search ${searchId}`);
+        return;
+      }
+
+      console.log(`[Search] Starting to poll search ${searchId}`);
+      // setPollingSearches(prev => new Set([...prev, searchId])); // This line was removed
+
+      const interval = setInterval(() => {
+        pollSearchStatus(searchId);
+      }, 3000);
+
+      pollingIntervalsRef.current.set(searchId, interval);
+    },
+    [pollSearchStatus]
+  );
+
+  // Load pending searches on component mount
+  useEffect(() => {
+    const loadPendingSearches = async () => {
+      try {
+        console.log('[Search] Loading pending searches...');
+        const pendingSearches = await apiClient.get<
+          Array<{
+            id: string;
+            status: string;
+            query: string;
+            group_id: string;
+            started_at?: string;
+            created_at: string;
+            error_message?: string;
+          }>
+        >('/api/search/pending');
+
+        console.log('[Search] Pending searches loaded:', pendingSearches);
+
+        for (const search of pendingSearches) {
+          if (search.status === 'pending' || search.status === 'processing') {
+            // Show pending search if it's for the current group
+            if (search.group_id === effectiveGroupId) {
+              setPendingSearch({
+                query: search.query,
+                timestamp: new Date(search.created_at).getTime(),
+              });
+            }
+
+            console.log(
+              `[Search] Starting polling for pending search ${search.id}`
+            );
+            startPolling(search.id);
+          }
+        }
+      } catch (error) {
+        console.error('[Search] Failed to load pending searches:', error);
+      }
+    };
+
+    loadPendingSearches();
+  }, [effectiveGroupId, startPolling]);
+
+  // Cleanup polling on unmount - temporary searches persist via React Query cache
+  useEffect(() => {
+    const currentIntervals = pollingIntervalsRef.current;
+    return () => {
+      console.log('[Search] Cleaning up all polling intervals');
+      currentIntervals.forEach((interval) => clearInterval(interval));
+      currentIntervals.clear();
+      // Note: Temporary searches persist automatically via React Query cache
+    };
+  }, []);
 
   return (
     <div className='relative flex h-screen flex-col'>
@@ -335,6 +739,13 @@ export function SearchPageComponent(props: Props) {
                 <span>
                   Select a web search model like <strong>Sonar</strong> for
                   internet searches
+                </span>
+              </div>
+              <div className='text-muted-foreground flex items-center gap-2 text-xs'>
+                <span>🔐</span>
+                <span>
+                  Saved searches are encrypted with <strong>NIP-44</strong>{' '}
+                  using your Nostr key
                 </span>
               </div>
             </div>
@@ -373,7 +784,7 @@ export function SearchPageComponent(props: Props) {
       >
         <div className='mx-auto max-w-4xl px-4 py-8'>
           {/* Error state */}
-          {mutation.error && (
+          {searchError && (
             <div className='border-destructive/20 bg-destructive/5 animate-in slide-in-from-bottom-4 mb-8 rounded-xl border p-6'>
               <div className='mb-2 flex items-center gap-2'>
                 <div className='bg-destructive h-2 w-2 rounded-full'></div>
@@ -381,11 +792,7 @@ export function SearchPageComponent(props: Props) {
                   Search Failed
                 </span>
               </div>
-              <p className='text-destructive/80 text-sm'>
-                {mutation.error instanceof Error
-                  ? mutation.error.message
-                  : 'An unexpected error occurred while searching. Please try again.'}
-              </p>
+              <p className='text-destructive/80 text-sm'>{searchError}</p>
             </div>
           )}
 
@@ -404,6 +811,12 @@ export function SearchPageComponent(props: Props) {
                   }
                 : value;
 
+              const isTemporary = Boolean(
+                'isTemporary' in value &&
+                  (value as { isTemporary?: boolean }).isTemporary
+              );
+              const isSaving = savingSearches.has(value.query);
+
               return (
                 <div
                   key={value.id}
@@ -414,11 +827,15 @@ export function SearchPageComponent(props: Props) {
                   }}
                 >
                   <ResultCard
-                    data={displayValue}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    data={{ ...displayValue, isTemporary } as any}
                     sendMessage={onSubmit}
                     loading={false}
-                    currentGroup={props.searchData.group_id}
+                    currentGroup={effectiveGroupId}
                     isStreaming={streamingData?.isStreaming || false}
+                    onSave={isTemporary ? handleSaveSearch : undefined}
+                    onDiscard={isTemporary ? handleDiscardSearch : undefined}
+                    isSaving={isSaving}
                   />
                 </div>
               );
@@ -472,6 +889,13 @@ export function SearchPageComponent(props: Props) {
                         selection
                       </span>
                     </li>
+                    <li className='flex items-start gap-2'>
+                      <span className='text-primary'>•</span>
+                      <span>
+                        <strong>Privacy</strong>: Saved searches are encrypted
+                        with NIP-44
+                      </span>
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -485,8 +909,8 @@ export function SearchPageComponent(props: Props) {
         <div className='mx-auto max-w-4xl p-4'>
           <MessageInput
             sendMessage={onSubmit}
-            loading={mutation.isPending}
-            currentGroup={props.searchData.group_id}
+            loading={pendingSearch !== null}
+            currentGroup={effectiveGroupId}
             urls={urls}
             proxyModels={proxyModels}
             isLoadingProxyModels={isLoadingProxyModels}

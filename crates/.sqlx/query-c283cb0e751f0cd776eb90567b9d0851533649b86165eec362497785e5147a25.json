@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE user_searches \n        SET status = $1, started_at = $2, completed_at = $3, error_message = $4\n        WHERE id = $5\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Timestamp",
+        "Timestamp",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c283cb0e751f0cd776eb90567b9d0851533649b86165eec362497785e5147a25"
+}

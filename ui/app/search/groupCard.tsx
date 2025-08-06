@@ -129,7 +129,7 @@ export function GroupCard({
               onClick={(e) => {
                 e.stopPropagation();
               }}
-              className='hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100'
+              className='text-muted-foreground hover:text-destructive opacity-100 transition-colors md:opacity-0 md:group-hover:opacity-100'
             >
               <XCircleIcon className='h-4 w-4' />
             </button>

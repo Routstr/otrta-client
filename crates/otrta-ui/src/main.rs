@@ -80,6 +80,10 @@ async fn main() {
             delete(handlers::delete_custom_provider_handler),
         )
         .route(
+            "/api/providers/{id}",
+            put(handlers::update_custom_provider_handler),
+        )
+        .route(
             "/api/providers/{id}/set-default",
             post(handlers::set_provider_default),
         )
@@ -113,6 +117,7 @@ async fn main() {
             get(handlers::get_current_server_config),
         )
         .route("/api/server-config", post(handlers::update_server_config))
+        .route("/api/tor/health", get(handlers::tor_health_check))
         .route("/api/credits", get(handlers::get_all_credits))
         .route("/api/transactions", get(handlers::get_all_transactions))
         .route(
@@ -122,6 +127,10 @@ async fn main() {
         .route("/api/mints", get(handlers::get_all_mints_handler))
         .route("/api/mints", post(handlers::create_mint_handler))
         .route("/api/mints/active", get(handlers::get_active_mints_handler))
+        .route(
+            "/api/mints/active-with-units",
+            get(handlers::get_active_mints_with_units_handler),
+        )
         .route("/api/mints/{id}", get(handlers::get_mint_handler))
         .route("/api/mints/{id}", put(handlers::update_mint_handler))
         .route("/api/mints/{id}", delete(handlers::delete_mint_handler))
@@ -174,7 +183,20 @@ async fn main() {
         .route("/api/debug/wallet", get(handlers::get_wallet_debug_info))
         .route("/api/search", get(handlers::get_searches_handler))
         .route("/api/search", post(handlers::search_handler))
+        .route(
+            "/api/search/temporary",
+            post(handlers::temporary_search_handler),
+        )
+        .route("/api/search/save", post(handlers::save_search_handler))
         .route("/api/search/delete", post(handlers::delete_search_handler))
+        .route(
+            "/api/search/{search_id}/status",
+            get(handlers::get_search_status_handler),
+        )
+        .route(
+            "/api/search/pending",
+            get(handlers::get_pending_searches_handler),
+        )
         .route(
             "/api/search/groups",
             get(handlers::get_search_groups_handler),
@@ -182,6 +204,10 @@ async fn main() {
         .route(
             "/api/search/groups",
             post(handlers::create_search_group_handler),
+        )
+        .route(
+            "/api/search/groups/update",
+            post(handlers::update_search_group_handler),
         )
         .route(
             "/api/search/groups/delete",
@@ -196,22 +222,21 @@ async fn main() {
         .route("/v1/{*path}", get(forward_any_request_get))
         .with_state(app_state.clone());
 
-    if auth_config.enabled {
-        let auth_state = AuthState {
-            config: auth_config.clone(),
-            app_state: app_state.clone(),
-        };
+    // Always apply middleware - the middleware itself handles the enabled/disabled logic
+    let auth_state = AuthState {
+        config: auth_config.clone(),
+        app_state: app_state.clone(),
+    };
 
-        unprotected_routes = unprotected_routes.layer(middleware::from_fn_with_state(
-            auth_state.clone(),
-            bearer_auth_middleware,
-        ));
+    unprotected_routes = unprotected_routes.layer(middleware::from_fn_with_state(
+        auth_state.clone(),
+        bearer_auth_middleware,
+    ));
 
-        protected_routes = protected_routes.layer(middleware::from_fn_with_state(
-            auth_state,
-            nostr_auth_middleware_with_context,
-        ));
-    }
+    protected_routes = protected_routes.layer(middleware::from_fn_with_state(
+        auth_state,
+        nostr_auth_middleware_with_context,
+    ));
 
     let app = protected_routes.merge(unprotected_routes);
 

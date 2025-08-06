@@ -9,6 +9,9 @@ export const TransactionSchema = z.object({
   api_key_id: z.string().nullable(),
   user_id: z.string().nullable(),
   type: z.enum(['Chat', 'Api']),
+  provider_url: z.string().nullable(),
+  unit: z.string().nullable(),
+  model: z.string().nullable(),
 });
 
 export const TransactionListParamsSchema = z.object({

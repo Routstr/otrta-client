@@ -29,6 +29,7 @@ export const SchemaResponsePropsSchema = z.object({
   query: z.string(),
   response: SchemaResponseSchema,
   created_at: z.string(),
+  was_encrypted: z.boolean().optional(),
 });
 
 export type SchemaResponseProps = z.infer<typeof SchemaResponsePropsSchema>;
@@ -86,6 +87,20 @@ export const search = async (
   return SchemaResponsePropsSchema.parse(response);
 };
 
+export const temporarySearch = async (
+  data: SchemaProps
+): Promise<SchemaResponse> => {
+  const validatedData = SchemaPropsSchema.parse(data);
+  const response = await apiClient.post<{
+    id: string;
+    query: string;
+    response: SchemaResponse;
+    created_at: string;
+  }>('/api/search/temporary', validatedData);
+
+  return SchemaResponseSchema.parse(response.response);
+};
+
 export const getUserSearches = async (params: {
   group_id?: string;
 }): Promise<GetSearchesResponse> => {
@@ -99,7 +114,87 @@ export const getUserSearches = async (params: {
   try {
     const validatedResponse = GetSearchesResponseSchema.parse(response);
     console.log('✅ Response validation successful:', validatedResponse);
-    return validatedResponse;
+
+    // Decrypt the searches if they contain encrypted data and user has Nostr capabilities
+    if (typeof window !== 'undefined' && window.nostr?.nip04?.decrypt) {
+      const { SearchEncryptionService } = await import(
+        '@/lib/services/search-encryption'
+      );
+      const encryptionService = SearchEncryptionService.getInstance();
+
+      const decryptedSearches = await Promise.all(
+        validatedResponse.searches.map(async (search) => {
+          try {
+            const isLikelyEncrypted =
+              search.query &&
+              typeof search.query === 'string' &&
+              search.query.length > 50 &&
+              !search.query.includes(' ') && // Normal queries have spaces
+              search.response?.message &&
+              typeof search.response.message === 'string' &&
+              search.response.message.length > 50 &&
+              !search.response.message.includes(' ');
+
+            if (isLikelyEncrypted) {
+              console.log('🔐 Decrypting search:', search.id);
+
+              const decryptedData = await encryptionService.decryptSearchData({
+                encryptedQuery: search.query,
+                encryptedResponse: search.response.message,
+                timestamp: Date.now(), // This isn't used in decryption
+              });
+
+              console.log('✅ Successfully decrypted search:', search.id);
+
+              return {
+                ...search,
+                query: decryptedData.query,
+                response: decryptedData.response,
+                was_encrypted: true,
+              };
+            }
+
+            // Return search as-is if not encrypted
+            return {
+              ...search,
+              was_encrypted: false,
+            };
+          } catch (decryptError) {
+            console.error(
+              '❌ Failed to decrypt search:',
+              search.id,
+              decryptError
+            );
+            // Return the search as-is if decryption fails
+            return {
+              ...search,
+              query: search.query || 'Encrypted Search (Decryption Failed)',
+              response: {
+                ...search.response,
+                message:
+                  'Unable to decrypt this search result. Please ensure your Nostr extension is connected and has the correct permissions.',
+              },
+              was_encrypted: true, // Mark as encrypted even if decryption failed
+            };
+          }
+        })
+      );
+
+      return {
+        ...validatedResponse,
+        searches: decryptedSearches,
+      };
+    }
+
+    // If no Nostr capabilities, return as-is but mark all searches as unencrypted
+    console.log('⚠️ No Nostr decryption capabilities available');
+    return {
+      ...validatedResponse,
+      searches: validatedResponse.searches.map((search) => ({
+        ...search,
+        was_encrypted: false, // Mark as unencrypted when no Nostr available
+      })),
+    };
   } catch (validationError) {
     console.error('❌ Response validation failed:', validationError);
     console.error(
@@ -130,4 +225,15 @@ export const getGroups = async (
     params
   );
   return z.array(SearchGroupSchema).parse(response);
+};
+
+export const updateGroup = async (data: {
+  id: string;
+  name: string;
+}): Promise<SearchGroup> => {
+  const response = await apiClient.post<SearchGroup>(
+    '/api/search/groups/update',
+    data
+  );
+  return SearchGroupSchema.parse(response);
 };

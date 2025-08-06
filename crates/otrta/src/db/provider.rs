@@ -17,6 +17,7 @@ pub struct Provider {
     pub organization_id: Option<Uuid>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub has_msat_support: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -35,6 +36,7 @@ pub struct ProviderWithStatus {
     pub provider: Provider,
     pub is_active_for_org: bool,
     pub is_default_for_org: bool,
+    pub is_editable: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -59,11 +61,26 @@ pub struct CreateCustomProviderRequest {
     pub use_onion: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateCustomProviderRequest {
+    pub name: String,
+    pub url: String,
+    pub mints: Vec<String>,
+    pub use_onion: bool,
+}
+
 pub async fn get_all_providers(db: &Pool) -> Result<Vec<Provider>, sqlx::Error> {
     let providers = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
-         FROM providers
-         ORDER BY is_default DESC, is_custom ASC, followers DESC, zaps DESC"
+        "SELECT 
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            EXISTS(
+                SELECT 1 FROM mints m 
+                WHERE m.mint_url = ANY(p.mints) 
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
+         FROM providers p
+         ORDER BY p.is_default DESC, p.is_custom ASC, p.followers DESC, p.zaps DESC",
     )
     .fetch_all(db)
     .await?;
@@ -73,9 +90,16 @@ pub async fn get_all_providers(db: &Pool) -> Result<Vec<Provider>, sqlx::Error> 
 
 pub async fn get_default_provider(db: &Pool) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
-         FROM providers
-         WHERE is_default = TRUE"
+        "SELECT 
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            EXISTS(
+                SELECT 1 FROM mints m 
+                WHERE m.mint_url = ANY(p.mints) 
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
+         FROM providers p
+         WHERE p.is_default = TRUE",
     )
     .fetch_optional(db)
     .await?;
@@ -85,9 +109,16 @@ pub async fn get_default_provider(db: &Pool) -> Result<Option<Provider>, sqlx::E
 
 pub async fn get_provider_by_id(db: &Pool, id: i32) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
-         FROM providers
-         WHERE id = $1"
+        "SELECT 
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            EXISTS(
+                SELECT 1 FROM mints m 
+                WHERE m.mint_url = ANY(p.mints) 
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
+         FROM providers p
+         WHERE p.id = $1",
     )
     .bind(id)
     .fetch_optional(db)
@@ -116,7 +147,7 @@ pub async fn create_custom_provider(
     let provider = sqlx::query_as::<_, Provider>(
         "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
          VALUES ($1, $2, $3, $4, 0, 0, TRUE, NULL, NOW())
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at, false as has_msat_support"
     )
     .bind(&request.name)
     .bind(&request.url)
@@ -292,9 +323,17 @@ pub async fn get_provider_by_id_for_organization(
     organization_id: &Uuid,
 ) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
-         FROM providers
-         WHERE id = $1 AND (organization_id IS NULL OR organization_id = $2)"
+        "SELECT 
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            EXISTS(
+                SELECT 1 FROM mints m 
+                WHERE m.mint_url = ANY(p.mints) 
+                AND m.organization_id = $2
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
+         FROM providers p
+         WHERE p.id = $1 AND (p.organization_id IS NULL OR p.organization_id = $2)",
     )
     .bind(id)
     .bind(organization_id)
@@ -314,12 +353,58 @@ pub async fn create_custom_provider_for_organization(
     let provider = sqlx::query_as::<_, Provider>(
         "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
          VALUES ($1, $2, $3, $4, 0, 0, TRUE, $5, NOW())
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at, false as has_msat_support"
     )
     .bind(&request.name)
     .bind(&request.url)
     .bind(&request.mints)
     .bind(request.use_onion)
+    .bind(organization_id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(provider)
+}
+
+pub async fn update_custom_provider(
+    db: &Pool,
+    id: i32,
+    request: UpdateCustomProviderRequest,
+) -> Result<Provider, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "UPDATE providers 
+         SET name = $1, url = $2, mints = $3, use_onion = $4, updated_at = NOW()
+         WHERE id = $5 AND is_custom = TRUE
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at, false as has_msat_support"
+    )
+    .bind(&request.name)
+    .bind(&request.url)
+    .bind(&request.mints)
+    .bind(request.use_onion)
+    .bind(id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(provider)
+}
+
+pub async fn update_custom_provider_for_organization(
+    db: &Pool,
+    id: i32,
+    request: UpdateCustomProviderRequest,
+    organization_id: &Uuid,
+) -> Result<Provider, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "UPDATE providers 
+         SET name = $1, url = $2, mints = $3, use_onion = $4, updated_at = NOW()
+         WHERE id = $5 AND is_custom = TRUE AND organization_id = $6
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at, false as has_msat_support"
+    )
+    .bind(&request.name)
+    .bind(&request.url)
+    .bind(&request.mints)
+    .bind(request.use_onion)
+    .bind(id)
     .bind(organization_id)
     .fetch_one(db)
     .await?;
@@ -369,6 +454,7 @@ pub async fn set_default_provider_for_organization(
 pub async fn get_available_providers_for_organization(
     db: &Pool,
     organization_id: &Uuid,
+    is_admin: bool,
 ) -> Result<Vec<ProviderWithStatus>, sqlx::Error> {
     let providers = sqlx::query!(
         r#"
@@ -376,7 +462,13 @@ pub async fn get_available_providers_for_organization(
             p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
             p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
             COALESCE(op.is_active, false) as is_active_for_org,
-            COALESCE(op.is_default, false) as is_default_for_org
+            COALESCE(op.is_default, false) as is_default_for_org,
+            EXISTS(
+                SELECT 1 FROM mints m 
+                WHERE m.mint_url = ANY(p.mints) 
+                AND m.organization_id = $1
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
         FROM providers p
         LEFT JOIN organization_providers op
             ON p.id = op.provider_id AND op.organization_id = $1
@@ -390,23 +482,35 @@ pub async fn get_available_providers_for_organization(
 
     let result = providers
         .into_iter()
-        .map(|row| ProviderWithStatus {
-            provider: Provider {
-                id: row.id,
-                name: row.name,
-                url: row.url,
-                mints: row.mints.unwrap_or_default(),
-                use_onion: row.use_onion.unwrap_or(false),
-                followers: row.followers.unwrap_or(0),
-                zaps: row.zaps.unwrap_or(0),
-                is_default: row.is_default.unwrap_or(false),
-                is_custom: row.is_custom.unwrap_or(false),
-                organization_id: row.organization_id,
-                created_at: row.created_at.unwrap_or_else(chrono::Utc::now),
-                updated_at: row.updated_at.unwrap_or_else(chrono::Utc::now),
-            },
-            is_active_for_org: row.is_active_for_org.unwrap_or(false),
-            is_default_for_org: row.is_default_for_org.unwrap_or(false),
+        .map(|row| {
+            let is_custom = row.is_custom.unwrap_or(false);
+            let provider_org_id = row.organization_id;
+
+            // Provider is editable if it's custom and either:
+            // 1. User is admin (can edit any custom provider), or
+            // 2. Provider belongs to the same organization
+            let is_editable = is_admin || (is_custom && provider_org_id == Some(*organization_id));
+
+            ProviderWithStatus {
+                provider: Provider {
+                    id: row.id,
+                    name: row.name,
+                    url: row.url,
+                    mints: row.mints.unwrap_or_default(),
+                    use_onion: row.use_onion.unwrap_or(false),
+                    followers: row.followers.unwrap_or(0),
+                    zaps: row.zaps.unwrap_or(0),
+                    is_default: row.is_default.unwrap_or(false),
+                    is_custom,
+                    organization_id: provider_org_id,
+                    created_at: row.created_at.unwrap_or_else(chrono::Utc::now),
+                    updated_at: row.updated_at.unwrap_or_else(chrono::Utc::now),
+                    has_msat_support: row.has_msat_support.unwrap_or(false),
+                },
+                is_active_for_org: row.is_active_for_org.unwrap_or(false),
+                is_default_for_org: row.is_default_for_org.unwrap_or(false),
+                is_editable,
+            }
         })
         .collect();
 
@@ -421,7 +525,13 @@ pub async fn get_active_providers_for_organization(
         r#"
         SELECT
             p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            EXISTS(
+                SELECT 1 FROM mints m 
+                WHERE m.mint_url = ANY(p.mints) 
+                AND m.organization_id = $1
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
         FROM providers p
         INNER JOIN organization_providers op
             ON p.id = op.provider_id
@@ -444,7 +554,13 @@ pub async fn get_default_provider_for_organization_new(
         r#"
         SELECT
             p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            EXISTS(
+                SELECT 1 FROM mints m 
+                WHERE m.mint_url = ANY(p.mints) 
+                AND m.organization_id = $1
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
         FROM providers p
         INNER JOIN organization_providers op
             ON p.id = op.provider_id

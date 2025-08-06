@@ -15,6 +15,8 @@ export interface Provider {
   updated_at: string;
   is_active_for_org: boolean;
   is_default_for_org: boolean;
+  is_editable: boolean;
+  has_msat_support: boolean;
 }
 
 export interface ProviderListResponse {
@@ -30,6 +32,13 @@ export interface RefreshProvidersResponse {
 }
 
 export interface CreateCustomProviderRequest {
+  name: string;
+  url: string;
+  mints: string[];
+  use_onion: boolean;
+}
+
+export interface UpdateCustomProviderRequest {
   name: string;
   url: string;
   mints: string[];
@@ -111,6 +120,21 @@ export class ProviderService {
       );
     } catch (error) {
       console.error(`Error deleting custom provider ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async updateCustomProvider(
+    id: number,
+    request: UpdateCustomProviderRequest
+  ): Promise<Provider> {
+    try {
+      return await apiClient.put<Provider>(
+        `/api/providers/${id}`,
+        request as unknown as Record<string, unknown>
+      );
+    } catch (error) {
+      console.error(`Error updating custom provider ${id}:`, error);
       throw error;
     }
   }

@@ -1,12 +1,17 @@
 use crate::{
     db::{
         api_keys::get_api_key_by_id,
+        mint::{get_mint_by_url, get_mint_by_url_for_organization},
         models::get_model,
         provider::{get_default_provider, get_default_provider_for_organization_new},
         transaction::{add_transaction, TransactionDirection, TransactionType},
         Pool,
     },
     models::*,
+    onion::{
+        configure_client_with_tor_proxy, construct_url_with_protocol, get_onion_error_message,
+        log_onion_timing, start_onion_timing,
+    },
     wallet::send_with_retry,
 };
 use axum::{
@@ -105,7 +110,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         Json(json!({
                             "error": {
                                 "message": "Invalid organization ID in API key",
-                                "type": "server_error",
+                                "type": "validation_error",
                                 "code": "invalid_organization_id"
                             }
                         })),
@@ -128,11 +133,11 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             }
             Err(_) => {
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::UNAUTHORIZED,
                     Json(json!({
                         "error": {
                             "message": "Failed to retrieve API key",
-                            "type": "server_error",
+                            "type": "authentication_error",
                             "code": "api_key_lookup_failed"
                         }
                     })),
@@ -167,7 +172,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         Json(json!({
                             "error": {
                                 "message": "No default provider configured. Please configure a provider first.",
-                                "type": "server_error",
+                                "type": "configuration_error",
                                 "param": null,
                                 "code": "default_provider_missing"
                             }
@@ -177,11 +182,11 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 Err(e) => {
                     eprintln!("Failed to get global default provider: {}", e);
                     return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
+                        StatusCode::SERVICE_UNAVAILABLE,
                         Json(json!({
                             "error": {
-                                "message": "Failed to retrieve provider configuration",
-                                "type": "server_error",
+                                "message": "Provider service unavailable",
+                                "type": "provider_error",
                                 "code": "provider_lookup_failed"
                             }
                         })),
@@ -196,11 +201,11 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 org_id, e
             );
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::SERVICE_UNAVAILABLE,
                 Json(json!({
                     "error": {
-                        "message": "Failed to retrieve provider configuration",
-                        "type": "server_error",
+                        "message": "Provider service unavailable",
+                        "type": "provider_error",
                         "code": "provider_lookup_failed"
                     }
                 })),
@@ -209,26 +214,69 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         }
     };
 
-    println!("{:?}", server_config);
+    let endpoint_url = construct_url_with_protocol(&server_config.url, path);
+    println!("Constructed proxy endpoint URL: {}", endpoint_url);
 
-    let mut client_builder = Client::builder();
+    let timeout_secs = if is_streaming { 300 } else { 60 }; // 5 min for streaming, 1 min for regular
+    let mut client = match crate::onion::create_onion_client(
+        &endpoint_url,
+        server_config.use_onion,
+        Some(timeout_secs),
+    ) {
+        Ok(client) => client,
+        Err(e) => {
+            eprintln!("Failed to create client with Tor proxy: {}", e);
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to configure client for .onion request",
+                        "type": "proxy_error",
+                        "code": "tor_proxy_configuration_failed"
+                    }
+                })),
+            )
+                .into_response();
+        }
+    };
 
-    if is_streaming {
-        use std::time::Duration;
-        client_builder = client_builder
-            .timeout(Duration::from_secs(300))
-            .pool_idle_timeout(None)
-            .pool_max_idle_per_host(0);
+    // For streaming requests with onion services, we need to handle connection pooling differently
+    if is_streaming && server_config.use_onion && endpoint_url.contains(".onion") {
+        // For onion streaming, create a fresh client without connection pooling
+        let mut client_builder = Client::builder()
+            .timeout(std::time::Duration::from_secs(300))
+            .pool_max_idle_per_host(1); // Allow minimal pooling for onion services
+
+        // Configure Tor proxy for streaming onion requests
+        client_builder = match configure_client_with_tor_proxy(
+            client_builder,
+            &endpoint_url,
+            server_config.use_onion,
+        ) {
+            Ok(builder) => builder,
+            Err(e) => {
+                eprintln!("Failed to configure Tor proxy for streaming: {}", e);
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({
+                        "error": {
+                            "message": "Failed to configure Tor proxy for streaming .onion request",
+                            "type": "proxy_error",
+                            "code": "tor_streaming_configuration_failed"
+                        }
+                    })),
+                )
+                    .into_response();
+            }
+        };
+
+        client = client_builder.build().unwrap();
     }
 
-    let client = client_builder.build().unwrap();
-    let endpoint_url = format!("{}/{}", &server_config.url, path);
-
-    println!("{}", endpoint_url);
     let mut req_builder = if body.is_some() {
-        client.post(endpoint_url)
+        client.post(&endpoint_url)
     } else {
-        client.get(endpoint_url)
+        client.get(&endpoint_url)
     };
 
     let model_name = if let Some(body_data) = &body {
@@ -243,8 +291,6 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         None
     };
 
-    println!("endpoint_url: {:?}", model_name);
-
     let model = if let Some(ref model_name) = model_name {
         (get_model(&state.db, model_name).await).unwrap_or_default()
     } else {
@@ -257,10 +303,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         None => false,
     };
 
-    println!("endpoint_url: {:?}", model);
-
     eprintln!(
-        "Processing request for model: {:?}, is_free: {}, cost: {}",
+        "Processing request for model: {:?}, is_free: {}, cost_msats: {}",
         model_name,
         is_free_model,
         match model {
@@ -273,8 +317,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.json(&body_data);
     }
 
-    println!("{:?}", model);
-    let cost = match model {
+    let cost_msats = match model {
         Some(model) => model
             .min_cost_per_request
             .unwrap_or_else(|| state.default_msats_per_request as i64),
@@ -283,21 +326,121 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
     if server_config.mints.is_empty() {
         return (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::BAD_REQUEST,
             Json(json!({
                 "error": {
-                    "message": format!("no mint found for provider"),
-                    "type": "payment_error",
+                    "message": "No active mints configured for this provider",
+                    "type": "configuration_error",
+                    "code": "no_active_mints"
                 }
             })),
         )
             .into_response();
     };
 
+    // Helper function to get mint info and sort by priority (msat first)
+    async fn get_sorted_mints_with_info(
+        db: &crate::db::Pool,
+        mint_urls: &[String],
+        org_id: &uuid::Uuid,
+    ) -> Vec<(String, String)> {
+        let mut mints_with_units = Vec::new();
+
+        for mint_url in mint_urls {
+            let currency_unit = match get_mint_by_url_for_organization(db, mint_url, org_id).await {
+                Ok(Some(mint)) => mint.currency_unit,
+                Ok(None) => {
+                    match get_mint_by_url(db, mint_url).await {
+                        Ok(Some(mint)) => mint.currency_unit,
+                        Ok(None) => {
+                            eprintln!("Mint not found for URL: {} (neither organization-specific nor global)", mint_url);
+                            "msat".to_string()
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "Error fetching global mint info for URL: {}: {}",
+                                mint_url, e
+                            );
+                            "msat".to_string()
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Error fetching mint info for URL: {} and organization: {}: {}",
+                        mint_url, org_id, e
+                    );
+                    "msat".to_string()
+                }
+            };
+            mints_with_units.push((mint_url.clone(), currency_unit));
+        }
+
+        // Sort mints: msat first, then sat
+        mints_with_units.sort_by(|a, b| match (a.1.as_str(), b.1.as_str()) {
+            ("msat", "sat") => std::cmp::Ordering::Less,
+            ("sat", "msat") => std::cmp::Ordering::Greater,
+            _ => std::cmp::Ordering::Equal,
+        });
+
+        mints_with_units
+    }
+
+    let sorted_mints = get_sorted_mints_with_info(&state.db, &server_config.mints, &org_id).await;
+    if sorted_mints.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "message": "No valid mints found for this provider",
+                    "type": "configuration_error",
+                    "code": "no_valid_mints"
+                }
+            })),
+        )
+            .into_response();
+    }
+
+    // Start with the first (highest priority) mint for initial cost calculation
+    let (initial_mint_url, initial_mint_currency_unit) = sorted_mints.first().unwrap();
+    let mut mint_url = initial_mint_url.clone();
+    let mut mint_currency_unit = initial_mint_currency_unit.clone();
+
+    let cost = if mint_currency_unit == "sat" {
+        (cost_msats + 999) / 1000
+    } else {
+        cost_msats
+    };
+
+    eprintln!(
+        "Cost calculation: model={:?}, cost_msats={}, mint_unit={}, final_cost={}, available_mints={}",
+        model_name, cost_msats, mint_currency_unit, cost, sorted_mints.len()
+    );
+
     let token = if is_free_model {
+        eprintln!(
+            "Recording free model transaction: model={:?}, provider={}, user={:?}",
+            model_name, server_config.url, user_id
+        );
+        add_transaction(
+            &state.db,
+            "",
+            "0",
+            TransactionDirection::Outgoing,
+            api_key_id,
+            user_id,
+            transaction_type.clone(),
+            Some(&server_config.url),
+            Some(&mint_currency_unit),
+            model_name.as_deref(),
+        )
+        .await
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to record free model transaction: {}", e);
+            uuid::Uuid::new_v4()
+        });
         String::new()
     } else {
-        // Get wallet from organization ID directly since we already have it
         let wallet = match state
             .multimint_manager
             .get_or_create_multimint(&org_id)
@@ -310,12 +453,12 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     org_id, e
                 );
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::BAD_REQUEST,
                     Json(json!({
                         "error": {
-                            "message": "Failed to get organization wallet",
+                            "message": "No active mints configured",
                             "type": "wallet_error",
-                            "code": "wallet_access_failed"
+                            "code": "no_active_mints"
                         }
                     })),
                 )
@@ -323,48 +466,110 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             }
         };
 
-        let token_result = send_with_retry(
-            &wallet,
-            cost,
-            server_config.mints.first().unwrap(),
-            Some(3),
-            &state.db,
-            api_key_id,
-            user_id,
-        )
-        .await;
+        // Try each mint in priority order until payment succeeds
+        let mut successful_mint_url = None;
+        let mut successful_currency_unit = None;
+        let mut _final_cost = 0;
+        let mut token = String::new();
+        let mut _last_error = None;
 
-        match token_result {
-            Ok(token) => token,
-            Err(e) => {
-                eprintln!(
-                    "Payment token generation failed for model: {:?}, cost: {} msats, error: {:?}",
-                    model_name, cost, e
-                );
+        for (current_mint_url, current_currency_unit) in &sorted_mints {
+            let current_cost = if current_currency_unit == "sat" {
+                (cost_msats + 999) / 1000
+            } else {
+                cost_msats
+            };
 
-                // If the model should be free or cost is 0, continue without payment
-                if is_free_model || cost == 0 {
-                    eprintln!("Model is free or zero cost, proceeding without payment token");
-                    String::new()
-                } else {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({
-                            "error": {
-                                "message": format!("Failed to generate payment token: {:?}. This usually means insufficient wallet balance or mint connectivity issues.", e),
-                                "type": "payment_error",
-                                "details": {
-                                    "model": model_name,
-                                    "cost_msats": cost,
-                                    "is_free_model": is_free_model
-                                }
-                            }
-                        })),
-                    )
-                        .into_response();
+            eprintln!(
+                "Attempting payment with mint: {}, unit: {}, cost: {}",
+                current_mint_url, current_currency_unit, current_cost
+            );
+
+            let token_result = send_with_retry(
+                &wallet,
+                current_cost,
+                current_mint_url,
+                Some(3),
+                &state.db,
+                api_key_id,
+                user_id,
+                Some(&server_config.url),
+                Some(current_currency_unit),
+                model_name.as_deref(),
+            )
+            .await;
+
+            match token_result {
+                Ok(success_token) => {
+                    eprintln!(
+                        "Payment successful with mint: {}, unit: {}, cost: {}",
+                        current_mint_url, current_currency_unit, current_cost
+                    );
+                    successful_mint_url = Some(current_mint_url.clone());
+                    successful_currency_unit = Some(current_currency_unit.clone());
+                    _final_cost = current_cost;
+                    token = success_token;
+                    break;
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Payment failed with mint: {}, unit: {}, cost: {}, error: {:?}",
+                        current_mint_url, current_currency_unit, current_cost, e
+                    );
+                    _last_error = Some(e);
+                    continue;
                 }
             }
         }
+
+        // If no mint succeeded, handle the failure
+        if successful_mint_url.is_none() {
+            eprintln!(
+                "All mints exhausted. Payment token generation failed for model: {:?}, tried {} mints",
+                model_name, sorted_mints.len()
+            );
+
+            // If the model should be free or cost is 0, continue without payment
+            if is_free_model || cost == 0 {
+                eprintln!("Model is free or zero cost, proceeding without payment token");
+                token = String::new();
+            } else {
+                return (
+                    StatusCode::PAYMENT_REQUIRED,
+                    Json(json!({
+                        "error": {
+                            "message": "Insufficient funds across all available mints",
+                            "type": "payment_error",
+                            "code": "insufficient_funds_all_mints",
+                            "details": {
+                                "model": model_name,
+                                "cost_msats": cost_msats,
+                                "mints_tried": sorted_mints.len(),
+                                "mints": sorted_mints.iter().map(|(url, unit)| {
+                                    json!({
+                                        "url": url,
+                                        "currency_unit": unit,
+                                        "cost": if unit == "sat" { (cost_msats + 999) / 1000 } else { cost_msats }
+                                    })
+                                }).collect::<Vec<_>>()
+                            }
+                        }
+                    })),
+                )
+                    .into_response();
+            }
+        } else {
+            // Update the variables for successful payment
+            mint_url = successful_mint_url.unwrap();
+            mint_currency_unit = successful_currency_unit.unwrap();
+
+            eprintln!(
+                "Final payment successful: mint={}, unit={}, cost={}",
+                mint_url, mint_currency_unit, _final_cost
+            );
+        }
+
+        token
     };
 
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
@@ -377,7 +582,10 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         req_builder = req_builder.header(header::ACCEPT, accept);
     }
 
+    let start_time = start_onion_timing(&endpoint_url);
+
     let response = if let Ok(resp) = req_builder.send().await {
+        log_onion_timing(start_time, &endpoint_url, "proxy");
         let status = resp.status();
         let headers = resp.headers().clone();
 
@@ -391,7 +599,16 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     {
                         Ok(wallet) => wallet,
                         Err(_) => {
-                            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet")
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(json!({
+                                    "error": {
+                                        "message": "No active mints configured",
+                                        "type": "wallet_error",
+                                        "code": "no_active_mints"
+                                    }
+                                })),
+                            )
                                 .into_response()
                         }
                     };
@@ -404,11 +621,25 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                         api_key_id,
                         user_id,
                         transaction_type.clone(),
+                        Some(&server_config.url),
+                        Some(&mint_currency_unit),
+                        model_name.as_deref(),
                     )
                     .await
                     .unwrap();
                 }
             }
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "message": "server error",
+                        "type": "server_serror",
+                        "code": "server_error"
+                    }
+                })),
+            )
+                .into_response();
         }
 
         let mut response = Response::builder().status(status);
@@ -417,9 +648,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             response = response.header(header::CONTENT_TYPE, "text/event-stream");
         }
 
-        println!("{:?}", headers);
         if let Some(change_sats) = headers.get("X-Cashu") {
-            println!("{:?}", change_sats);
             if let Ok(in_token) = change_sats.to_str() {
                 let wallet = match state
                     .multimint_manager
@@ -428,7 +657,16 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                 {
                     Ok(wallet) => wallet,
                     Err(_) => {
-                        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet")
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({
+                                "error": {
+                                    "message": "No active mints configured",
+                                    "type": "wallet_error",
+                                    "code": "no_active_mints"
+                                }
+                            })),
+                        )
                             .into_response()
                     }
                 };
@@ -441,6 +679,9 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     api_key_id,
                     user_id,
                     transaction_type.clone(),
+                    Some(&server_config.url),
+                    Some(&mint_currency_unit),
+                    model_name.as_deref(),
                 )
                 .await
                 .unwrap();
@@ -477,8 +718,8 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
 
             eprintln!("Error creating streaming response: {}", e);
             Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::from("Error creating streaming response"))
+                .status(StatusCode::BAD_GATEWAY)
+                .body(Body::from(format!("{{\"error\":{{\"message\":\"Error creating streaming response\",\"type\":\"streaming_error\",\"code\":\"stream_creation_failed\"}}}}")))
                 .unwrap()
         });
     } else {
@@ -489,10 +730,24 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
         {
             Ok(wallet) => wallet,
             Err(_) => {
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get wallet").into_response()
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "message": "No active mints configured",
+                            "type": "wallet_error",
+                            "code": "no_active_mints"
+                        }
+                    })),
+                )
+                    .into_response()
             }
         };
         let res = wallet.receive(&token).await.unwrap();
+        eprintln!(
+            "Token redemption after failed request: mint={}, amount={:?}",
+            mint_url, res
+        );
         add_transaction(
             &state.db,
             &token,
@@ -501,15 +756,20 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             api_key_id,
             user_id,
             transaction_type,
+            Some(&server_config.url),
+            Some(&mint_currency_unit),
+            model_name.as_deref(),
         )
         .await
         .unwrap();
         let error_json = Json(json!({
             "error": {
-            "message": format!("Error forwarding request"),
-            "type": "gateway_error"
-        }}));
-        (StatusCode::INTERNAL_SERVER_ERROR, error_json).into_response()
+                "message": "Error forwarding request to provider",
+                "type": "gateway_error",
+                "code": "request_forwarding_failed"
+            }
+        }));
+        (StatusCode::BAD_GATEWAY, error_json).into_response()
     };
 
     response
@@ -533,7 +793,7 @@ pub async fn forward_request(
                         Json(json!({
                             "error": {
                                 "message": "Invalid organization ID in API key",
-                                "type": "server_error",
+                                "type": "validation_error",
                                 "code": "invalid_organization_id"
                             }
                         })),
@@ -556,11 +816,11 @@ pub async fn forward_request(
             }
             Err(_) => {
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::UNAUTHORIZED,
                     Json(json!({
                         "error": {
                             "message": "Failed to retrieve API key",
-                            "type": "server_error",
+                            "type": "authentication_error",
                             "code": "api_key_lookup_failed"
                         }
                     })),
@@ -594,7 +854,7 @@ pub async fn forward_request(
                         Json(json!({
                             "error": {
                                 "message": "No default provider configured. Please configure a provider first.",
-                                "type": "server_error",
+                                "type": "configuration_error",
                                 "param": null,
                                 "code": "default_provider_missing"
                             }
@@ -604,11 +864,11 @@ pub async fn forward_request(
                 Err(e) => {
                     eprintln!("Failed to get global default provider: {}", e);
                     return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
+                        StatusCode::SERVICE_UNAVAILABLE,
                         Json(json!({
                             "error": {
-                                "message": "Failed to retrieve provider configuration",
-                                "type": "server_error",
+                                "message": "Provider service unavailable",
+                                "type": "provider_error",
                                 "code": "provider_lookup_failed"
                             }
                         })),
@@ -623,11 +883,11 @@ pub async fn forward_request(
                 org_id, e
             );
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::SERVICE_UNAVAILABLE,
                 Json(json!({
                     "error": {
-                        "message": "Failed to retrieve provider configuration",
-                        "type": "server_error",
+                        "message": "Provider service unavailable",
+                        "type": "provider_error",
                         "code": "provider_lookup_failed"
                     }
                 })),
@@ -636,16 +896,40 @@ pub async fn forward_request(
         }
     };
 
-    let client_builder = Client::builder();
-    let client = client_builder.build().unwrap();
+    let endpoint_url = construct_url_with_protocol(&server_config.url, path);
+    println!("Constructed forward_request endpoint URL: {}", endpoint_url);
 
-    let endpoint_url = format!("{}/{}", &server_config.url, path);
+    let timeout_secs = 60; // 1 min for regular requests
+    let client = match crate::onion::create_onion_client(
+        &endpoint_url,
+        server_config.use_onion,
+        Some(timeout_secs),
+    ) {
+        Ok(client) => client,
+        Err(e) => {
+            eprintln!("Failed to create client with Tor proxy: {}", e);
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to configure client for .onion request",
+                        "type": "proxy_error",
+                        "code": "tor_proxy_configuration_failed"
+                    }
+                })),
+            )
+                .into_response();
+        }
+    };
 
-    let mut req_builder = client.get(endpoint_url);
+    let mut req_builder = client.get(&endpoint_url);
     req_builder = req_builder.header(header::CONTENT_TYPE, "application/json");
+
+    let start_time = start_onion_timing(&endpoint_url);
 
     match req_builder.send().await {
         Ok(resp) => {
+            log_onion_timing(start_time, &endpoint_url, "forward_request");
             let status = resp.status();
             let response = Response::builder().status(status);
 
@@ -653,15 +937,15 @@ pub async fn forward_request(
                 Ok(bytes) => response.body(Body::from(bytes)).unwrap_or_else(|e| {
                     eprintln!("Error creating response: {}", e);
                     Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from("Error creating response"))
+                        .status(StatusCode::BAD_GATEWAY)
+                        .body(Body::from(format!("{{\"error\":{{\"message\":\"Error processing provider response\",\"type\":\"gateway_error\",\"code\":\"response_processing_failed\"}}}}")))
                         .unwrap()
                 }),
                 Err(e) => {
                     eprintln!("Error reading response body: {}", e);
                     Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from(format!("Error reading response body: {}", e)))
+                        .status(StatusCode::BAD_GATEWAY)
+                        .body(Body::from(format!("{{\"error\":{{\"message\":\"Error reading response from provider\",\"type\":\"gateway_error\",\"code\":\"response_read_failed\"}}}}")))
                         .unwrap()
                 }
             }
@@ -669,14 +953,16 @@ pub async fn forward_request(
         Err(error) => {
             eprintln!("Error forwarding request: {}", error);
 
+            let error_msg = get_onion_error_message(&error, &endpoint_url, "forward_request");
+
             let error_json = Json(json!({
                 "error": {
-                    "message": format!("Error forwarding request: {}", error),
+                    "message": error_msg,
                     "type": "gateway_error"
                 }
             }));
 
-            (StatusCode::INTERNAL_SERVER_ERROR, error_json).into_response()
+            (StatusCode::BAD_GATEWAY, error_json).into_response()
         }
     }
 }

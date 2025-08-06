@@ -16,13 +16,27 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, AlertTriangle, Wallet, Plus } from 'lucide-react';
+import {
+  Settings,
+  AlertTriangle,
+  Wallet,
+  Plus,
+  Copy,
+  Check,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { MintService } from '@/lib/api/services/mints';
-import { MultimintService } from '@/lib/api/services/multimint';
+import {
+  MultimintService,
+  type MintWithBalances,
+} from '@/lib/api/services/multimint';
+import { ConfigurationService } from '@/lib/api/services/configuration';
+import { useState } from 'react';
 
 export default function Page() {
+  const [copied, setCopied] = useState(false);
+
   const { defaultProvider, isLoading: isLoadingProvider } =
     useDefaultProvider();
 
@@ -36,7 +50,7 @@ export default function Page() {
   const { data: balanceData, isLoading: isLoadingBalance } = useQuery({
     queryKey: ['multimint-balance'],
     queryFn: () => MultimintService.getMultimintBalance(),
-    refetchInterval: 10000,
+    refetchInterval: 1000,
     retry: 3,
     retryDelay: 1000,
   });
@@ -44,12 +58,33 @@ export default function Page() {
   const mints = mintsData?.mints || [];
   const activeMints = mints.filter((mint) => mint.is_active);
 
+  // Create a map from mint_url to MintWithBalances for easy lookup
+  const mintBalancesMap = new Map<string, MintWithBalances>(
+    balanceData?.mints_with_balances.map((mintWithBalances) => [
+      mintWithBalances.mint_url,
+      mintWithBalances,
+    ]) || []
+  );
+
+  // Legacy balance map for backward compatibility
   const balanceMap = new Map(
     balanceData?.balances_by_mint.map((balance) => [
       balance.mint_url,
       balance,
     ]) || []
   );
+
+  const serverUrl = ConfigurationService.getBaseUrl();
+
+  const copyServerUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(serverUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -66,10 +101,82 @@ export default function Page() {
             </p>
           </div>
 
+          <Card className='mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20'>
+            <CardHeader className='pb-3'>
+              <CardTitle className='flex items-center text-blue-800 dark:text-blue-200'>
+                <Settings className='mr-2 h-5 w-5' />
+                How to Use OTRTA API
+              </CardTitle>
+            </CardHeader>
+            <CardContent className='space-y-3'>
+              <div>
+                <p className='text-sm text-blue-700 dark:text-blue-300'>
+                  The OTRTA API server is fully{' '}
+                  <strong>OpenAI API compatible</strong> and can be used with
+                  any client that supports custom API URLs, including ChatGPT
+                  clients, coding assistants, and AI tools:
+                </p>
+              </div>
+              <div className='rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30'>
+                <div className='flex items-center justify-between'>
+                  <p className='font-mono text-xs text-blue-900 dark:text-blue-100'>
+                    {serverUrl}
+                  </p>
+                  <Button
+                    size='sm'
+                    variant='ghost'
+                    onClick={copyServerUrl}
+                    className='h-6 w-6 p-0 text-blue-700 hover:bg-blue-200 hover:text-blue-800 dark:text-blue-300 dark:hover:bg-blue-800 dark:hover:text-blue-200'
+                    title={copied ? 'Copied!' : 'Copy URL'}
+                  >
+                    {copied ? (
+                      <Check className='h-3 w-3' />
+                    ) : (
+                      <Copy className='h-3 w-3' />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className='text-sm text-blue-700 dark:text-blue-300'>
+                <p>
+                  <strong>Need an API key?</strong>{' '}
+                  <Button
+                    asChild
+                    variant='link'
+                    size='sm'
+                    className='h-auto p-0 text-sm font-normal text-blue-600 underline dark:text-blue-400'
+                  >
+                    <Link href='/settings'>Create one in Settings</Link>
+                  </Button>
+                </p>
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                <Badge
+                  variant='outline'
+                  className='border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300'
+                >
+                  OpenAI Compatible
+                </Badge>
+                <Badge
+                  variant='outline'
+                  className='border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300'
+                >
+                  Cashu Payments
+                </Badge>
+                <Badge
+                  variant='outline'
+                  className='border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300'
+                >
+                  Tor Support
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+
           {!isLoadingProvider && !defaultProvider && (
             <Alert className='mb-6 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20'>
               <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400' />
-              <AlertDescription className='flex items-center justify-between'>
+              <AlertDescription className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-0'>
                 <div>
                   <strong className='text-amber-800 dark:text-amber-200'>
                     Setup Required:
@@ -82,7 +189,7 @@ export default function Page() {
                   asChild
                   variant='outline'
                   size='sm'
-                  className='ml-4 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20'
+                  className='w-fit border-amber-300 text-amber-700 hover:bg-amber-100 md:ml-4 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20'
                 >
                   <Link href='/providers'>
                     <Settings className='mr-2 h-4 w-4' />
@@ -148,36 +255,14 @@ export default function Page() {
             ) : (
               <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
                 {activeMints.slice(0, 6).map((mint) => {
+                  const mintWithBalances = mintBalancesMap.get(mint.mint_url);
                   const balanceInfo = balanceMap.get(mint.mint_url);
-                  const balance = balanceInfo?.balance || 0;
-                  const unit =
-                    balanceInfo?.unit || mint.currency_unit || 'Msat';
                   const mintUrl = new URL(mint.mint_url);
 
-                  const formatBalanceWithUnit = (
-                    amount: number,
-                    unit: string
-                  ) => {
-                    if (unit.toLowerCase() === 'msat') {
-                      const sats = Math.floor(amount / 1000);
-                      return {
-                        primary: `${amount.toLocaleString('en-US')} msat`,
-                        secondary: `(${sats.toLocaleString('en-US')} sats)`,
-                      };
-                    } else if (unit.toLowerCase() === 'sat') {
-                      const msats = amount * 1000;
-                      return {
-                        primary: `${amount.toLocaleString('en-US')} sats`,
-                        secondary: `(${msats.toLocaleString('en-US')} msat)`,
-                      };
-                    }
-                    return {
-                      primary: `${amount.toLocaleString('en-US')} ${unit}`,
-                      secondary: '',
-                    };
-                  };
-
-                  const formattedBalance = formatBalanceWithUnit(balance, unit);
+                  // Use multi-unit balances if available, otherwise fall back to legacy single balance
+                  const hasMultiUnitBalances =
+                    mintWithBalances &&
+                    mintWithBalances.unit_balances.length > 0;
 
                   return (
                     <Card
@@ -203,20 +288,89 @@ export default function Page() {
                         </div>
                       </CardHeader>
                       <CardContent className='pt-0'>
-                        <div className='flex items-center justify-between'>
-                          <div>
-                            <p className='text-lg font-semibold'>
-                              {formattedBalance.primary}
-                            </p>
-                            {formattedBalance.secondary && (
-                              <p className='text-muted-foreground text-sm'>
-                                {formattedBalance.secondary}
+                        <div className='space-y-3'>
+                          {hasMultiUnitBalances ? (
+                            <div>
+                              <p className='text-muted-foreground mb-2 text-xs'>
+                                Balances by Unit
                               </p>
-                            )}
-                            <p className='text-muted-foreground text-xs'>
-                              Balance
-                            </p>
-                          </div>
+                              <div className='space-y-1'>
+                                {mintWithBalances!.unit_balances.map(
+                                  (unitBalance) => {
+                                    const formatted =
+                                      MultimintService.formatBalance(
+                                        unitBalance.balance,
+                                        unitBalance.unit
+                                      );
+                                    return (
+                                      <div
+                                        key={unitBalance.unit}
+                                        className='flex items-center justify-between py-1'
+                                      >
+                                        <div>
+                                          <p className='text-sm font-medium'>
+                                            {formatted?.primary ||
+                                              `${unitBalance.balance} ${unitBalance.unit}`}
+                                          </p>
+                                          {formatted?.secondary && (
+                                            <p className='text-muted-foreground text-xs'>
+                                              {formatted.secondary}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <Badge
+                                          variant='outline'
+                                          className='text-xs'
+                                        >
+                                          {unitBalance.unit}
+                                        </Badge>
+                                      </div>
+                                    );
+                                  }
+                                )}
+                              </div>
+                              {mintWithBalances!.unit_balances.length > 1 && (
+                                <div className='mt-2 border-t pt-2'>
+                                  <div className='flex items-center justify-between'>
+                                    <p className='text-xs font-medium'>
+                                      Total Balance
+                                    </p>
+                                    <p className='text-xs font-semibold'>
+                                      {mintWithBalances!.total_balance}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              {(() => {
+                                const balance = balanceInfo?.balance || 0;
+                                const unit =
+                                  balanceInfo?.unit ||
+                                  mint.currency_unit ||
+                                  'msat';
+                                const formatted =
+                                  MultimintService.formatBalance(balance, unit);
+                                return (
+                                  <>
+                                    <p className='text-lg font-semibold'>
+                                      {formatted?.primary ||
+                                        `${balance} ${unit}`}
+                                    </p>
+                                    {formatted?.secondary && (
+                                      <p className='text-muted-foreground text-sm'>
+                                        {formatted.secondary}
+                                      </p>
+                                    )}
+                                    <p className='text-muted-foreground text-xs'>
+                                      Balance
+                                    </p>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

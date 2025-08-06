@@ -1,9 +1,11 @@
 use crate::{
     db::mint::{
-        create_mint_for_organization, delete_mint_for_organization,
-        get_active_mints_for_organization, get_mint_by_id_for_organization,
+        create_mint_for_organization, create_mint_units, delete_mint_for_organization,
+        discover_mint_keysets, get_active_mints_for_organization,
+        get_active_mints_with_units_for_organization, get_mint_by_id_for_organization,
         get_mints_for_organization, set_mint_active_status_for_organization,
-        update_mint_for_organization, CreateMintRequest, Mint, MintListResponse, UpdateMintRequest,
+        update_mint_for_organization, CreateMintRequest, Mint, MintListResponse, MintWithUnits,
+        UpdateMintRequest,
     },
     handlers::wallet::get_user_friendly_wallet_error_message,
     models::{AppState, TopupMintRequest, TopupMintResponse, UserContext},
@@ -15,6 +17,34 @@ use axum::{
 };
 use serde_json::{self, json};
 use std::{str::FromStr, sync::Arc};
+
+pub fn select_preferred_keyset(
+    keysets: &[crate::db::mint::KeysetInfo],
+) -> Option<crate::db::mint::KeysetInfo> {
+    if let Some(keyset) = keysets
+        .iter()
+        .find(|k| k.active && k.unit.to_lowercase() == "msat")
+    {
+        return Some(keyset.clone());
+    }
+
+    if let Some(keyset) = keysets
+        .iter()
+        .find(|k| k.active && k.unit.to_lowercase() == "sat")
+    {
+        return Some(keyset.clone());
+    }
+
+    if let Some(keyset) = keysets.iter().find(|k| k.unit.to_lowercase() == "msat") {
+        return Some(keyset.clone());
+    }
+
+    if let Some(keyset) = keysets.iter().find(|k| k.unit.to_lowercase() == "sat") {
+        return Some(keyset.clone());
+    }
+
+    None
+}
 
 pub async fn get_all_mints_handler(
     State(state): State<Arc<AppState>>,
@@ -56,6 +86,36 @@ pub async fn get_active_mints_handler(
                 Json(json!({
                     "error": {
                         "message": "Failed to retrieve active mints",
+                        "type": "database_error"
+                    }
+                })),
+            ))
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct MintWithUnitsResponse {
+    pub mints: Vec<MintWithUnits>,
+    pub total: i32,
+}
+
+pub async fn get_active_mints_with_units_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
+) -> Result<Json<MintWithUnitsResponse>, (StatusCode, Json<serde_json::Value>)> {
+    match get_active_mints_with_units_for_organization(&state.db, &user_ctx.organization_id).await {
+        Ok(mints) => {
+            let total = mints.len() as i32;
+            Ok(Json(MintWithUnitsResponse { mints, total }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get active mints with units: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to retrieve active mints with units",
                         "type": "database_error"
                     }
                 })),
@@ -143,25 +203,58 @@ pub async fn create_mint_handler(
     match create_mint_for_organization(&state.db, request.clone(), &user_ctx.organization_id).await
     {
         Ok(mint) => {
-            let currency_unit = mint
-                .currency_unit
-                .parse::<cdk::nuts::CurrencyUnit>()
-                .unwrap_or(cdk::nuts::CurrencyUnit::Sat);
-            if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
-                eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
+            let keysets = match discover_mint_keysets(&mint.mint_url).await {
+                Ok(keysets) => keysets,
+                Err(e) => {
+                    eprintln!(
+                        "Failed to discover keysets for mint {}: {}. Skipping mint creation.",
+                        mint.mint_url, e
+                    );
+                    vec![]
+                }
+            };
+
+            // Select the preferred keyset (msat > sat > none)
+            let selected_keyset = if !keysets.is_empty() {
+                select_preferred_keyset(&keysets)
+            } else {
+                None
+            };
+
+            if let Some(keyset) = selected_keyset {
+                // Only create mint units for the selected keyset
+                if let Err(e) = create_mint_units(&state.db, mint.id, &[keyset.clone()]).await {
+                    eprintln!("Failed to create mint units for mint {}: {}", mint.id, e);
+                }
+
+                let currency_unit = keyset
+                    .unit
+                    .parse::<cdk::nuts::CurrencyUnit>()
+                    .unwrap_or(cdk::nuts::CurrencyUnit::Msat);
+                if let Err(e) = wallet.add_mint(&mint.mint_url, currency_unit).await {
+                    eprintln!("Failed to add mint to wallet {}: {:?}", mint.mint_url, e);
+                }
+            } else {
+                eprintln!(
+                    "No suitable keyset (msat or sat) found for mint {}.",
+                    mint.mint_url
+                );
             }
+
             Ok(Json(mint))
         }
         Err(e) => {
             eprintln!("Failed to create mint: {}", e);
-            if e.to_string()
-                .contains("duplicate key value violates unique constraint")
+            let error_string = e.to_string();
+            if error_string.contains("duplicate key value violates unique constraint")
+                && (error_string.contains("mints_mint_url_key")
+                    || error_string.contains("mints_mint_url_organization_id_unique"))
             {
                 Err((
                     StatusCode::CONFLICT,
                     Json(json!({
                         "error": {
-                            "message": "A mint with this URL already exists",
+                            "message": "A mint with this URL already exists for your organization",
                             "type": "duplicate_error"
                         }
                     })),
@@ -355,7 +448,10 @@ pub async fn topup_mint_handler(
                     }
                 }
 
-                if let Some(mint_wallet) = wallet.get_wallet_for_mint(&payload.mint_url).await {
+                if let Some(mint_wallet) = wallet
+                    .get_wallet_for_mint_with_token(&payload.mint_url, &token)
+                    .await
+                {
                     match mint_wallet.receive(&token).await {
                         Ok(amount) => Ok(Json(TopupMintResponse {
                             success: true,

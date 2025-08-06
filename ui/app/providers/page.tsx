@@ -19,7 +19,13 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { TruncatedUrl } from '@/components/ui/truncated-url';
 import { formatDistanceToNow } from 'date-fns';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import {
   Copy,
   ShieldIcon,
@@ -31,10 +37,13 @@ import {
   ChevronDown,
   ChevronUp,
   CoinsIcon,
+  Edit,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { AddCustomProviderForm } from '@/components/add-custom-provider-form';
+import { EditCustomProviderForm } from '@/components/edit-custom-provider-form';
+import { Provider } from '@/lib/api/services/providers';
 import {
   Dialog,
   DialogContent,
@@ -62,7 +71,17 @@ export default function ProvidersPage() {
   const deleteCustomProvider = useDeleteCustomProvider();
   const activateProvider = useActivateProvider();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [expandedMints, setExpandedMints] = useState<Set<number>>(new Set());
+
+  // Sort providers to show default first, then active, then inactive
+  const sortedProviders = [...providers].sort((a, b) => {
+    if (a.is_default_for_org && !b.is_default_for_org) return -1;
+    if (!a.is_default_for_org && b.is_default_for_org) return 1;
+    if (a.is_active_for_org && !b.is_active_for_org) return -1;
+    if (!a.is_active_for_org && b.is_active_for_org) return 1;
+    return 0;
+  });
 
   const handleSetDefault = async (providerId: number) => {
     await setDefaultProvider.mutateAsync(providerId);
@@ -74,6 +93,18 @@ export default function ProvidersPage() {
 
   const handleActivateProvider = async (providerId: number) => {
     await activateProvider.mutateAsync(providerId);
+  };
+
+  const handleEditProvider = (provider: Provider) => {
+    setEditingProvider(provider);
+  };
+
+  const handleEditSuccess = () => {
+    setEditingProvider(null);
+  };
+
+  const handleEditCancel = () => {
+    setEditingProvider(null);
   };
 
   const toggleMintsExpanded = (providerId: number) => {
@@ -127,6 +158,9 @@ export default function ProvidersPage() {
               </p>
             </div>
             <div className='flex gap-3'>
+              <Button disabled variant='outline'>
+                Nostr Marketplace (Coming Soon)
+              </Button>
               <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
                 <DialogTrigger asChild>
                   <Button>
@@ -149,6 +183,28 @@ export default function ProvidersPage() {
               </Dialog>
             </div>
           </div>
+
+          {/* Edit Provider Dialog */}
+          <Dialog
+            open={!!editingProvider}
+            onOpenChange={() => setEditingProvider(null)}
+          >
+            <DialogContent className='max-h-[90vh] max-w-2xl overflow-y-auto'>
+              <DialogHeader>
+                <DialogTitle>Edit Provider</DialogTitle>
+                <DialogDescription>
+                  Update your custom provider settings
+                </DialogDescription>
+              </DialogHeader>
+              {editingProvider && (
+                <EditCustomProviderForm
+                  provider={editingProvider}
+                  onSuccess={handleEditSuccess}
+                  onCancel={handleEditCancel}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
 
           {isLoading ? (
             <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
@@ -176,7 +232,7 @@ export default function ProvidersPage() {
             </Card>
           ) : (
             <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
-              {providers.map((provider) => (
+              {sortedProviders.map((provider) => (
                 <Card
                   key={provider.id}
                   className={`relative transition-all hover:shadow-md ${
@@ -186,74 +242,106 @@ export default function ProvidersPage() {
                   }`}
                 >
                   <CardHeader className='pb-3'>
-                    <div className='flex items-start justify-between'>
-                      <div className='min-w-0 flex-1'>
-                        <div className='mb-1 flex items-start gap-2'>
-                          <CardTitle className='truncate text-lg font-semibold'>
-                            {provider.name}
-                          </CardTitle>
+                    <div className='space-y-2'>
+                      {/* Top row: Title and action buttons */}
+                      <div className='flex items-start justify-between gap-2'>
+                        <CardTitle className='flex-1 truncate text-lg leading-tight font-semibold'>
+                          {provider.name}
+                        </CardTitle>
+                        {provider.is_editable && (
                           <div className='flex flex-shrink-0 gap-1'>
-                            {provider.is_default_for_org && (
-                              <Badge className='bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-100'>
-                                <CheckIcon className='mr-1 h-3 w-3' />
-                                Default
-                              </Badge>
-                            )}
-                            {provider.is_custom && (
-                              <Badge
-                                variant='outline'
-                                className='border-blue-500 text-xs text-blue-600 dark:text-blue-400'
-                              >
-                                <Eye className='mr-1 h-3 w-3' />
-                                Custom
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <CardDescription>
-                          <span className='truncate'>
-                            {provider.url.replace('https://', '')}
-                          </span>
-                        </CardDescription>
-                      </div>
-                      {provider.is_custom && (
-                        <div className='ml-2 flex-shrink-0'>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                size='sm'
-                                variant='ghost'
-                                className='h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/20'
-                              >
-                                <Trash2 className='h-4 w-4' />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Delete Custom Provider
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete &quot;
-                                  {provider.name}&quot;? This action cannot be
-                                  undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() =>
-                                    handleDeleteCustomProvider(provider.id)
-                                  }
-                                  className='bg-red-600 hover:bg-red-700'
+                            <Button
+                              size='sm'
+                              variant='ghost'
+                              onClick={() => handleEditProvider(provider)}
+                              className='h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/20'
+                              title='Edit provider'
+                            >
+                              <Edit className='h-4 w-4' />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  size='sm'
+                                  variant='ghost'
+                                  className='h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/20'
+                                  title='Delete provider'
                                 >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      )}
+                                  <Trash2 className='h-4 w-4' />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Delete Custom Provider
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete &quot;
+                                    {provider.name}&quot;? This action cannot be
+                                    undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleDeleteCustomProvider(provider.id)
+                                    }
+                                    className='bg-red-600 hover:bg-red-700'
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Second row: Badges */}
+                      <div className='flex flex-wrap items-center gap-1'>
+                        {provider.is_default_for_org && (
+                          <Badge className='bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-100'>
+                            <CheckIcon className='mr-1 h-3 w-3' />
+                            Default
+                          </Badge>
+                        )}
+                        {provider.is_custom && (
+                          <Badge
+                            variant='outline'
+                            className='border-blue-500 text-xs text-blue-600 dark:text-blue-400'
+                          >
+                            <Eye className='mr-1 h-3 w-3' />
+                            Custom
+                          </Badge>
+                        )}
+                        {!provider.has_msat_support && (
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <AlertTriangle className='h-4 w-4 cursor-help text-yellow-600' />
+                            </HoverCardTrigger>
+                            <HoverCardContent className='w-80'>
+                              <div className='text-sm'>
+                                <p className='mb-1 font-medium text-yellow-800 dark:text-yellow-200'>
+                                  Msat Precision Warning
+                                </p>
+                                <p className='text-yellow-700 dark:text-yellow-300'>
+                                  This provider&apos;s mints only support
+                                  satoshi precision. Payments in millisatoshis
+                                  (msat) will be rounded down to the nearest
+                                  satoshi, which may result in small amounts of
+                                  ecash being lost.
+                                </p>
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        )}
+                      </div>
+
+                      {/* Third row: URL */}
+                      <CardDescription className='pt-1'>
+                        <TruncatedUrl url={provider.url} maxLength={35} />
+                      </CardDescription>
                     </div>
                   </CardHeader>
 

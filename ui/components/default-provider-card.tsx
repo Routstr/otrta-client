@@ -12,6 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { TruncatedUrl } from '@/components/ui/truncated-url';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import {
   ServerIcon,
   CheckIcon,
@@ -21,12 +27,11 @@ import {
   ChevronDown,
   ChevronUp,
   CoinsIcon,
-  Copy,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 export function DefaultProviderCard() {
   const { defaultProvider, isLoading, error } = useDefaultProvider();
@@ -34,15 +39,6 @@ export function DefaultProviderCard() {
 
   const toggleMintsExpanded = () => {
     setMintsExpanded((prev) => !prev);
-  };
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success('Mint URL copied to clipboard');
-    } catch {
-      toast.error('Failed to copy to clipboard');
-    }
   };
 
   if (isLoading) {
@@ -152,13 +148,35 @@ export function DefaultProviderCard() {
                   Custom
                 </Badge>
               )}
+              {!defaultProvider.has_msat_support && (
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <AlertTriangle className='h-4 w-4 cursor-help text-yellow-600' />
+                  </HoverCardTrigger>
+                  <HoverCardContent className='w-80'>
+                    <div className='text-sm'>
+                      <p className='mb-1 font-medium text-yellow-800 dark:text-yellow-200'>
+                        Msat Precision Warning
+                      </p>
+                      <p className='text-yellow-700 dark:text-yellow-300'>
+                        This provider&apos;s mints only support satoshi
+                        precision. Payments in millisatoshis (msat) will be
+                        rounded down to the nearest satoshi, which may result in
+                        small amounts of ecash being lost.
+                      </p>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              )}
             </div>
 
             <div className='text-muted-foreground flex items-center gap-1 text-sm'>
               <ExternalLinkIcon className='h-3 w-3' />
-              <span className='truncate'>
-                {defaultProvider.url.replace('https://', '')}
-              </span>
+              <TruncatedUrl
+                url={defaultProvider.url}
+                className='text-muted-foreground text-sm'
+                maxLength={30}
+              />
             </div>
           </div>
           <div></div>
@@ -202,25 +220,19 @@ export function DefaultProviderCard() {
             <div className='text-muted-foreground mb-3 text-sm font-medium'>
               Supported Mints:
             </div>
+
             <div className='grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3'>
               {defaultProvider.mints.map((mint, index) => (
                 <div
                   key={index}
-                  className='group bg-background flex items-center gap-2 rounded-md p-2 text-sm'
+                  className='bg-background flex items-center gap-2 rounded-md p-2 text-sm'
                 >
                   <div className='h-1.5 w-1.5 flex-shrink-0 rounded-full bg-green-500' />
-                  <span className='text-muted-foreground flex-1 truncate font-mono'>
-                    {mint}
-                  </span>
-                  <Button
-                    variant='ghost'
-                    size='sm'
-                    onClick={() => copyToClipboard(mint)}
-                    className='h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100'
-                    title='Copy mint URL'
-                  >
-                    <Copy className='h-3 w-3' />
-                  </Button>
+                  <TruncatedUrl
+                    url={mint}
+                    className='text-muted-foreground flex-1'
+                    maxLength={25}
+                  />
                 </div>
               ))}
             </div>

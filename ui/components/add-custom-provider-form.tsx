@@ -34,6 +34,34 @@ export function AddCustomProviderForm({
 
   const createCustomProvider = useCreateCustomProvider();
 
+  // Custom URL validation function
+  const isValidUrl = (urlStr: string, allowOnion: boolean = false): boolean => {
+    const trimmedUrl = urlStr.trim();
+    if (!trimmedUrl) return false;
+
+    // Check if it's an onion URL
+    if (trimmedUrl.includes('.onion')) {
+      if (!allowOnion) return false;
+      // For onion URLs, accept with or without protocol
+      if (
+        trimmedUrl.startsWith('http://') ||
+        trimmedUrl.startsWith('https://')
+      ) {
+        return true;
+      }
+      // Accept bare onion addresses (without protocol)
+      return /^[a-z0-9]{16,56}\.onion$/i.test(trimmedUrl);
+    }
+
+    // Regular URL validation - still requires protocol
+    try {
+      const url = new URL(trimmedUrl);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   const handleAddMint = () => {
     const trimmedMint = mintInput.trim();
     if (trimmedMint && !mints.includes(trimmedMint)) {
@@ -50,6 +78,11 @@ export function AddCustomProviderForm({
     e.preventDefault();
 
     if (!name.trim() || !url.trim()) {
+      return;
+    }
+
+    // Validate URL based on onion setting
+    if (!isValidUrl(url, useOnion)) {
       return;
     }
 
@@ -81,6 +114,9 @@ export function AddCustomProviderForm({
     }
   };
 
+  // Check if current URL is valid
+  const isUrlValid = !url.trim() || isValidUrl(url, useOnion);
+
   return (
     <Card className='w-full max-w-2xl'>
       <CardHeader>
@@ -110,16 +146,28 @@ export function AddCustomProviderForm({
             <Label htmlFor='url'>Provider URL *</Label>
             <Input
               id='url'
-              type='url'
-              placeholder='https://my-provider.example.com'
+              type={useOnion ? 'text' : 'url'}
+              placeholder={
+                useOnion
+                  ? 'example.onion or http://example.onion'
+                  : 'https://my-provider.example.com'
+              }
               value={url}
               onChange={(e) => setUrl(e.target.value)}
+              className={!isUrlValid ? 'border-red-500' : ''}
               required
             />
+            {!isUrlValid && (
+              <p className='text-sm text-red-500'>
+                {useOnion
+                  ? 'Please enter a valid onion URL (example.onion or http://example.onion)'
+                  : 'Please enter a valid HTTP or HTTPS URL'}
+              </p>
+            )}
           </div>
 
           <div className='space-y-2'>
-            <Label>Supported Mints</Label>
+            <Label>Supported Mints *</Label>
             <div className='flex gap-2'>
               <Input
                 type='text'
@@ -139,7 +187,7 @@ export function AddCustomProviderForm({
                 Add
               </Button>
             </div>
-            {mints.length > 0 && (
+            {mints.length > 0 ? (
               <div className='mt-2 flex flex-wrap gap-2'>
                 {mints.map((mint) => (
                   <Badge
@@ -160,6 +208,10 @@ export function AddCustomProviderForm({
                   </Badge>
                 ))}
               </div>
+            ) : (
+              <p className='text-sm text-red-500'>
+                At least one mint URL is required
+              </p>
             )}
           </div>
 
@@ -181,7 +233,11 @@ export function AddCustomProviderForm({
             <Button
               type='submit'
               disabled={
-                !name.trim() || !url.trim() || createCustomProvider.isPending
+                !name.trim() ||
+                !url.trim() ||
+                !isUrlValid ||
+                mints.length === 0 ||
+                createCustomProvider.isPending
               }
               className='flex-1'
             >

@@ -1,0 +1,78 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT id, user_id, user_search_group_id, created_at, name, search as \"search: Json<Search>\",\n                           status, started_at, completed_at, error_message\n                           \n                    FROM user_searches\n                    WHERE user_search_group_id = $1 AND id = $2 AND user_id = $3\n                    ORDER BY created_at DESC\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "user_search_group_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "search: Json<Search>",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "started_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 8,
+        "name": "completed_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 9,
+        "name": "error_message",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "9a59dafb467d4600a2d077b00f8008380fd875c60fe8073945b5c88b3999bec6"
+}

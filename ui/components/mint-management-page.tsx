@@ -61,11 +61,46 @@ export function MintManagementPage() {
     amount: undefined,
     token: undefined,
   });
+  const [selectedUnit, setSelectedUnit] = useState<string>('sat');
 
-  const { data: activeMints } = useQuery({
-    queryKey: ['active-mints'],
-    queryFn: () => MintService.getActiveMints(),
+  const { data: activeMintsWithUnits } = useQuery({
+    queryKey: ['active-mints-with-units'],
+    queryFn: () => MintService.getActiveMintsWithUnits(),
   });
+
+  // Legacy support - convert mints with units to simple mints for backward compatibility
+  const activeMints = activeMintsWithUnits
+    ? {
+        mints: activeMintsWithUnits.mints.map((m) => ({
+          id: m.id,
+          mint_url: m.mint_url,
+          currency_unit: m.currency_unit,
+          is_active: m.is_active,
+          name: m.name,
+          organization_id: m.organization_id,
+          created_at: m.created_at,
+          updated_at: m.updated_at,
+        })),
+        total: activeMintsWithUnits.total,
+      }
+    : undefined;
+
+  // Find the selected mint to get available units
+  const selectedMintWithUnits = topupForm.mint_url
+    ? activeMintsWithUnits?.mints?.find(
+        (mint) => mint.mint_url === topupForm.mint_url
+      )
+    : activeMintsWithUnits?.mints?.[0];
+
+  // Get available units for the selected mint
+  const availableUnits = selectedMintWithUnits?.supported_units?.map(
+    (u) => u.unit
+  ) || ['sat'];
+
+  // Ensure selectedUnit is valid for the current mint
+  const validUnit = availableUnits.includes(selectedUnit)
+    ? selectedUnit
+    : availableUnits[0] || 'sat';
 
   const topupMutation = useMutation({
     mutationFn: (data: TopupMintRequest) => MultimintService.topupMint(data),
@@ -105,6 +140,7 @@ export function MintManagementPage() {
       amount: undefined,
       token: undefined,
     });
+    setSelectedUnit('sat');
   };
 
   const handleTopup = () => {
@@ -115,7 +151,7 @@ export function MintManagementPage() {
     ) {
       const lightningRequest: TopupRequest = {
         amount: topupForm.amount,
-        unit: 'sat',
+        unit: validUnit,
         mint_url: topupForm.mint_url,
         // description: 'Multimint Lightning Topup',
       };
@@ -143,7 +179,7 @@ export function MintManagementPage() {
   const isTopupProcessing = topupMutation.isPending;
 
   return (
-    <div className='space-y-6 p-6'>
+    <div className='space-y-6'>
       <Card>
         <CardHeader>
           <CardTitle className='flex items-center gap-2'>
@@ -155,7 +191,7 @@ export function MintManagementPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
             <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
               <DialogTrigger asChild>
                 <Button className='h-20 flex-col gap-2' variant='outline'>
@@ -249,7 +285,7 @@ export function MintManagementPage() {
 
                   {topupForm.method === 'lightning' && (
                     <div className='space-y-2'>
-                      <Label htmlFor='topup-amount'>Amount (sats)</Label>
+                      <Label htmlFor='topup-amount'>Amount ({validUnit})</Label>
                       <Input
                         id='topup-amount'
                         type='number'
@@ -260,7 +296,7 @@ export function MintManagementPage() {
                             amount: parseInt(e.target.value) || undefined,
                           }))
                         }
-                        placeholder='Enter amount in sats'
+                        placeholder={`Enter amount in ${validUnit}`}
                         min='1'
                       />
                       <p className='text-xs text-gray-500'>

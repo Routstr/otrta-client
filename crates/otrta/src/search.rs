@@ -10,7 +10,7 @@ use crate::{
     proxy::forward_request_with_payment_with_body,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SearchRequest {
     pub message: String,
     pub group_id: String,
@@ -19,10 +19,35 @@ pub struct SearchRequest {
     pub model_id: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConversationEntry {
     pub human: String,
     pub assistant: String,
+}
+
+fn handle_completion_response(
+    completion_response: crate::completion::ChatCompletionResponse,
+    sources: &mut Vec<SearchSource>,
+    query: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    // Map citations from the LLM response back to our sources
+    let cited_sources = map_citations_to_sources(&completion_response, sources);
+    *sources = cited_sources;
+
+    // Handle the response content
+    if let Some(choice) = completion_response.choices.first() {
+        if choice.message.content.trim().is_empty() {
+            if sources.is_empty() {
+                return Err("AI returned empty response with no sources".into());
+            } else {
+                return Ok(generate_search_response(query, sources));
+            }
+        } else {
+            return Ok(choice.message.content.clone());
+        }
+    } else {
+        return Err("AI returned no response choices".into());
+    }
 }
 
 pub async fn perform_web_search_with_llm(
@@ -52,16 +77,14 @@ pub async fn perform_web_search_with_llm(
                         content,
                     });
                 }
-                Err(e) => {
-                    eprintln!("Failed to scrape URL {}: {}", url, e);
+                Err(_e) => {
+                    // Silently skip failed URLs
                 }
             }
         }
     }
 
     let response_message = if let Some(model) = model_id {
-        eprintln!("Processing search with model: {}", model);
-
         let completion_request = create_search_completion_request(
             model,
             query,
@@ -74,12 +97,13 @@ pub async fn perform_web_search_with_llm(
         );
 
         let headers = axum::http::HeaderMap::new();
+
         let response = forward_request_with_payment_with_body(
             headers,
             state,
             "v1/chat/completions",
             Some(completion_request),
-            false,
+            true,
             None,                  // api_key_id
             Some(organization_id), // organization_id
             user_id,
@@ -89,55 +113,86 @@ pub async fn perform_web_search_with_llm(
 
         let status = response.status();
 
-        // Always fall back to basic search for any non-OK status
         if status != axum::http::StatusCode::OK {
-            eprintln!(
-                "LLM request failed with status: {}, falling back to basic search",
-                status
-            );
-            generate_search_response(query, &sources)
+            return Err(format!("Search failed with status: {}", status).into());
         } else {
             match axum::body::to_bytes(response.into_body(), usize::MAX).await {
                 Ok(bytes) => {
-                    let response_text = String::from_utf8_lossy(&bytes);
-
-                    // Double-check that this isn't an error response
-                    if response_text.contains("{\"error\"")
-                        || response_text.contains("\"type\":\"payment_error\"")
-                    {
-                        eprintln!("Detected error response in LLM body despite OK status, falling back to basic search");
-                        generate_search_response(query, &sources)
-                    } else if let Ok(completion_response) = serde_json::from_str::<
-                        crate::completion::ChatCompletionResponse,
-                    >(&response_text)
-                    {
-                        println!("{:?}", response_text);
-                        // Map citations from the LLM response back to our sources
-                        let cited_sources =
-                            map_citations_to_sources(&completion_response, &sources);
-
-                        // Update sources to only include the ones that were cited
-                        sources = cited_sources;
-
-                        completion_response
-                            .choices
-                            .first()
-                            .map(|choice| choice.message.content.clone())
-                            .unwrap_or_else(|| {
-                                eprintln!("Empty LLM response, falling back to basic search");
-                                generate_search_response(query, &sources)
-                            })
+                    if bytes.is_empty() {
+                        return Err("Empty response from AI provider".into());
                     } else {
-                        eprintln!("Failed to parse LLM response as completion, falling back to basic search");
-                        generate_search_response(query, &sources)
+                        let response_text = String::from_utf8_lossy(&bytes);
+                        if response_text.trim().is_empty() {
+                            return Err("Empty response text from AI provider".into());
+                        } else {
+                            // Try to parse as JSON first to check for structured errors
+                            if let Ok(json_value) =
+                                serde_json::from_str::<serde_json::Value>(&response_text)
+                            {
+                                // Check for actual error structure, not just string matching
+                                if json_value.get("error").is_some() {
+                                    let error_msg = json_value
+                                        .get("error")
+                                        .and_then(|e| e.get("message"))
+                                        .and_then(|m| m.as_str())
+                                        .unwrap_or("AI provider error");
+                                    return Err(error_msg.into());
+                                } else if let Some(error_type) =
+                                    json_value.get("type").and_then(|v| v.as_str())
+                                {
+                                    if error_type == "payment_error" {
+                                        return Err("Payment required for AI search".into());
+                                    } else {
+                                        // Try to parse as completion response
+                                        match serde_json::from_str::<
+                                            crate::completion::ChatCompletionResponse,
+                                        >(
+                                            &response_text
+                                        ) {
+                                            Ok(completion_response) => {
+                                                match handle_completion_response(
+                                                    completion_response,
+                                                    &mut sources,
+                                                    query,
+                                                ) {
+                                                    Ok(response) => response,
+                                                    Err(e) => return Err(e),
+                                                }
+                                            }
+                                            Err(_parse_err) => {
+                                                return Err("Failed to parse AI response".into());
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Try to parse as completion response
+                                    match serde_json::from_str::<
+                                        crate::completion::ChatCompletionResponse,
+                                    >(&response_text)
+                                    {
+                                        Ok(completion_response) => {
+                                            match handle_completion_response(
+                                                completion_response,
+                                                &mut sources,
+                                                query,
+                                            ) {
+                                                Ok(response) => response,
+                                                Err(e) => return Err(e),
+                                            }
+                                        }
+                                        Err(_parse_err) => {
+                                            return Err("Failed to parse AI response".into());
+                                        }
+                                    }
+                                }
+                            } else {
+                                return Err("Invalid response format from AI provider".into());
+                            }
+                        }
                     }
                 }
-                Err(e) => {
-                    eprintln!(
-                        "Failed to read LLM response body: {}, falling back to basic search",
-                        e
-                    );
-                    generate_search_response(query, &sources)
+                Err(_e) => {
+                    return Err("Network error reading AI response".into());
                 }
             }
         }
@@ -178,20 +233,20 @@ pub async fn perform_web_search(
                         content,
                     });
                 }
-                Err(e) => {
-                    eprintln!("Failed to scrape URL {}: {}", url, e);
+                Err(_e) => {
+                    // Silently skip failed URLs
                 }
             }
         }
     }
 
-    let response_message = if sources.is_empty() && urls_provided {
-        "I was unable to access or scrape any of the provided URLs. Please check that the URLs are accessible and try again.".to_string()
+    if sources.is_empty() && urls_provided {
+        return Err("Could not access any of the provided URLs".into());
     } else if sources.is_empty() {
-        "No search sources were provided. Please provide URLs to search or use the AI-enhanced search with a selected model.".to_string()
-    } else {
-        generate_search_response(query, &sources)
-    };
+        return Err("No URLs provided and no AI model selected".into());
+    }
+
+    let response_message = generate_search_response(query, &sources);
 
     Ok(SearchResponse {
         message: response_message,
@@ -212,11 +267,9 @@ fn map_citations_to_sources(
 
     if let Some(choice) = completion_response.choices.first() {
         if let Some(annotations) = &choice.message.annotations {
-            eprintln!("Found {} annotations in message", annotations.len());
             for annotation in annotations {
                 if let Some(url_citation) = &annotation.url_citation {
                     let url = &url_citation.url;
-                    eprintln!("Processing annotation URL: {}", url);
 
                     if !processed_urls.contains(url) {
                         cited_sources.push(SearchSource {
@@ -235,10 +288,7 @@ fn map_citations_to_sources(
     }
 
     if let Some(citations) = &completion_response.citations {
-        eprintln!("Found {} citations from top-level field", citations.len());
         for citation_url in citations {
-            eprintln!("Processing citation URL: {}", citation_url);
-
             if !processed_urls.contains(citation_url) {
                 let title = extract_domain(citation_url);
 
@@ -255,10 +305,6 @@ fn map_citations_to_sources(
         }
     }
 
-    eprintln!(
-        "Created {} cited sources from LLM response",
-        cited_sources.len()
-    );
     cited_sources
 }
 
@@ -304,7 +350,7 @@ fn extract_title_from_content(content: &str) -> String {
 
 fn generate_search_response(query: &str, sources: &[SearchSource]) -> String {
     if sources.is_empty() {
-        format!("I couldn't find any accessible content for your search query '{}'. This might be because:\n• The URLs provided are not accessible\n• The content couldn't be scraped\n• No URLs were provided\n\nPlease try:\n• Checking that your URLs are correct and accessible\n• Using AI-enhanced search by selecting a model\n• Providing different URLs", query)
+        format!("No content found for search query: {}", query)
     } else {
         let source_summaries: Vec<String> = sources
             .iter()

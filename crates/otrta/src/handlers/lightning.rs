@@ -178,7 +178,6 @@ pub async fn create_lightning_payment_handler(
         None
     };
 
-    println!("{}", payload.invoice);
     match wallet
         .melt_quote(payload.invoice.clone(), melt_options)
         .await
@@ -518,8 +517,8 @@ pub async fn create_lightning_invoice_handler(
         message: format!(
             "Lightning invoice created for {} {}",
             payload.amount,
-            if let Some(desc) = &payload.description {
-                format!(" - {}", desc)
+            if let Some(desc) = &payload.unit {
+                format!("{}", desc)
             } else {
                 String::new()
             }

@@ -28,6 +28,8 @@ pub enum TransactionType {
     Chat,
     #[sqlx(rename = "api")]
     Api,
+    #[sqlx(rename = "send_token")]
+    SendToken,
 }
 
 impl From<String> for TransactionType {
@@ -50,6 +52,9 @@ pub struct Transaction {
     pub api_key_id: Option<String>,
     pub user_id: Option<String>,
     pub r#type: TransactionType,
+    pub provider_url: Option<String>,
+    pub unit: Option<String>,
+    pub model: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -91,11 +96,14 @@ pub async fn add_transaction(
     api_key_id: Option<&str>,
     user_id: Option<&str>,
     transaction_type: TransactionType,
+    provider_url: Option<&str>,
+    unit: Option<&str>,
+    model: Option<&str>,
 ) -> Result<Uuid, sqlx::Error> {
     let rec = sqlx::query!(
         r#"
-        INSERT INTO transactions (id, created_at, token, amount, direction, api_key_id, user_id, type)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO transactions (id, created_at, token, amount, direction, api_key_id, user_id, type, provider_url, unit, model)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id
         "#,
         Uuid::new_v4(),
@@ -105,7 +113,10 @@ pub async fn add_transaction(
         direction as TransactionDirection,
         api_key_id.map(|id| Uuid::parse_str(id).ok()).flatten(),
         user_id,
-        transaction_type as TransactionType
+        transaction_type as TransactionType,
+        provider_url,
+        unit,
+        model
     )
     .fetch_one(pool)
     .await?;
@@ -141,7 +152,10 @@ pub async fn get_transactions(
             direction as "direction: TransactionDirection",
             api_key_id::text,
             user_id::text,
-            type as "type: TransactionType"
+            type as "type: TransactionType",
+            provider_url,
+            unit,
+            model
         FROM transactions
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
@@ -201,7 +215,10 @@ pub async fn get_transactions_for_user(
             t.direction as "direction: TransactionDirection",
             t.api_key_id::text,
             t.user_id::text,
-            t.type as "type: TransactionType"
+            t.type as "type: TransactionType",
+            t.provider_url,
+            t.unit,
+            t.model
         FROM transactions t
         LEFT JOIN api_keys ak ON t.api_key_id = ak.id
         WHERE ak.organization_id = $1
@@ -347,7 +364,10 @@ pub async fn get_transactions_for_user_by_user_id(
             direction as "direction: TransactionDirection",
             api_key_id::text,
             user_id::text,
-            type as "type: TransactionType"
+            type as "type: TransactionType",
+            provider_url,
+            unit,
+            model
         FROM transactions
         WHERE user_id = $1
         ORDER BY created_at DESC
@@ -411,7 +431,10 @@ pub async fn get_all_transactions_for_user(
             t.direction as "direction: TransactionDirection",
             t.api_key_id::text,
             t.user_id::text,
-            t.type as "type: TransactionType"
+            t.type as "type: TransactionType",
+            t.provider_url,
+            t.unit,
+            t.model
         FROM transactions t
         LEFT JOIN api_keys ak ON t.api_key_id = ak.id
         WHERE t.user_id = $1 OR ak.organization_id = $2

@@ -237,10 +237,6 @@ export function LightningTopupModal({
 
           <div className='grid grid-cols-2 gap-4 text-sm'>
             <div>
-              <Label className='text-muted-foreground'>Amount</Label>
-              <p className='text-lg font-semibold'>{invoice.amount} sats</p>
-            </div>
-            <div>
               <Label className='text-muted-foreground'>Expires</Label>
               <p>{new Date(invoice.expiry * 1000).toLocaleString()}</p>
             </div>

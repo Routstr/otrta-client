@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT id, user_id, user_search_group_id, created_at, name, search as \"search: Json<Search>\" FROM user_searches\n                    WHERE user_search_group_id = $1 AND id = $2 AND user_id = $3\n                    ORDER BY created_at DESC\n                ",
+  "query": "\n        SELECT id, user_id, user_search_group_id, created_at, name, search as \"search: Json<Search>\",\n               status, started_at, completed_at, error_message \n               \n        FROM user_searches \n        WHERE id = $1 AND user_id = $2\n        ",
   "describe": {
     "columns": [
       {
@@ -32,11 +32,30 @@
         "ordinal": 5,
         "name": "search: Json<Search>",
         "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "started_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 8,
+        "name": "completed_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 9,
+        "name": "error_message",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid",
         "Text"
       ]
@@ -47,8 +66,12 @@
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "2064fb23ea882a85ee217b3256232710d6af5cb91d9f5d080b88d8bacac47cc3"
+  "hash": "3483f51685ce79ffda2a1f7997cc5ab33b7217d5909cb53f446f3f7a820f4684"
 }

@@ -3,7 +3,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, AlertCircle, Wallet, RefreshCw } from 'lucide-react';
 import { MintService } from '@/lib/api/services/mints';
-import { MultimintService } from '@/lib/api/services/multimint';
+import {
+  MultimintService,
+  type MintWithBalances,
+} from '@/lib/api/services/multimint';
 import { MintCard } from './mint-card';
 import { AddMintForm } from './add-mint-form';
 import {
@@ -60,6 +63,15 @@ export function MintList({
   const activeMints = mints.filter((mint) => mint.is_active);
   const inactiveMints = mints.filter((mint) => !mint.is_active);
 
+  // Create a map from mint_url to MintWithBalances for easy lookup
+  const mintBalancesMap = new Map<string, MintWithBalances>(
+    balanceData?.mints_with_balances.map((mintWithBalances) => [
+      mintWithBalances.mint_url,
+      mintWithBalances,
+    ]) || []
+  );
+
+  // Legacy balance map for backward compatibility
   const balanceMap = new Map(
     balanceData?.balances_by_mint.map((balance) => [
       balance.mint_url,
@@ -153,7 +165,7 @@ export function MintList({
             </div>
           </CardHeader>
           <CardContent>
-            <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
               <div className='space-y-2'>
                 <p className='text-muted-foreground text-sm'>Total Mints</p>
                 <p className='text-2xl font-bold'>{mints.length}</p>
@@ -168,6 +180,13 @@ export function MintList({
                   >
                     Active
                   </Badge>
+                </div>
+              </div>
+              <div className='space-y-2'>
+                <p className='text-muted-foreground text-sm'>Inactive Mints</p>
+                <div className='flex items-center gap-2'>
+                  <p className='text-2xl font-bold'>{inactiveMints.length}</p>
+                  <Badge variant='secondary'>Inactive</Badge>
                 </div>
               </div>
             </div>
@@ -201,6 +220,7 @@ export function MintList({
                   key={mint.id}
                   mint={mint}
                   balance={balanceMap.get(mint.mint_url)}
+                  mintWithBalances={mintBalancesMap.get(mint.mint_url)}
                 />
               ))}
             </div>
@@ -219,6 +239,7 @@ export function MintList({
                   key={mint.id}
                   mint={mint}
                   balance={balanceMap.get(mint.mint_url)}
+                  mintWithBalances={mintBalancesMap.get(mint.mint_url)}
                 />
               ))}
             </div>
@@ -244,6 +265,7 @@ export function MintList({
                   key={mint.id}
                   mint={mint}
                   balance={balanceMap.get(mint.mint_url)}
+                  mintWithBalances={mintBalancesMap.get(mint.mint_url)}
                 />
               ))}
             </div>

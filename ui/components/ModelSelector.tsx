@@ -20,10 +20,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Zap, Copy, CheckCircle2, RefreshCw, ArrowUpDown } from 'lucide-react';
+import {
+  Zap,
+  Copy,
+  CheckCircle2,
+  RefreshCw,
+  ArrowUpDown,
+  Search,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, extractModelName } from '@/lib/utils';
 import { ProxyModel } from '@/lib/api/schemas/models';
+import { Input } from '@/components/ui/input';
 
 export function ModelSelector() {
   const [selectedModelId] = useState<string>('');
@@ -33,6 +42,7 @@ export function ModelSelector() {
   const [sortBy, setSortBy] = useState<'name' | 'price-asc' | 'price-desc'>(
     'name'
   );
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const queryClient = useQueryClient();
 
@@ -72,6 +82,13 @@ export function ModelSelector() {
   const { freeModels, groupedProxyModels } = useMemo(() => {
     if (!proxyModels) return { freeModels: [], groupedProxyModels: {} };
 
+    // Filter models by search query
+    const filteredModels = searchQuery.trim()
+      ? proxyModels.filter((model) =>
+          model.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
+        )
+      : proxyModels;
+
     const sortModels = (models: ProxyModel[]): ProxyModel[] => {
       const sorted = [...models];
 
@@ -93,7 +110,7 @@ export function ModelSelector() {
     const free: ProxyModel[] = [];
     const paid: ProxyModel[] = [];
 
-    proxyModels.forEach((model) => {
+    filteredModels.forEach((model) => {
       if (model.is_free) {
         free.push(model);
       } else {
@@ -120,7 +137,7 @@ export function ModelSelector() {
       freeModels: sortedFree,
       groupedProxyModels: groupedPaid,
     };
-  }, [proxyModels, sortBy]);
+  }, [proxyModels, sortBy, searchQuery]);
 
   const getCostValues = (msats: number) => {
     if (msats === 0) return { primary: 'Free', secondary: null };
@@ -206,6 +223,25 @@ export function ModelSelector() {
                 </CardDescription>
               </div>
               <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end'>
+                <div className='relative w-full sm:w-64'>
+                  <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
+                  <Input
+                    placeholder='Search models by name...'
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className='pr-8 pl-10'
+                  />
+                  {searchQuery && (
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      className='hover:bg-muted absolute top-1/2 right-1 h-6 w-6 -translate-y-1/2 p-0'
+                      onClick={() => setSearchQuery('')}
+                    >
+                      <X className='h-3 w-3' />
+                    </Button>
+                  )}
+                </div>
                 <Select
                   value={sortBy}
                   onValueChange={(value: 'name' | 'price-asc' | 'price-desc') =>
@@ -251,14 +287,22 @@ export function ModelSelector() {
             <div className='p-4 text-center text-red-500'>
               Error loading proxy models: {String(proxyModelsError)}
             </div>
+          ) : searchQuery.trim() &&
+            Object.keys(groupedProxyModels).length === 0 &&
+            freeModels.length === 0 ? (
+            <div className='p-8 text-center'>
+              <Search className='text-muted-foreground mx-auto mb-4 h-12 w-12' />
+              <h3 className='mb-2 text-lg font-semibold'>No models found</h3>
+              <p className='text-muted-foreground'>
+                No models match your search for &ldquo;{searchQuery}&rdquo;. Try
+                adjusting your search terms.
+              </p>
+            </div>
           ) : (
             <div className='w-full'>
               {Object.entries(groupedProxyModels).map(
                 ([provider, modelGroup]) => (
                   <div key={provider} className='mb-6 w-full'>
-                    <h3 className='mb-3 text-lg font-semibold'>
-                      {provider} Models
-                    </h3>
                     <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
                       {modelGroup.map((model, index) => (
                         <Card
