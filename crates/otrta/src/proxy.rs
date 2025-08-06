@@ -629,6 +629,17 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     .unwrap();
                 }
             }
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "message": "server error",
+                        "type": "server_serror",
+                        "code": "server_error"
+                    }
+                })),
+            )
+                .into_response();
         }
 
         let mut response = Response::builder().status(status);
