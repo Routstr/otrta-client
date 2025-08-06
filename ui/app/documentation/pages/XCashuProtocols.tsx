@@ -644,7 +644,7 @@ export function XCashuProtocols() {
       </Card>
 
       <NavigationLinks
-        currentSection='xcashu-protocols'
+        currentSection='x-cashu-protocols'
         variant='compact'
         showTitle={false}
       />
