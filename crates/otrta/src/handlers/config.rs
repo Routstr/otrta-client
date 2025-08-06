@@ -72,5 +72,6 @@ async fn validate_tor_availability() -> bool {
     reqwest::Client::builder()
         .proxy(reqwest::Proxy::all(&tor_proxy_url).unwrap())
         .timeout(std::time::Duration::from_secs(10))
-        .build().is_ok()
+        .build()
+        .is_ok()
 }
