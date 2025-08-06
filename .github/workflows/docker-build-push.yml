@@ -157,9 +157,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: './ui/package-lock.json'
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: "./ui/package-lock.json"
 
       - name: Install dependencies
         run: npm ci
@@ -175,7 +175,7 @@ jobs:
 
   deploy-info:
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend, test-backend, test-frontend]
+    needs: test-backend, test-frontend]
     if: github.event_name != 'pull_request'
 
     steps:
