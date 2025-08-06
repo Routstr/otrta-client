@@ -145,7 +145,7 @@ pub async fn search_handler(
     let response = SearchResultResponse {
         id: search_id.to_string(),
         query: request.message,
-        response: serde_json::to_value(&json!({
+        response: serde_json::to_value(json!({
             "message": "Search queued for processing",
             "sources": null
         }))

@@ -54,14 +54,10 @@ async fn validate_tor_availability() -> bool {
     let tor_proxy_url =
         std::env::var("TOR_SOCKS_PROXY").unwrap_or_else(|_| "socks5://127.0.0.1:9050".to_string());
 
-    match reqwest::Client::builder()
+    reqwest::Client::builder()
         .proxy(reqwest::Proxy::all(&tor_proxy_url).unwrap())
         .timeout(std::time::Duration::from_secs(10))
-        .build()
-    {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+        .build().is_ok()
 }
 
 async fn auto_create_mints_for_provider(

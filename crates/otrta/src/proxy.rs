@@ -719,7 +719,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
             eprintln!("Error creating streaming response: {}", e);
             Response::builder()
                 .status(StatusCode::BAD_GATEWAY)
-                .body(Body::from(format!("{{\"error\":{{\"message\":\"Error creating streaming response\",\"type\":\"streaming_error\",\"code\":\"stream_creation_failed\"}}}}")))
+                .body(Body::from("{\"error\":{\"message\":\"Error creating streaming response\",\"type\":\"streaming_error\",\"code\":\"stream_creation_failed\"}}".to_string()))
                 .unwrap()
         });
     } else {
@@ -784,7 +784,7 @@ pub async fn forward_request(
     let org_id = if let Some(org_id) = organization_id {
         *org_id
     } else if let Some(api_key_id) = api_key_id {
-        match get_api_key_by_id(&db, api_key_id).await {
+        match get_api_key_by_id(db, api_key_id).await {
             Ok(Some(api_key)) => match Uuid::parse_str(&api_key.organization_id) {
                 Ok(id) => id,
                 Err(_) => {
@@ -842,11 +842,11 @@ pub async fn forward_request(
             .into_response();
     };
 
-    let server_config = match get_default_provider_for_organization_new(&db, &org_id).await {
+    let server_config = match get_default_provider_for_organization_new(db, &org_id).await {
         Ok(Some(config)) => config,
         Ok(None) => {
             // Fallback to global default provider if organization doesn't have one configured
-            match get_default_provider(&db).await {
+            match get_default_provider(db).await {
                 Ok(Some(config)) => config,
                 Ok(None) => {
                     return (
@@ -938,14 +938,14 @@ pub async fn forward_request(
                     eprintln!("Error creating response: {}", e);
                     Response::builder()
                         .status(StatusCode::BAD_GATEWAY)
-                        .body(Body::from(format!("{{\"error\":{{\"message\":\"Error processing provider response\",\"type\":\"gateway_error\",\"code\":\"response_processing_failed\"}}}}")))
+                        .body(Body::from("{\"error\":{\"message\":\"Error processing provider response\",\"type\":\"gateway_error\",\"code\":\"response_processing_failed\"}}".to_string()))
                         .unwrap()
                 }),
                 Err(e) => {
                     eprintln!("Error reading response body: {}", e);
                     Response::builder()
                         .status(StatusCode::BAD_GATEWAY)
-                        .body(Body::from(format!("{{\"error\":{{\"message\":\"Error reading response from provider\",\"type\":\"gateway_error\",\"code\":\"response_read_failed\"}}}}")))
+                        .body(Body::from("{\"error\":{\"message\":\"Error reading response from provider\",\"type\":\"gateway_error\",\"code\":\"response_read_failed\"}}".to_string()))
                         .unwrap()
                 }
             }

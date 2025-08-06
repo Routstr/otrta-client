@@ -38,15 +38,15 @@ fn handle_completion_response(
     if let Some(choice) = completion_response.choices.first() {
         if choice.message.content.trim().is_empty() {
             if sources.is_empty() {
-                return Err("AI returned empty response with no sources".into());
+                Err("AI returned empty response with no sources".into())
             } else {
-                return Ok(generate_search_response(query, sources));
+                Ok(generate_search_response(query, sources))
             }
         } else {
-            return Ok(choice.message.content.clone());
+            Ok(choice.message.content.clone())
         }
     } else {
-        return Err("AI returned no response choices".into());
+        Err("AI returned no response choices".into())
     }
 }
 
@@ -220,7 +220,7 @@ pub async fn perform_web_search(
 
     if let Some(ref url_list) = urls {
         for url in url_list {
-            match scrape_url(&client, &url).await {
+            match scrape_url(&client, url).await {
                 Ok(content) => {
                     sources.push(SearchSource {
                         metadata: SearchSourceMetadata {
@@ -296,7 +296,7 @@ fn map_citations_to_sources(
                     metadata: crate::db::user_searches::SearchSourceMetadata {
                         url: citation_url.clone(),
                         title: Some(title),
-                        description: Some(format!("Source cited by AI model")),
+                        description: Some("Source cited by AI model".to_string()),
                     },
                     content: String::new(),
                 });

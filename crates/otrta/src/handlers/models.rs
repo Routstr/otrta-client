@@ -467,9 +467,7 @@ async fn refresh_models_for_provider(
     // If there were any failed model insertions, rollback the transaction
     if !failed_models.is_empty() {
         let _ = transaction.rollback().await;
-        return Err(format!(
-            "Failed to insert models. Transaction rolled back to maintain data consistency.",
-        ));
+        return Err("Failed to insert models. Transaction rolled back to maintain data consistency.".to_string());
     }
 
     // Commit the transaction

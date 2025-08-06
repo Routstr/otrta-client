@@ -518,7 +518,7 @@ pub async fn create_lightning_invoice_handler(
             "Lightning invoice created for {} {}",
             payload.amount,
             if let Some(desc) = &payload.unit {
-                format!("{}", desc)
+                desc.to_string()
             } else {
                 String::new()
             }
