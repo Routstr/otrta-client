@@ -13,7 +13,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowRight,
-  Shield,
   Zap,
   Wallet,
   Heart,
@@ -676,15 +675,15 @@ export default function LandingPage() {
                 <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
                   <CardHeader className='px-6 pt-8 pb-6 text-center'>
                     <motion.div
-                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20'
-                      animate={iconFloat}
+                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/20'
+                      animate={iconPulse}
                       transition={{
-                        duration: 3,
+                        duration: 2,
                         repeat: Infinity,
                         ease: 'easeInOut',
                       }}
                     >
-                      <Shield className='h-10 w-10 text-blue-600 dark:text-blue-400' />
+                      <Zap className='h-10 w-10 text-purple-600 dark:text-purple-400' />
                     </motion.div>
                     <CardTitle className='mb-3 text-xl'>
                       Complete Privacy & Self-Hosting
@@ -697,28 +696,33 @@ export default function LandingPage() {
                   </CardHeader>
                 </Card>
               </motion.div>
-
               <motion.div variants={fadeInUp} className='w-full'>
-                <Card className='bg-card/50 border-border/50 hover:bg-card/80 h-full min-h-[280px] backdrop-blur transition-all duration-300 hover:shadow-lg'>
+                <Card className='h-full min-h-[320px] border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-100 backdrop-blur transition-all duration-300 hover:shadow-xl dark:border-amber-800 dark:from-amber-950/20 dark:to-orange-900/20'>
                   <CardHeader className='px-6 pt-8 pb-6 text-center'>
                     <motion.div
-                      className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/20'
-                      animate={iconPulse}
+                      className='mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg'
+                      animate={iconFloat}
                       transition={{
-                        duration: 2,
+                        duration: 3,
                         repeat: Infinity,
                         ease: 'easeInOut',
                       }}
                     >
-                      <Zap className='h-10 w-10 text-purple-600 dark:text-purple-400' />
+                      <Image
+                        src='/cashu_space.ico'
+                        alt='Cashu eCash'
+                        width={96}
+                        height={96}
+                        className='object-center drop-shadow-sm'
+                      />
                     </motion.div>
-                    <CardTitle className='mb-3 text-xl'>
-                      Smart Provider Switching
+                    <CardTitle className='mb-4 text-xl text-amber-900 dark:text-amber-100'>
+                      eCash Payments
                     </CardTitle>
-                    <CardDescription className='text-center text-base leading-relaxed'>
-                      Intelligent provider selection based on price and latency.
-                      Pay exactly what you consume with millisatoshi precision
-                      and optimal routing.
+                    <CardDescription className='text-center text-base leading-relaxed text-amber-800 dark:text-amber-200'>
+                      <strong>True digital cash</strong> for AI services. No
+                      accounts, no KYC, no tracking. Electronic cash for
+                      payments online.
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -1005,8 +1009,8 @@ export default function LandingPage() {
                 <div>
                   <h3 className='text-lg font-semibold'>Secure Transmission</h3>
                   <p className='text-muted-foreground'>
-                    Request sent with e-cash note in X-Cashu header to our 402
-                    server
+                    Request sent with e-cash note in X-Cashu header to a 402
+                    server.
                   </p>
                 </div>
               </motion.div>
@@ -1032,6 +1036,90 @@ export default function LandingPage() {
                 </div>
               </motion.div>
             </div>
+          </motion.div>
+        </section>
+
+        <section className='container px-4 py-16'>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className='mx-auto max-w-6xl'
+          >
+            <div className='mb-16 text-center'>
+              <h2 className='mb-4 text-3xl font-bold sm:text-4xl'>
+                Common Use Cases
+              </h2>
+              <p className='text-muted-foreground mx-auto max-w-3xl text-lg'>
+                Flexible API key management and monitoring for different
+                workflows and team collaboration scenarios
+              </p>
+            </div>
+
+            <motion.div
+              variants={staggerContainer}
+              initial='initial'
+              whileInView='animate'
+              viewport={{ once: true }}
+              className='mx-auto grid max-w-7xl justify-items-center gap-8 md:grid-cols-3'
+            >
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='h-full min-h-[280px] border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 dark:border-blue-800 dark:from-blue-950/20 dark:to-blue-900/20'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-500'>
+                      <span className='text-2xl'>🔑</span>
+                    </div>
+                    <CardTitle className='mb-4 text-xl text-blue-900 dark:text-blue-100'>
+                      One API Key Per Tool
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed text-blue-700 dark:text-blue-300'>
+                      Create separate API keys for each coding tool or
+                      application to track usage patterns, monitor spending, and
+                      maintain clear visibility into which tools consume the
+                      most credits.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='h-full min-h-[280px] border-green-200 bg-gradient-to-br from-green-50 to-green-100 dark:border-green-800 dark:from-green-950/20 dark:to-green-900/20'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-500'>
+                      <span className='text-2xl'>👥</span>
+                    </div>
+                    <CardTitle className='mb-4 text-xl text-green-900 dark:text-green-100'>
+                      Team & Friend Access
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed text-green-700 dark:text-green-300'>
+                      Generate individual API keys for friends and coworkers to
+                      share access while maintaining budget control and usage
+                      monitoring. Perfect for collaborative projects and team
+                      environments.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className='w-full'>
+                <Card className='h-full min-h-[280px] border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 dark:border-purple-800 dark:from-purple-950/20 dark:to-purple-900/20'>
+                  <CardHeader className='px-6 pt-8 pb-6 text-center'>
+                    <div className='mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-purple-500'>
+                      <span className='text-2xl'>🧪</span>
+                    </div>
+                    <CardTitle className='mb-4 text-xl text-purple-900 dark:text-purple-100'>
+                      Model Testing & Exploration
+                    </CardTitle>
+                    <CardDescription className='text-center text-base leading-relaxed text-purple-700 dark:text-purple-300'>
+                      Experiment with different AI models and providers to find
+                      the best performance-to-cost ratio for your specific use
+                      cases. Compare pricing and capabilities across 50+ models.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+            </motion.div>
           </motion.div>
         </section>
 
