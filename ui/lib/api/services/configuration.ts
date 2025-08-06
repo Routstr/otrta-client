@@ -58,7 +58,9 @@ export class ConfigurationService {
    * Get the local base URL (never use external configuration)
    */
   static getLocalBaseUrl(): string {
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    return (
+      process.env.NEXT_PUBLIC_API_URL || 'https://server.otrta.routstr.com'
+    );
   }
 
   /**

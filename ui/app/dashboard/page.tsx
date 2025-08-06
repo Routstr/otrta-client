@@ -31,6 +31,7 @@ import {
   MultimintService,
   type MintWithBalances,
 } from '@/lib/api/services/multimint';
+import { ConfigurationService } from '@/lib/api/services/configuration';
 import { useState } from 'react';
 
 export default function Page() {
@@ -73,9 +74,11 @@ export default function Page() {
     ]) || []
   );
 
+  const serverUrl = ConfigurationService.getBaseUrl();
+
   const copyServerUrl = async () => {
     try {
-      await navigator.clipboard.writeText('https://server.otrta.routstr.com');
+      await navigator.clipboard.writeText(serverUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -117,7 +120,7 @@ export default function Page() {
               <div className='rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30'>
                 <div className='flex items-center justify-between'>
                   <p className='font-mono text-xs text-blue-900 dark:text-blue-100'>
-                    https://server.otrta.routstr.com
+                    {serverUrl}
                   </p>
                   <Button
                     size='sm'
