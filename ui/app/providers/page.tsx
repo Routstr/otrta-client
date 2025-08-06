@@ -158,6 +158,9 @@ export default function ProvidersPage() {
               </p>
             </div>
             <div className='flex gap-3'>
+              <Button disabled variant='outline'>
+                Nostr Marketplace (Coming Soon)
+              </Button>
               <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
                 <DialogTrigger asChild>
                   <Button>
