@@ -283,7 +283,7 @@ export default function LandingPage() {
   return (
     <div className='bg-background min-h-screen'>
       <nav className='bg-background/95 supports-[backdrop-filter]:bg-background/60 border-b backdrop-blur'>
-        <div className='container flex h-16 items-center justify-between px-4'>
+        <div className='flex h-16 w-full items-center px-4 md:px-8'>
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -306,7 +306,7 @@ export default function LandingPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className='flex items-center space-x-2 md:space-x-3'
+            className='ml-auto flex items-center space-x-2 md:space-x-3'
           >
             <Button
               variant='ghost'
