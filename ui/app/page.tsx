@@ -26,6 +26,7 @@ import {
   Layers,
   Sparkles,
   Cpu,
+  BookOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useNostrAuth } from '@/lib/hooks/useNostrAuth';
@@ -282,33 +283,41 @@ export default function LandingPage() {
   return (
     <div className='bg-background min-h-screen'>
       <nav className='bg-background/95 supports-[backdrop-filter]:bg-background/60 border-b backdrop-blur'>
-        <div className='container flex h-16 items-center justify-between'>
-          <div className='flex-1'>
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className='ml-10'
-            >
-              <div className='flex items-center gap-2'>
-                <Image
-                  src='/routstr.svg'
-                  alt='OTRTA Logo'
-                  width={32}
-                  height={32}
-                  className='rounded-lg dark:invert'
-                />
-                <span className='text-2xl font-bold tracking-wide'>otrta</span>
-              </div>
-            </motion.div>
-          </div>
+        <div className='container flex h-16 items-center justify-between px-4'>
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className='flex-shrink-0'
+          >
+            <div className='flex items-center gap-2'>
+              <Image
+                src='/routstr.svg'
+                alt='OTRTA Logo'
+                width={32}
+                height={32}
+                className='rounded-lg dark:invert'
+              />
+              <span className='text-xl font-bold tracking-wide md:text-2xl'>
+                otrta
+              </span>
+            </div>
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className='absolute right-4 flex items-center space-x-3'
+            className='flex items-center space-x-2 md:space-x-3'
           >
-            <Button variant='ghost' size='sm' asChild>
-              <Link href='/documentation'>Documentation</Link>
+            <Button
+              variant='ghost'
+              size='sm'
+              asChild
+              className='text-xs md:text-sm'
+            >
+              <Link href='/documentation'>
+                <BookOpen className='h-4 w-4 md:mr-2' />
+                <span className='hidden md:inline'>Documentation</span>
+              </Link>
             </Button>
             <Button variant='ghost' size='sm' asChild>
               <Link
@@ -320,17 +329,19 @@ export default function LandingPage() {
             </Button>
             <ThemeToggle />
             {isAuthenticated ? (
-              <Button size='sm' asChild>
+              <Button size='sm' asChild className='text-xs md:text-sm'>
                 <Link href='/dashboard'>
-                  Dashboard
-                  <ArrowRight className='ml-2 h-4 w-4' />
+                  <span className='hidden md:inline'>Dashboard</span>
+                  <span className='md:hidden'>App</span>
+                  <ArrowRight className='ml-1 h-3 w-3 md:ml-2 md:h-4 md:w-4' />
                 </Link>
               </Button>
             ) : (
-              <Button size='sm' asChild>
+              <Button size='sm' asChild className='text-xs md:text-sm'>
                 <Link href='/login'>
-                  Sign In
-                  <ArrowRight className='ml-2 h-4 w-4' />
+                  <span className='hidden md:inline'>Sign In</span>
+                  <span className='md:hidden'>Login</span>
+                  <ArrowRight className='ml-1 h-3 w-3 md:ml-2 md:h-4 md:w-4' />
                 </Link>
               </Button>
             )}
@@ -1414,7 +1425,9 @@ export default function LandingPage() {
             </p>
             <div className='flex items-center space-x-4'>
               <Button variant='ghost' size='sm' asChild>
-                <Link href='/documentation'>Documentation</Link>
+                <Link href='/documentation'>
+                  <BookOpen className='h-4 w-4' />
+                </Link>
               </Button>
               <Button variant='ghost' size='sm' asChild>
                 <Link
