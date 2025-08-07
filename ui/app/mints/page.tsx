@@ -12,7 +12,7 @@ export default function MintsPage() {
       <SidebarInset>
         <SiteHeader />
         <div className='flex flex-1 flex-col'>
-          <div className='@container/main flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8'>
+          <div className='@container/main flex flex-1 flex-col gap-2 p-2 md:gap-4 md:p-4 lg:gap-8 lg:p-8'>
             <MintManagementPage />
           </div>
         </div>

@@ -332,13 +332,13 @@ export function CollectSats() {
 
   return (
     <Card className='mx-auto w-full max-w-4xl'>
-      <CardHeader>
-        <CardTitle className='flex items-center gap-2'>
-          <SendIcon className='h-5 w-5' />
+      <CardHeader className='p-4 md:p-6'>
+        <CardTitle className='flex items-center gap-2 text-lg md:text-xl'>
+          <SendIcon className='h-4 w-4 md:h-5 md:w-5' />
           Send Ecash Token
         </CardTitle>
       </CardHeader>
-      <CardContent className='space-y-6'>
+      <CardContent className='space-y-4 p-4 md:space-y-6 md:p-6'>
         {!generatedToken ? (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
@@ -376,15 +376,15 @@ export function CollectSats() {
 
               {/* Display selected mint balance and URL */}
               {selectedMintUrl && (
-                <div className='bg-muted/30 rounded-lg border p-4'>
-                  <div className='flex items-center justify-between'>
+                <div className='bg-muted/30 rounded-lg border p-3 md:p-4'>
+                  <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
                     <div className='space-y-1'>
                       <p className='text-sm font-medium'>Selected Mint</p>
                       <p className='text-muted-foreground font-mono text-xs break-all'>
                         {selectedMintUrl}
                       </p>
                     </div>
-                    <div className='text-right'>
+                    <div className='text-left md:text-right'>
                       <p className='text-sm font-medium'>Balance</p>
                       <p className='text-lg font-bold'>
                         {selectedMintBalance ? (
@@ -405,8 +405,8 @@ export function CollectSats() {
                 </div>
               )}
 
-              <div className='grid grid-cols-3 gap-4'>
-                <div className='col-span-2'>
+              <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+                <div className='md:col-span-2'>
                   <FormField
                     control={form.control}
                     name='amount'
@@ -448,7 +448,7 @@ export function CollectSats() {
           </Form>
         ) : (
           <div className='space-y-4'>
-            <div className='rounded-lg border border-green-200 bg-green-50 p-4'>
+            <div className='rounded-lg border border-green-200 bg-green-50 p-3 md:p-4'>
               <p className='text-sm font-medium text-green-800'>
                 Token generated successfully!
               </p>
@@ -471,7 +471,7 @@ export function CollectSats() {
                   <Textarea
                     value={generatedToken || ''}
                     readOnly
-                    className='min-h-[120px] font-mono text-xs'
+                    className='min-h-[100px] font-mono text-xs md:min-h-[120px]'
                     placeholder='Generated token will appear here...'
                   />
                 </div>
@@ -498,8 +498,8 @@ export function CollectSats() {
                 <div className='flex flex-col items-center space-y-4'>
                   {/* UR-based QR code display */}
                   {qrCodeDataUrl ? (
-                    <div className='flex justify-center'>
-                      <div className='rounded-lg border bg-white p-6 shadow-sm'>
+                    <div className='flex w-full justify-center'>
+                      <div className='rounded-lg border bg-white p-3 shadow-sm md:p-6'>
                         <Image
                           src={qrCodeDataUrl}
                           alt={
@@ -509,15 +509,15 @@ export function CollectSats() {
                           }
                           width={350}
                           height={350}
-                          className='h-auto max-w-full'
+                          className='h-auto w-full max-w-[280px] md:max-w-[350px]'
                         />
                       </div>
                     </div>
                   ) : qrError ? (
-                    <div className='flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-red-300 bg-red-50'>
+                    <div className='flex h-48 w-48 items-center justify-center rounded-lg border-2 border-dashed border-red-300 bg-red-50 md:h-64 md:w-64'>
                       <div className='text-center'>
-                        <QrCode className='mx-auto mb-2 h-8 w-8 text-red-400' />
-                        <p className='text-sm text-red-600'>
+                        <QrCode className='mx-auto mb-2 h-6 w-6 text-red-400 md:h-8 md:w-8' />
+                        <p className='text-xs text-red-600 md:text-sm'>
                           Failed to generate QR code
                         </p>
                         <p className='mt-1 text-xs text-red-500'>{qrError}</p>
@@ -539,19 +539,19 @@ export function CollectSats() {
                       </div>
                     </div>
                   ) : (
-                    <div className='flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-gray-300'>
+                    <div className='flex h-48 w-48 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 md:h-64 md:w-64'>
                       <div className='text-center'>
                         {isGeneratingQr ? (
                           <>
-                            <Loader2 className='mx-auto mb-2 h-8 w-8 animate-spin text-gray-400' />
-                            <p className='text-sm text-gray-500'>
+                            <Loader2 className='mx-auto mb-2 h-6 w-6 animate-spin text-gray-400 md:h-8 md:w-8' />
+                            <p className='text-xs text-gray-500 md:text-sm'>
                               Generating QR code...
                             </p>
                           </>
                         ) : (
                           <>
-                            <QrCode className='mx-auto mb-2 h-8 w-8 text-gray-400' />
-                            <p className='text-sm text-gray-500'>
+                            <QrCode className='mx-auto mb-2 h-6 w-6 text-gray-400 md:h-8 md:w-8' />
+                            <p className='text-xs text-gray-500 md:text-sm'>
                               QR code will appear here
                             </p>
                           </>
@@ -566,7 +566,7 @@ export function CollectSats() {
         )}
       </CardContent>
       {generatedToken && (
-        <CardFooter>
+        <CardFooter className='p-4 md:p-6'>
           <Button onClick={handleReset} variant='outline' className='w-full'>
             Generate Another Token
           </Button>
