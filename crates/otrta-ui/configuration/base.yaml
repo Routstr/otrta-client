@@ -5,6 +5,3 @@ application:
   worker: 5
   connections: 100
   default_msats_per_request: 65536
-  enable_authentication: true
-  whitelisted_npubs:
-    - "npub18kpn83drge7x9vz4cuhh7xta79sl4tfq55se4e554yj90s8y3f7qa49nps"
