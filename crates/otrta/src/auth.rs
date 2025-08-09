@@ -407,12 +407,16 @@ async fn create_or_get_user_context(
         ));
     }
 
-    // User doesn't exist, assign them to default organization and create user
+    // User doesn't exist, create a new organization for them
     info!(
-        "User {} not found, creating user and assigning to default organization",
+        "User {} not found, creating user and new organization",
         npub
     );
-    let organization = ensure_default_organization_exists(app_state).await?;
+    let create_org_request = CreateOrganizationRequest {
+        name: format!("Organization for {}", npub),
+    };
+    let organization = organizations::create_organization(&app_state.db, &create_org_request).await?;
+    info!("Created new organization {} for user {}", organization.id, npub);
 
     let create_user_request = crate::models::CreateUserRequest {
         npub: npub.to_string(),
