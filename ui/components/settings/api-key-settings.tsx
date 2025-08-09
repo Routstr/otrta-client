@@ -59,12 +59,6 @@ export function ApiKeySettings() {
     setCurrentAuthKey(ConfigurationService.getApiKey());
   }, []);
 
-  const setAuthenticationKey = (apiKey: string) => {
-    ConfigurationService.setApiKey(apiKey);
-    setCurrentAuthKey(apiKey);
-    toast.success('API key set for authentication');
-  };
-
   const clearAuthenticationKey = () => {
     ConfigurationService.clearApiKey();
     setCurrentAuthKey(null);
@@ -425,37 +419,6 @@ export function ApiKeySettings() {
                           <BarChart3 className='mr-2 h-4 w-4 sm:mr-0' />
                           <span className='sm:hidden'>Statistics</span>
                         </Button>
-                        {currentAuthKey === apiKey.key ? (
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            onClick={clearAuthenticationKey}
-                            disabled={isLoading}
-                            className='flex-1 sm:flex-none'
-                          >
-                            <Shield className='mr-1 h-4 w-4' />
-                            <span className='hidden sm:inline'>Clear Auth</span>
-                            <span className='sm:hidden'>Clear</span>
-                          </Button>
-                        ) : (
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            onClick={() => setAuthenticationKey(apiKey.key)}
-                            disabled={
-                              isLoading ||
-                              !apiKey.is_active ||
-                              isExpired(apiKey.expires_at)
-                            }
-                            className='flex-1 sm:flex-none'
-                          >
-                            <Shield className='mr-1 h-4 w-4' />
-                            <span className='hidden sm:inline'>
-                              Use for Auth
-                            </span>
-                            <span className='sm:hidden'>Auth</span>
-                          </Button>
-                        )}
                       </div>
                       <div className='flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start'>
                         <div className='flex items-center gap-2'>
