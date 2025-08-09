@@ -415,8 +415,12 @@ async fn create_or_get_user_context(
     let create_org_request = CreateOrganizationRequest {
         name: format!("Organization for {}", npub),
     };
-    let organization = organizations::create_organization(&app_state.db, &create_org_request).await?;
-    info!("Created new organization {} for user {}", organization.id, npub);
+    let organization =
+        organizations::create_organization(&app_state.db, &create_org_request).await?;
+    info!(
+        "Created new organization {} for user {}",
+        organization.id, npub
+    );
 
     let create_user_request = crate::models::CreateUserRequest {
         npub: npub.to_string(),
