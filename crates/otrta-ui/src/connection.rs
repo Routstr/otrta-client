@@ -19,10 +19,7 @@ pub struct ApplicationSettings {
     pub mint_url: String,
     #[serde(default)]
     pub enable_authentication: bool,
-    #[serde(
-        default = "default_whitelisted_npubs",
-        deserialize_with = "deserialize_npubs"
-    )]
+    #[serde(deserialize_with = "deserialize_npubs")]
     pub whitelisted_npubs: Vec<String>,
 }
 
