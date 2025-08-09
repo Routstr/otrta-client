@@ -22,11 +22,6 @@ import { Button } from '@/components/ui/button';
 import { TruncatedUrl } from '@/components/ui/truncated-url';
 import { formatDistanceToNow } from 'date-fns';
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card';
-import {
   Copy,
   ShieldIcon,
   CheckIcon,
@@ -325,25 +320,28 @@ export default function ProvidersPage() {
                           </Badge>
                         )}
                         {!provider.has_msat_support && (
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <AlertTriangle className='h-3 w-3 cursor-help text-yellow-600 md:h-4 md:w-4' />
-                            </HoverCardTrigger>
-                            <HoverCardContent className='w-80'>
-                              <div className='text-sm'>
-                                <p className='mb-1 font-medium text-yellow-800 dark:text-yellow-200'>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <button className='flex cursor-pointer items-center justify-center rounded p-0.5 transition-colors hover:bg-yellow-50 dark:hover:bg-yellow-950/20'>
+                                <AlertTriangle className='h-3 w-3 text-yellow-600 md:h-4 md:w-4' />
+                              </button>
+                            </DialogTrigger>
+                            <DialogContent className='mx-2 w-[calc(100vw-1rem)] max-w-md sm:mx-auto sm:w-auto'>
+                              <DialogHeader>
+                                <DialogTitle className='flex items-center gap-2 text-yellow-800 dark:text-yellow-200'>
+                                  <AlertTriangle className='h-4 w-4' />
                                   Msat Precision Warning
-                                </p>
-                                <p className='text-yellow-700 dark:text-yellow-300'>
+                                </DialogTitle>
+                                <DialogDescription className='text-yellow-700 dark:text-yellow-300'>
                                   This provider&apos;s mints only support
                                   satoshi precision. Payments in millisatoshis
                                   (msat) will be rounded down to the nearest
                                   satoshi, which may result in small amounts of
                                   ecash being lost.
-                                </p>
-                              </div>
-                            </HoverCardContent>
-                          </HoverCard>
+                                </DialogDescription>
+                              </DialogHeader>
+                            </DialogContent>
+                          </Dialog>
                         )}
                       </div>
 
