@@ -146,29 +146,29 @@ export default function ProvidersPage() {
       <AppSidebar variant='inset' />
       <SidebarInset className='p-0'>
         <SiteHeader />
-        <div className='container max-w-6xl px-4 py-8 md:px-6 lg:px-8'>
-          <div className='mb-8 flex items-center justify-between'>
+        <div className='container max-w-6xl px-2 py-4 md:px-4 md:py-8 lg:px-8'>
+          <div className='mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-center md:justify-between'>
             <div>
-              <h1 className='text-3xl font-bold tracking-tight'>
+              <h1 className='text-2xl font-bold tracking-tight md:text-3xl'>
                 Nostr Providers
               </h1>
-              <p className='text-muted-foreground mt-2'>
+              <p className='text-muted-foreground mt-1 text-sm md:mt-2 md:text-base'>
                 Select a provider from the Nostr marketplace to forward your
                 requests
               </p>
             </div>
-            <div className='flex gap-3'>
-              <Button disabled variant='outline'>
+            <div className='flex flex-col gap-2 md:flex-row md:gap-3'>
+              <Button disabled variant='outline' size='sm' className='text-xs md:text-sm'>
                 Nostr Marketplace (Coming Soon)
               </Button>
               <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className='mr-2 h-4 w-4' />
+                  <Button size='sm' className='text-xs md:text-sm'>
+                    <Plus className='mr-1 h-3 w-3 md:mr-2 md:h-4 md:w-4' />
                     Add Custom Provider
                   </Button>
                 </DialogTrigger>
-                <DialogContent className='max-h-[90vh] max-w-2xl overflow-y-auto'>
+                <DialogContent className='mx-2 max-h-[90vh] max-w-2xl overflow-y-auto md:mx-auto'>
                   <DialogHeader>
                     <DialogTitle>Add Custom Provider</DialogTitle>
                     <DialogDescription>
@@ -189,7 +189,7 @@ export default function ProvidersPage() {
             open={!!editingProvider}
             onOpenChange={() => setEditingProvider(null)}
           >
-            <DialogContent className='max-h-[90vh] max-w-2xl overflow-y-auto'>
+            <DialogContent className='mx-2 max-h-[90vh] max-w-2xl overflow-y-auto md:mx-auto'>
               <DialogHeader>
                 <DialogTitle>Edit Provider</DialogTitle>
                 <DialogDescription>
@@ -207,18 +207,18 @@ export default function ProvidersPage() {
           </Dialog>
 
           {isLoading ? (
-            <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
+            <div className='grid gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3'>
               {Array.from({ length: 6 }).map((_, i) => (
                 <Card key={i}>
-                  <CardHeader>
-                    <Skeleton className='h-6 w-3/4' />
-                    <Skeleton className='h-4 w-1/2' />
+                  <CardHeader className='p-4 md:p-6'>
+                    <Skeleton className='h-5 w-3/4 md:h-6' />
+                    <Skeleton className='h-3 w-1/2 md:h-4' />
                   </CardHeader>
-                  <CardContent>
-                    <div className='space-y-3'>
-                      <Skeleton className='h-4 w-full' />
-                      <Skeleton className='h-4 w-2/3' />
-                      <Skeleton className='h-8 w-24' />
+                  <CardContent className='p-4 md:p-6'>
+                    <div className='space-y-2 md:space-y-3'>
+                      <Skeleton className='h-3 w-full md:h-4' />
+                      <Skeleton className='h-3 w-2/3 md:h-4' />
+                      <Skeleton className='h-6 w-20 md:h-8 md:w-24' />
                     </div>
                   </CardContent>
                 </Card>
@@ -226,12 +226,12 @@ export default function ProvidersPage() {
             </div>
           ) : providers.length === 0 ? (
             <Card>
-              <CardContent className='py-8 text-center'>
-                <p className='text-muted-foreground'>No providers available.</p>
+              <CardContent className='py-6 text-center md:py-8'>
+                <p className='text-muted-foreground text-sm md:text-base'>No providers available.</p>
               </CardContent>
             </Card>
           ) : (
-            <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
+            <div className='grid gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3'>
               {sortedProviders.map((provider) => (
                 <Card
                   key={provider.id}
@@ -241,11 +241,11 @@ export default function ProvidersPage() {
                       : ''
                   }`}
                 >
-                  <CardHeader className='pb-3'>
+                  <CardHeader className='p-3 pb-2 md:p-6 md:pb-3'>
                     <div className='space-y-2'>
                       {/* Top row: Title and action buttons */}
                       <div className='flex items-start justify-between gap-2'>
-                        <CardTitle className='flex-1 truncate text-lg leading-tight font-semibold'>
+                        <CardTitle className='flex-1 truncate text-base leading-tight font-semibold md:text-lg'>
                           {provider.name}
                         </CardTitle>
                         {provider.is_editable && (
@@ -254,23 +254,23 @@ export default function ProvidersPage() {
                               size='sm'
                               variant='ghost'
                               onClick={() => handleEditProvider(provider)}
-                              className='h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/20'
+                              className='h-6 w-6 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/20 md:h-8 md:w-8'
                               title='Edit provider'
                             >
-                              <Edit className='h-4 w-4' />
+                              <Edit className='h-3 w-3 md:h-4 md:w-4' />
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button
                                   size='sm'
                                   variant='ghost'
-                                  className='h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/20'
+                                  className='h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/20 md:h-8 md:w-8'
                                   title='Delete provider'
                                 >
-                                  <Trash2 className='h-4 w-4' />
+                                  <Trash2 className='h-3 w-3 md:h-4 md:w-4' />
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent>
+                              <AlertDialogContent className='mx-2 md:mx-auto'>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>
                                     Delete Custom Provider
@@ -281,13 +281,13 @@ export default function ProvidersPage() {
                                     undone.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogFooter className='flex-col gap-2 md:flex-row'>
+                                  <AlertDialogCancel className='w-full md:w-auto'>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() =>
                                       handleDeleteCustomProvider(provider.id)
                                     }
-                                    className='bg-red-600 hover:bg-red-700'
+                                    className='w-full bg-red-600 hover:bg-red-700 md:w-auto'
                                   >
                                     Delete
                                   </AlertDialogAction>
@@ -302,7 +302,7 @@ export default function ProvidersPage() {
                       <div className='flex flex-wrap items-center gap-1'>
                         {provider.is_default_for_org && (
                           <Badge className='bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-100'>
-                            <CheckIcon className='mr-1 h-3 w-3' />
+                            <CheckIcon className='mr-1 h-2 w-2 md:h-3 md:w-3' />
                             Default
                           </Badge>
                         )}
@@ -311,14 +311,14 @@ export default function ProvidersPage() {
                             variant='outline'
                             className='border-blue-500 text-xs text-blue-600 dark:text-blue-400'
                           >
-                            <Eye className='mr-1 h-3 w-3' />
+                            <Eye className='mr-1 h-2 w-2 md:h-3 md:w-3' />
                             Custom
                           </Badge>
                         )}
                         {!provider.has_msat_support && (
                           <HoverCard>
                             <HoverCardTrigger asChild>
-                              <AlertTriangle className='h-4 w-4 cursor-help text-yellow-600' />
+                              <AlertTriangle className='h-3 w-3 cursor-help text-yellow-600 md:h-4 md:w-4' />
                             </HoverCardTrigger>
                             <HoverCardContent className='w-80'>
                               <div className='text-sm'>
@@ -339,29 +339,29 @@ export default function ProvidersPage() {
                       </div>
 
                       {/* Third row: URL */}
-                      <CardDescription className='pt-1'>
-                        <TruncatedUrl url={provider.url} maxLength={35} />
+                      <CardDescription className='pt-1 text-xs md:text-sm'>
+                        <TruncatedUrl url={provider.url} maxLength={30} />
                       </CardDescription>
                     </div>
                   </CardHeader>
 
-                  <CardContent className='space-y-4'>
+                  <CardContent className='space-y-3 p-3 pt-0 md:space-y-4 md:p-6 md:pt-0'>
                     <div className='space-y-2'>
                       <div className='flex items-center justify-between'>
-                        <div className='flex items-center gap-2'>
+                        <div className='flex flex-wrap items-center gap-2'>
                           <Button
                             variant='outline'
                             size='sm'
                             onClick={() => toggleMintsExpanded(provider.id)}
-                            className='flex h-7 items-center gap-2 px-2 text-xs'
+                            className='flex h-6 items-center gap-1 px-2 text-xs md:h-7 md:gap-2'
                           >
-                            <CoinsIcon className='h-3 w-3' />
+                            <CoinsIcon className='h-2 w-2 md:h-3 md:w-3' />
                             {provider.mints.length} mint
                             {provider.mints.length !== 1 ? 's' : ''}
                             {expandedMints.has(provider.id) ? (
-                              <ChevronUp className='h-3 w-3' />
+                              <ChevronUp className='h-2 w-2 md:h-3 md:w-3' />
                             ) : (
-                              <ChevronDown className='h-3 w-3' />
+                              <ChevronDown className='h-2 w-2 md:h-3 md:w-3' />
                             )}
                           </Button>
                           {provider.use_onion && (
@@ -369,7 +369,7 @@ export default function ProvidersPage() {
                               variant='secondary'
                               className='flex items-center gap-1 text-xs'
                             >
-                              <ShieldIcon className='h-3 w-3' />
+                              <ShieldIcon className='h-2 w-2 md:h-3 md:w-3' />
                               Tor
                             </Badge>
                           )}
@@ -378,8 +378,8 @@ export default function ProvidersPage() {
 
                       {expandedMints.has(provider.id) &&
                         provider.mints.length > 0 && (
-                          <div className='bg-muted/50 space-y-2 rounded-lg p-3'>
-                            <div className='text-muted-foreground mb-2 text-xs font-medium'>
+                          <div className='bg-muted/50 space-y-2 rounded-lg p-2 md:p-3'>
+                            <div className='text-muted-foreground mb-1 text-xs font-medium md:mb-2'>
                               Supported Mints:
                             </div>
                             <div className='space-y-1'>
@@ -388,18 +388,18 @@ export default function ProvidersPage() {
                                   key={index}
                                   className='group flex items-center gap-2 text-xs'
                                 >
-                                  <div className='h-1.5 w-1.5 flex-shrink-0 rounded-full bg-green-500' />
-                                  <span className='text-muted-foreground flex-1 truncate font-mono'>
+                                  <div className='h-1 w-1 flex-shrink-0 rounded-full bg-green-500 md:h-1.5 md:w-1.5' />
+                                  <span className='text-muted-foreground flex-1 truncate font-mono text-xs'>
                                     {mint}
                                   </span>
                                   <Button
                                     variant='ghost'
                                     size='sm'
                                     onClick={() => copyToClipboard(mint)}
-                                    className='h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100'
+                                    className='h-5 w-5 p-0 opacity-0 transition-opacity group-hover:opacity-100 md:h-6 md:w-6'
                                     title='Copy mint URL'
                                   >
-                                    <Copy className='h-3 w-3' />
+                                    <Copy className='h-2 w-2 md:h-3 md:w-3' />
                                   </Button>
                                 </div>
                               ))}
@@ -420,7 +420,7 @@ export default function ProvidersPage() {
                         <Button
                           onClick={() => handleSetDefault(provider.id)}
                           disabled={setDefaultProvider.isPending}
-                          className='w-full'
+                          className='w-full text-xs md:text-sm'
                           size='sm'
                         >
                           {setDefaultProvider.isPending
@@ -433,7 +433,7 @@ export default function ProvidersPage() {
                         onClick={() => handleActivateProvider(provider.id)}
                         disabled={activateProvider.isPending}
                         variant='outline'
-                        className='w-full'
+                        className='w-full text-xs md:text-sm'
                         size='sm'
                       >
                         {activateProvider.isPending
