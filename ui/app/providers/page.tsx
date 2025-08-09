@@ -158,7 +158,12 @@ export default function ProvidersPage() {
               </p>
             </div>
             <div className='flex flex-col gap-2 md:flex-row md:gap-3'>
-              <Button disabled variant='outline' size='sm' className='text-xs md:text-sm'>
+              <Button
+                disabled
+                variant='outline'
+                size='sm'
+                className='text-xs md:text-sm'
+              >
                 Nostr Marketplace (Coming Soon)
               </Button>
               <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
@@ -227,7 +232,9 @@ export default function ProvidersPage() {
           ) : providers.length === 0 ? (
             <Card>
               <CardContent className='py-6 text-center md:py-8'>
-                <p className='text-muted-foreground text-sm md:text-base'>No providers available.</p>
+                <p className='text-muted-foreground text-sm md:text-base'>
+                  No providers available.
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -254,7 +261,7 @@ export default function ProvidersPage() {
                               size='sm'
                               variant='ghost'
                               onClick={() => handleEditProvider(provider)}
-                              className='h-6 w-6 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/20 md:h-8 md:w-8'
+                              className='h-6 w-6 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700 md:h-8 md:w-8 dark:hover:bg-blue-950/20'
                               title='Edit provider'
                             >
                               <Edit className='h-3 w-3 md:h-4 md:w-4' />
@@ -264,7 +271,7 @@ export default function ProvidersPage() {
                                 <Button
                                   size='sm'
                                   variant='ghost'
-                                  className='h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/20 md:h-8 md:w-8'
+                                  className='h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 md:h-8 md:w-8 dark:hover:bg-red-950/20'
                                   title='Delete provider'
                                 >
                                   <Trash2 className='h-3 w-3 md:h-4 md:w-4' />
@@ -282,7 +289,9 @@ export default function ProvidersPage() {
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className='flex-col gap-2 md:flex-row'>
-                                  <AlertDialogCancel className='w-full md:w-auto'>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel className='w-full md:w-auto'>
+                                    Cancel
+                                  </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() =>
                                       handleDeleteCustomProvider(provider.id)
@@ -316,25 +325,28 @@ export default function ProvidersPage() {
                           </Badge>
                         )}
                         {!provider.has_msat_support && (
-                          <HoverCard>
-                            <HoverCardTrigger asChild>
-                              <AlertTriangle className='h-3 w-3 cursor-help text-yellow-600 md:h-4 md:w-4' />
-                            </HoverCardTrigger>
-                            <HoverCardContent className='w-80'>
-                              <div className='text-sm'>
-                                <p className='mb-1 font-medium text-yellow-800 dark:text-yellow-200'>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <button className='flex cursor-pointer items-center justify-center rounded p-0.5 transition-colors hover:bg-yellow-50 dark:hover:bg-yellow-950/20'>
+                                <AlertTriangle className='h-3 w-3 text-yellow-600 md:h-4 md:w-4' />
+                              </button>
+                            </DialogTrigger>
+                            <DialogContent className='mx-2 w-[calc(100vw-1rem)] max-w-md sm:mx-auto sm:w-auto'>
+                              <DialogHeader>
+                                <DialogTitle className='flex items-center gap-2 text-yellow-800 dark:text-yellow-200'>
+                                  <AlertTriangle className='h-4 w-4' />
                                   Msat Precision Warning
-                                </p>
-                                <p className='text-yellow-700 dark:text-yellow-300'>
+                                </DialogTitle>
+                                <DialogDescription className='text-yellow-700 dark:text-yellow-300'>
                                   This provider&apos;s mints only support
                                   satoshi precision. Payments in millisatoshis
                                   (msat) will be rounded down to the nearest
                                   satoshi, which may result in small amounts of
                                   ecash being lost.
-                                </p>
-                              </div>
-                            </HoverCardContent>
-                          </HoverCard>
+                                </DialogDescription>
+                              </DialogHeader>
+                            </DialogContent>
+                          </Dialog>
                         )}
                       </div>
 
