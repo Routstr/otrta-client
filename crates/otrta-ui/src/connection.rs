@@ -1,7 +1,6 @@
 use secrecy::{ExposeSecret, SecretString};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
-use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct Settings {
@@ -19,7 +18,7 @@ pub struct ApplicationSettings {
     pub mint_url: String,
     #[serde(default)]
     pub enable_authentication: bool,
-    #[serde(deserialize_with = "deserialize_npubs")]
+    #[serde(default, deserialize_with = "deserialize_npubs")]
     pub whitelisted_npubs: Vec<String>,
 }
 
@@ -93,39 +92,24 @@ impl DatabaseSettings {
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-    let configuration_directory = base_path.join("configuration");
-
-    let environment: Environment = std::env::var("APP_ENVIRONMENT")
-        .unwrap_or_else(|_| "local".into())
-        .try_into()
-        .expect("Failed to parse APP_ENVIRONMENT.");
-    let environment_filename = format!("{}.yaml", environment.as_str());
-
-    let mut config_builder = config::Config::builder();
-
-    let base_config_path = configuration_directory.join("base.yaml");
-    if base_config_path.exists() {
-        config_builder = config_builder.add_source(config::File::from(base_config_path));
-    } else {
-        println!("Base configuration file not found, using environment variables and defaults");
-    }
-
-    let env_config_path = configuration_directory.join(&environment_filename);
-    if env_config_path.exists() {
-        println!(
-            "Loading environment configuration from: {:?}",
-            env_config_path
-        );
-        config_builder = config_builder.add_source(config::File::from(env_config_path));
-    } else {
-        println!(
-            "Environment configuration file '{}' not found, using environment variables and defaults",
-            environment_filename
-        );
-    }
-
-    let settings = config_builder
+    // Only load from environment variables (and .env via dotenv in main.rs)
+    let settings = config::Config::builder()
+        // Application defaults
+        .set_default("application.port", 3333)?
+        .set_default("application.host", "0.0.0.0")?
+        .set_default("application.default_msats_per_request", 65536)?
+        .set_default("application.mint_url", "https://ecashmint.otrta.me")?
+        .set_default("application.enable_authentication", true)?
+        .set_default("application.whitelisted_npubs", Vec::<String>::new())?
+        // Database defaults
+        .set_default("database.host", "localhost")?
+        .set_default("database.port", 5432)?
+        .set_default("database.username", "postgres")?
+        .set_default("database.password", "postgres")?
+        .set_default("database.database_name", "otrta")?
+        .set_default("database.require_ssl", false)?
+        .set_default("database.connections", 10)?
+        // Namespaced APP_* variables like APP_APPLICATION__PORT=3333
         .add_source(
             config::Environment::with_prefix("APP")
                 .prefix_separator("_")
@@ -133,6 +117,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
                 .try_parsing(true)
                 .ignore_empty(true),
         )
+        // Allow OTRTA_* namespaced variables as well
         .add_source(
             config::Environment::with_prefix("OTRTA")
                 .prefix_separator("_")
@@ -140,6 +125,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
                 .try_parsing(true)
                 .ignore_empty(true),
         )
+        // Common aliases without namespaces (DB_*, POSTGRES_*, etc.)
         .add_source(
             config::Environment::default()
                 .try_parsing(true)
@@ -203,7 +189,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
                     if let Ok(val) = std::env::var("ENABLE_AUTHENTICATION") {
                         env_map.insert("application__enable_authentication".to_string(), val);
                     }
-                    // Handle WHITELISTED_NPUBS
+                    // Handle WHITELISTED_NPUBS (string or array)
                     if let Ok(val) = std::env::var("WHITELISTED_NPUBS") {
                         env_map.insert("application__whitelisted_npubs".to_string(), val);
                     }
@@ -214,33 +200,4 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .build()?;
 
     settings.try_deserialize::<Settings>()
-}
-
-pub enum Environment {
-    Local,
-    Production,
-}
-
-impl Environment {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Environment::Local => "local",
-            Environment::Production => "production",
-        }
-    }
-}
-
-impl TryFrom<String> for Environment {
-    type Error = String;
-
-    fn try_from(s: String) -> Result<Self, Self::Error> {
-        match s.to_lowercase().as_str() {
-            "local" => Ok(Self::Local),
-            "production" => Ok(Self::Production),
-            other => Err(format!(
-                "{} is not a supported environment. Use either `local` or `production`.",
-                other
-            )),
-        }
-    }
 }
