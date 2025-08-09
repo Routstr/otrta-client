@@ -22,11 +22,6 @@ import { Button } from '@/components/ui/button';
 import { TruncatedUrl } from '@/components/ui/truncated-url';
 import { formatDistanceToNow } from 'date-fns';
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card';
-import {
   Copy,
   ShieldIcon,
   CheckIcon,
