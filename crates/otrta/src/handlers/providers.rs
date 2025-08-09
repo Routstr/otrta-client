@@ -12,7 +12,7 @@ use crate::{
             get_default_provider_for_organization_new, get_provider_by_id_for_organization,
             refresh_providers_from_nostr, set_default_provider_for_organization_new,
             update_custom_provider, update_custom_provider_for_organization,
-            CreateCustomProviderRequest, ProviderListResponse, ProviderWithStatus,
+            CreateCustomProviderRequest, ProviderError, ProviderListResponse, ProviderWithStatus,
             RefreshProvidersResponse, UpdateCustomProviderRequest,
         },
     },
@@ -406,31 +406,26 @@ pub async fn create_custom_provider_handler(
             }
             Ok(Json(provider))
         }
-        Err(e) => {
+        Err(ProviderError::DuplicateUrl(msg)) => Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": {
+                    "message": msg,
+                    "type": "duplicate_error"
+                }
+            })),
+        )),
+        Err(ProviderError::Database(e)) => {
             eprintln!("Failed to create custom provider: {}", e);
-            if e.to_string()
-                .contains("duplicate key value violates unique constraint")
-            {
-                Err((
-                    StatusCode::CONFLICT,
-                    Json(json!({
-                        "error": {
-                            "message": "A provider with this URL already exists",
-                            "type": "duplicate_error"
-                        }
-                    })),
-                ))
-            } else {
-                Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": "Failed to create custom provider",
-                            "type": "database_error"
-                        }
-                    })),
-                ))
-            }
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to create custom provider",
+                        "type": "database_error"
+                    }
+                })),
+            ))
         }
     }
 }
@@ -490,7 +485,16 @@ pub async fn update_custom_provider_handler(
 
     match result {
         Ok(provider) => Ok(Json(provider)),
-        Err(sqlx::Error::RowNotFound) => Err((
+        Err(ProviderError::DuplicateUrl(msg)) => Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": {
+                    "message": msg,
+                    "type": "duplicate_error"
+                }
+            })),
+        )),
+        Err(ProviderError::Database(sqlx::Error::RowNotFound)) => Err((
             StatusCode::NOT_FOUND,
             Json(json!({
                 "error": {
@@ -499,31 +503,17 @@ pub async fn update_custom_provider_handler(
                 }
             })),
         )),
-        Err(e) => {
+        Err(ProviderError::Database(e)) => {
             eprintln!("Failed to update custom provider {}: {}", id, e);
-            if e.to_string()
-                .contains("duplicate key value violates unique constraint")
-            {
-                Err((
-                    StatusCode::CONFLICT,
-                    Json(json!({
-                        "error": {
-                            "message": "A provider with this URL already exists",
-                            "type": "duplicate_error"
-                        }
-                    })),
-                ))
-            } else {
-                Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {
-                            "message": "Failed to update custom provider",
-                            "type": "database_error"
-                        }
-                    })),
-                ))
-            }
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": {
+                        "message": "Failed to update custom provider",
+                        "type": "database_error"
+                    }
+                })),
+            ))
         }
     }
 }
