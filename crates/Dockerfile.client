@@ -35,7 +35,6 @@ EXPOSE 3333
 
 # Add the compiled binary and any required config files
 COPY --from=builder /code/target/release/otrta-ui /app/otrta-ui
-COPY --from=builder /code/otrta-ui/configuration /app/configuration
 
 ENV APP_ENVIRONMENT=production
 
