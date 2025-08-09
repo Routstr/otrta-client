@@ -158,7 +158,12 @@ export default function ProvidersPage() {
               </p>
             </div>
             <div className='flex flex-col gap-2 md:flex-row md:gap-3'>
-              <Button disabled variant='outline' size='sm' className='text-xs md:text-sm'>
+              <Button
+                disabled
+                variant='outline'
+                size='sm'
+                className='text-xs md:text-sm'
+              >
                 Nostr Marketplace (Coming Soon)
               </Button>
               <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
@@ -227,7 +232,9 @@ export default function ProvidersPage() {
           ) : providers.length === 0 ? (
             <Card>
               <CardContent className='py-6 text-center md:py-8'>
-                <p className='text-muted-foreground text-sm md:text-base'>No providers available.</p>
+                <p className='text-muted-foreground text-sm md:text-base'>
+                  No providers available.
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -254,7 +261,7 @@ export default function ProvidersPage() {
                               size='sm'
                               variant='ghost'
                               onClick={() => handleEditProvider(provider)}
-                              className='h-6 w-6 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/20 md:h-8 md:w-8'
+                              className='h-6 w-6 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700 md:h-8 md:w-8 dark:hover:bg-blue-950/20'
                               title='Edit provider'
                             >
                               <Edit className='h-3 w-3 md:h-4 md:w-4' />
@@ -264,7 +271,7 @@ export default function ProvidersPage() {
                                 <Button
                                   size='sm'
                                   variant='ghost'
-                                  className='h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/20 md:h-8 md:w-8'
+                                  className='h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 md:h-8 md:w-8 dark:hover:bg-red-950/20'
                                   title='Delete provider'
                                 >
                                   <Trash2 className='h-3 w-3 md:h-4 md:w-4' />
@@ -282,7 +289,9 @@ export default function ProvidersPage() {
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className='flex-col gap-2 md:flex-row'>
-                                  <AlertDialogCancel className='w-full md:w-auto'>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel className='w-full md:w-auto'>
+                                    Cancel
+                                  </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() =>
                                       handleDeleteCustomProvider(provider.id)
