@@ -26,10 +26,6 @@ pub struct ApplicationSettings {
     pub whitelisted_npubs: Vec<String>,
 }
 
-fn default_whitelisted_npubs() -> Vec<String> {
-    vec!["npub18kpn83drge7x9vz4cuhh7xta79sl4tfq55se4e554yj90s8y3f7qa49nps".to_string()]
-}
-
 fn deserialize_npubs<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
