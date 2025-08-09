@@ -3,6 +3,29 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+#[derive(Debug)]
+pub enum ProviderError {
+    Database(sqlx::Error),
+    DuplicateUrl(String),
+}
+
+impl From<sqlx::Error> for ProviderError {
+    fn from(error: sqlx::Error) -> Self {
+        ProviderError::Database(error)
+    }
+}
+
+impl std::fmt::Display for ProviderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProviderError::Database(e) => write!(f, "Database error: {}", e),
+            ProviderError::DuplicateUrl(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ProviderError {}
+
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Provider {
     pub id: i32,
@@ -143,7 +166,21 @@ pub async fn set_default_provider(db: &Pool, id: i32) -> Result<(), sqlx::Error>
 pub async fn create_custom_provider(
     db: &Pool,
     request: CreateCustomProviderRequest,
-) -> Result<Provider, sqlx::Error> {
+) -> Result<Provider, ProviderError> {
+    // Check if a provider with this URL already exists for the global scope (organization_id = NULL)
+    let existing_provider = sqlx::query!(
+        "SELECT id FROM providers WHERE url = $1 AND organization_id IS NULL",
+        request.url
+    )
+    .fetch_optional(db)
+    .await?;
+
+    if existing_provider.is_some() {
+        return Err(ProviderError::DuplicateUrl(
+            "A global provider with this URL already exists".to_string(),
+        ));
+    }
+
     let provider = sqlx::query_as::<_, Provider>(
         "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
          VALUES ($1, $2, $3, $4, 0, 0, TRUE, NULL, NOW())
@@ -347,8 +384,21 @@ pub async fn create_custom_provider_for_organization(
     db: &Pool,
     request: CreateCustomProviderRequest,
     organization_id: &Uuid,
-) -> Result<Provider, sqlx::Error> {
-    // The database constraint will handle uniqueness validation
+) -> Result<Provider, ProviderError> {
+    // Check if a provider with this URL already exists for this organization
+    let existing_provider = sqlx::query!(
+        "SELECT id FROM providers WHERE url = $1 AND organization_id = $2",
+        request.url,
+        organization_id
+    )
+    .fetch_optional(db)
+    .await?;
+
+    if existing_provider.is_some() {
+        return Err(ProviderError::DuplicateUrl(
+            "A provider with this URL already exists for your organization".to_string(),
+        ));
+    }
 
     let provider = sqlx::query_as::<_, Provider>(
         "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
@@ -370,7 +420,22 @@ pub async fn update_custom_provider(
     db: &Pool,
     id: i32,
     request: UpdateCustomProviderRequest,
-) -> Result<Provider, sqlx::Error> {
+) -> Result<Provider, ProviderError> {
+    // Check if another global provider with this URL already exists (excluding the current one)
+    let existing_provider = sqlx::query!(
+        "SELECT id FROM providers WHERE url = $1 AND organization_id IS NULL AND id != $2",
+        request.url,
+        id
+    )
+    .fetch_optional(db)
+    .await?;
+
+    if existing_provider.is_some() {
+        return Err(ProviderError::DuplicateUrl(
+            "A global provider with this URL already exists".to_string(),
+        ));
+    }
+
     let provider = sqlx::query_as::<_, Provider>(
         "UPDATE providers 
          SET name = $1, url = $2, mints = $3, use_onion = $4, updated_at = NOW()
@@ -393,7 +458,23 @@ pub async fn update_custom_provider_for_organization(
     id: i32,
     request: UpdateCustomProviderRequest,
     organization_id: &Uuid,
-) -> Result<Provider, sqlx::Error> {
+) -> Result<Provider, ProviderError> {
+    // Check if another provider with this URL already exists for this organization (excluding the current one)
+    let existing_provider = sqlx::query!(
+        "SELECT id FROM providers WHERE url = $1 AND organization_id = $2 AND id != $3",
+        request.url,
+        organization_id,
+        id
+    )
+    .fetch_optional(db)
+    .await?;
+
+    if existing_provider.is_some() {
+        return Err(ProviderError::DuplicateUrl(
+            "A provider with this URL already exists for your organization".to_string(),
+        ));
+    }
+
     let provider = sqlx::query_as::<_, Provider>(
         "UPDATE providers 
          SET name = $1, url = $2, mints = $3, use_onion = $4, updated_at = NOW()
