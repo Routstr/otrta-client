@@ -20,6 +20,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Search, Info, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  useProviders,
+  useDefaultProvider,
+  useSetDefaultProvider,
+} from '@/lib/hooks/useProviders';
 
 interface ModelPricingProvider {
   provider_id: number;
@@ -45,6 +50,10 @@ export function ModelPricingComparison() {
   const [sortBy, setSortBy] = useState<'name' | 'price-asc' | 'price-desc'>(
     'name'
   );
+
+  const { providers } = useProviders();
+  const { defaultProvider } = useDefaultProvider();
+  const setDefaultProvider = useSetDefaultProvider();
 
   const {
     data: pricingData,
@@ -251,77 +260,109 @@ export function ModelPricingComparison() {
                 </div>
 
                 {/* Provider pricing rows */}
-                {comparison.providers.map((provider, index) => (
-                  <div
-                    key={`${provider.provider_id}-${index}`}
-                    className={`hover:bg-muted/50 grid grid-cols-10 items-center gap-4 rounded-lg border px-4 py-3 transition-colors ${
-                      index === 0
-                        ? 'border-green-500 bg-green-50 dark:bg-green-950'
-                        : 'border-border'
-                    }`}
-                  >
-                    {/* Provider Name */}
-                    <div className='col-span-3'>
-                      <div className='font-medium'>
-                        {provider.provider_name}
+                {comparison.providers.map((provider, index) => {
+                  const meta = providers.find(
+                    (p) => p.id === provider.provider_id
+                  );
+                  const isDefault =
+                    defaultProvider?.id === provider.provider_id;
+                  const canSetDefault = meta?.is_active_for_org && !isDefault;
+                  return (
+                    <div
+                      key={`${provider.provider_id}-${index}`}
+                      className={`hover:bg-muted/50 grid grid-cols-10 items-center gap-4 rounded-lg border px-4 py-3 transition-colors ${
+                        index === 0
+                          ? 'border-green-500 bg-green-50 dark:bg-green-950'
+                          : 'border-border'
+                      }`}
+                    >
+                      {/* Provider Name */}
+                      <div className='col-span-3'>
+                        <div className='font-medium'>
+                          {provider.provider_name}
+                        </div>
+                        <div className='text-muted-foreground truncate text-xs'>
+                          {provider.model_name}
+                        </div>
+                        <div className='mt-1 flex items-center gap-2'>
+                          {isDefault ? (
+                            <Badge className='bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'>
+                              Default
+                            </Badge>
+                          ) : (
+                            canSetDefault && (
+                              <Button
+                                size='sm'
+                                className='h-6 px-2 text-xs'
+                                disabled={setDefaultProvider.isPending}
+                                onClick={() =>
+                                  setDefaultProvider.mutate(
+                                    provider.provider_id
+                                  )
+                                }
+                              >
+                                {setDefaultProvider.isPending
+                                  ? 'Setting...'
+                                  : 'Set Default'}
+                              </Button>
+                            )
+                          )}
+                        </div>
                       </div>
-                      <div className='text-muted-foreground truncate text-xs'>
-                        {provider.model_name}
-                      </div>
-                    </div>
 
-                    {/* Input Cost */}
-                    <div className='col-span-2 text-center'>
-                      <div className='text-sm font-medium'>
-                        {getCostDisplay(provider.input_cost)}
+                      {/* Input Cost */}
+                      <div className='col-span-2 text-center'>
+                        <div className='text-sm font-medium'>
+                          {getCostDisplay(provider.input_cost)}
+                        </div>
+                        <div className='text-muted-foreground text-xs'>
+                          /1M tokens
+                        </div>
                       </div>
-                      <div className='text-muted-foreground text-xs'>
-                        /1M tokens
-                      </div>
-                    </div>
 
-                    {/* Output Cost */}
-                    <div className='col-span-2 text-center'>
-                      <div className='text-sm font-medium'>
-                        {getCostDisplay(provider.output_cost)}
+                      {/* Output Cost */}
+                      <div className='col-span-2 text-center'>
+                        <div className='text-sm font-medium'>
+                          {getCostDisplay(provider.output_cost)}
+                        </div>
+                        <div className='text-muted-foreground text-xs'>
+                          /1M tokens
+                        </div>
                       </div>
-                      <div className='text-muted-foreground text-xs'>
-                        /1M tokens
-                      </div>
-                    </div>
 
-                    {/* Min Request */}
-                    <div className='col-span-2 text-center'>
-                      <div className='text-sm font-medium'>
-                        {getCostDisplay(provider.min_cash_per_request)}
+                      {/* Min Request */}
+                      <div className='col-span-2 text-center'>
+                        <div className='text-sm font-medium'>
+                          {getCostDisplay(provider.min_cash_per_request)}
+                        </div>
+                        <div className='text-muted-foreground text-xs'>
+                          minimum
+                        </div>
                       </div>
-                      <div className='text-muted-foreground text-xs'>
-                        minimum
-                      </div>
-                    </div>
 
-                    {/* Best Price Badge */}
-                    <div className='col-span-1 text-center'>
-                      {index === 0 ? (
-                        <Badge
-                          variant='default'
-                          className='bg-green-500 px-2 py-1 text-xs text-white'
-                        >
-                          ★
-                        </Badge>
-                      ) : (
-                        provider.is_free && (
+                      {/* Best Price Badge */}
+                      <div className='col-span-1 text-center'>
+                        {index === 0 ? (
                           <Badge
-                            variant='secondary'
-                            className='px-2 py-1 text-xs'
+                            variant='default'
+                            className='bg-green-500 px-2 py-1 text-xs text-white'
                           >
-                            Free
+                            ★
                           </Badge>
-                        )
-                      )}
+                        ) : (
+                          provider.is_free && (
+                            <Badge
+                              variant='secondary'
+                              className='px-2 py-1 text-xs'
+                            >
+                              Free
+                            </Badge>
+                          )
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
