@@ -23,7 +23,6 @@ import {
   Copy,
   RefreshCw,
   AlertTriangle,
-  Shield,
   ShieldCheck,
   BarChart3,
 } from 'lucide-react';
