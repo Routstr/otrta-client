@@ -292,7 +292,7 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
     };
 
     let model = if let Some(ref model_name) = model_name {
-        (get_model(&state.db, model_name).await).unwrap_or_default()
+        (get_model(&state.db, model_name, server_config.id).await).unwrap_or_default()
     } else {
         eprintln!("No model name provided in request");
         None

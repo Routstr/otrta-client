@@ -192,6 +192,7 @@ pub async fn get_all_models_including_deleted(
 pub async fn get_model(
     pool: &PgPool,
     model_name: &str,
+    provider_id: i32,
 ) -> Result<Option<ModelRecord>, sqlx::Error> {
     let record = sqlx::query!(
         r#"
@@ -203,9 +204,10 @@ pub async fn get_model(
                web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
                is_moderated
         FROM models
-        WHERE name = $1
+        WHERE name = $1 AND provider_id = $2
         "#,
-        model_name
+        model_name,
+        provider_id
     )
     .fetch_optional(pool)
     .await?;
