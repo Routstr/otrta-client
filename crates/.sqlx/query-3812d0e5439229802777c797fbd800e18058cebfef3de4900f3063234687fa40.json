@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO model_pricing (\n            normalized_model_name, provider_id, provider_name, model_name,\n            input_cost, output_cost, min_cash_per_request, is_free\n        ) VALUES (\n            $1, $2, $3, $4, $5, $6, $7, $8\n        )\n        ON CONFLICT (normalized_model_name, provider_id)\n        DO UPDATE SET\n            provider_name = EXCLUDED.provider_name,\n            model_name = EXCLUDED.model_name,\n            input_cost = EXCLUDED.input_cost,\n            output_cost = EXCLUDED.output_cost,\n            min_cash_per_request = EXCLUDED.min_cash_per_request,\n            is_free = EXCLUDED.is_free,\n            updated_at = NOW(),\n            last_updated = NOW()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int4",
+        "Varchar",
+        "Varchar",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3812d0e5439229802777c797fbd800e18058cebfef3de4900f3063234687fa40"
+}
