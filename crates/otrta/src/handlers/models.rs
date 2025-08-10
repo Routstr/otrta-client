@@ -534,7 +534,6 @@ async fn refresh_models_for_provider(
     };
 
     let mut models_added = 0;
-    let mut failed_models = Vec::new();
 
     // Insert all new models within the same transaction
     for proxy_model in &proxy_models_data.data {
@@ -592,31 +591,112 @@ async fn refresh_models_for_provider(
                 models_added += 1;
             }
             Err(e) => {
-                eprintln!("Failed to insert model {}: {}", proxy_model.name, e);
-                failed_models.push(proxy_model.name.clone());
+                let _ = transaction.rollback().await;
+                return Err(format!(
+                    "Failed to insert model {}: {}",
+                    proxy_model.name, e
+                ));
             }
         }
     }
 
-    // If there were any failed model insertions, rollback the transaction
-    if !failed_models.is_empty() {
-        let _ = transaction.rollback().await;
-        return Err(
-            "Failed to insert models. Transaction rolled back to maintain data consistency."
-                .to_string(),
-        );
-    }
+    // All inserts succeeded, commit the transaction
 
     // Commit the transaction
     match transaction.commit().await {
         Ok(_) => {
             eprintln!(
-                "Successfully replaced {} models with {} new models for provider {}",
+                "Successfully deleted {} existing models and added {} new models for provider {}",
                 deleted_count, models_added, provider.id
             );
         }
         Err(e) => {
             return Err(format!("Failed to commit transaction: {}", e));
+        }
+    }
+
+    // Update model pricing for this provider so pricing stays up to date even without the background job
+    let provider = match crate::db::provider::get_provider_by_id_for_organization(
+        db,
+        provider_id,
+        organization_id,
+    )
+    .await
+    {
+        Ok(Some(p)) => p,
+        _ => {
+            return Err("Failed to load provider after model refresh".to_string());
+        }
+    };
+
+    let models = match sqlx::query!(
+        r#"
+        SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, 
+               min_cost_per_request, provider, soft_deleted, model_type, 
+               description, context_length, is_free, created_at, updated_at, last_seen_at,
+               modality, input_modalities, output_modalities, tokenizer, instruct_type,
+               created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,
+               web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,
+               is_moderated
+        FROM models
+        WHERE provider_id = $1 AND (soft_deleted = false OR soft_deleted IS NULL)
+        "#,
+        provider.id
+    )
+    .fetch_all(db)
+    .await
+    {
+        Ok(records) => records,
+        Err(e) => {
+            return Err(format!(
+                "Failed to fetch models for pricing update (provider {}): {}",
+                provider.id, e
+            ));
+        }
+    };
+
+    for model_record in models {
+        let model = crate::models::ModelRecord {
+            id: model_record.id,
+            provider_id: model_record.provider_id,
+            name: model_record.name,
+            input_cost: model_record.input_cost,
+            output_cost: model_record.output_cost,
+            min_cash_per_request: model_record.min_cash_per_request,
+            min_cost_per_request: model_record.min_cost_per_request,
+            provider: model_record.provider,
+            soft_deleted: model_record.soft_deleted.unwrap_or(false),
+            model_type: model_record.model_type,
+            description: model_record.description,
+            context_length: model_record.context_length,
+            is_free: model_record.is_free.unwrap_or(false),
+            created_at: model_record.created_at,
+            updated_at: model_record.updated_at,
+            last_seen_at: model_record.last_seen_at,
+            modality: model_record.modality,
+            input_modalities: model_record.input_modalities,
+            output_modalities: model_record.output_modalities,
+            tokenizer: model_record.tokenizer,
+            instruct_type: model_record.instruct_type,
+            created_timestamp: model_record.created_timestamp,
+            prompt_cost: model_record.prompt_cost,
+            completion_cost: model_record.completion_cost,
+            request_cost: model_record.request_cost,
+            image_cost: model_record.image_cost,
+            web_search_cost: model_record.web_search_cost,
+            internal_reasoning_cost: model_record.internal_reasoning_cost,
+            max_cost: model_record.max_cost,
+            max_completion_tokens: model_record.max_completion_tokens,
+            is_moderated: model_record.is_moderated,
+        };
+
+        if let Err(e) =
+            crate::db::model_pricing::upsert_model_pricing(db, &model, &provider.name).await
+        {
+            eprintln!(
+                "Failed to update pricing for model {} from provider {}: {}",
+                model.name, provider.name, e
+            );
         }
     }
 
@@ -626,7 +706,7 @@ async fn refresh_models_for_provider(
         models_added,
         models_marked_removed: deleted_count as i32,
         message: Some(format!(
-            "Successfully replaced {} existing models with {} new models for provider {}",
+            "Successfully deleted {} existing models and added {} new models for provider {}",
             deleted_count, models_added, provider.id
         )),
     })

@@ -242,12 +242,11 @@ export function ModelPricingComparison() {
             <CardContent>
               <div className='space-y-4'>
                 {/* Header row with pricing labels */}
-                <div className='text-muted-foreground grid grid-cols-12 gap-4 border-b pb-2 text-xs font-medium'>
+                <div className='text-muted-foreground grid grid-cols-10 gap-4 border-b pb-2 text-xs font-medium'>
                   <div className='col-span-3'>Provider</div>
                   <div className='col-span-2 text-center'>Input Cost</div>
                   <div className='col-span-2 text-center'>Output Cost</div>
                   <div className='col-span-2 text-center'>Min Request</div>
-                  <div className='col-span-2 text-center'>Total Cost</div>
                   <div className='col-span-1 text-center'>Best</div>
                 </div>
 
@@ -255,7 +254,7 @@ export function ModelPricingComparison() {
                 {comparison.providers.map((provider, index) => (
                   <div
                     key={`${provider.provider_id}-${index}`}
-                    className={`hover:bg-muted/50 grid grid-cols-12 items-center gap-4 rounded-lg border px-4 py-3 transition-colors ${
+                    className={`hover:bg-muted/50 grid grid-cols-10 items-center gap-4 rounded-lg border px-4 py-3 transition-colors ${
                       index === 0
                         ? 'border-green-500 bg-green-50 dark:bg-green-950'
                         : 'border-border'
@@ -298,18 +297,6 @@ export function ModelPricingComparison() {
                       </div>
                       <div className='text-muted-foreground text-xs'>
                         minimum
-                      </div>
-                    </div>
-
-                    {/* Total Cost (Input + Output) */}
-                    <div className='col-span-2 text-center'>
-                      <div className='text-sm font-medium'>
-                        {getCostDisplay(
-                          provider.input_cost + provider.output_cost
-                        )}
-                      </div>
-                      <div className='text-muted-foreground text-xs'>
-                        /1M total
                       </div>
                     </div>
 
