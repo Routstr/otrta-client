@@ -2,6 +2,7 @@ pub mod api_keys;
 pub mod credit;
 pub mod helpers;
 pub mod mint;
+pub mod model_pricing;
 pub mod models;
 pub mod organizations;
 pub mod provider;

@@ -213,6 +213,10 @@ async fn main() {
             "/api/search/groups/delete",
             post(handlers::delete_search_group_handler),
         )
+        .route(
+            "/api/models/pricing-comparison",
+            get(handlers::get_model_pricing_comparison),
+        )
         .with_state(app_state.clone());
 
     let mut unprotected_routes = Router::new()

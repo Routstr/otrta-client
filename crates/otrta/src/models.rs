@@ -436,3 +436,36 @@ impl UserContext {
         }
     }
 }
+
+pub fn normalize_model_name(model_name: &str) -> String {
+    let normalized = model_name
+        .to_lowercase()
+        .trim_start_matches("openai/")
+        .trim_start_matches("anthropic/")
+        .trim_start_matches("google/")
+        .trim_start_matches("meta/")
+        .trim_start_matches("mistral/")
+        .trim_start_matches("cohere/")
+        .trim_start_matches("perplexity/")
+        .replace("-", "_")
+        .replace(" ", "_");
+
+    match normalized.as_str() {
+        "gpt_4" | "gpt4" | "gpt_4_0314" | "gpt_4_0613" => "gpt_4".to_string(),
+        "gpt_4o" | "gpt4o" | "gpt_4_omni" => "gpt_4o".to_string(),
+        "gpt_4o_mini" | "gpt4o_mini" | "gpt_4_omni_mini" => "gpt_4o_mini".to_string(),
+        "gpt_3.5_turbo" | "gpt3.5_turbo" | "gpt_35_turbo" => "gpt_3_5_turbo".to_string(),
+        "claude_3_opus" | "claude3_opus" | "claude_opus" => "claude_3_opus".to_string(),
+        "claude_3_sonnet" | "claude3_sonnet" | "claude_sonnet" => "claude_3_sonnet".to_string(),
+        "claude_3_haiku" | "claude3_haiku" | "claude_haiku" => "claude_3_haiku".to_string(),
+        "claude_3_5_sonnet" | "claude3_5_sonnet" => "claude_3_5_sonnet".to_string(),
+        "gemini_pro" | "gemini_1_pro" | "gemini_1.0_pro" => "gemini_pro".to_string(),
+        "gemini_1_5_pro" | "gemini_1.5_pro" | "gemini_15_pro" => "gemini_1_5_pro".to_string(),
+        "llama_2_70b" | "llama2_70b" | "meta_llama_2_70b" => "llama_2_70b".to_string(),
+        "llama_3_70b" | "llama3_70b" | "meta_llama_3_70b" => "llama_3_70b".to_string(),
+        "llama_3_1_70b" | "llama3_1_70b" | "meta_llama_3_1_70b" => "llama_3_1_70b".to_string(),
+        "mixtral_8x7b" | "mistral_8x7b" | "mixtral_8x7b_instruct" => "mixtral_8x7b".to_string(),
+        "mistral_7b" | "mistral_7b_instruct" => "mistral_7b".to_string(),
+        _ => normalized,
+    }
+}
