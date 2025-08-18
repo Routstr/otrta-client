@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const ModelSelector = dynamic(
   () =>
@@ -13,6 +14,19 @@ const ModelSelector = dynamic(
   {
     loading: () => (
       <div className='p-8 text-center'>Loading model selector...</div>
+    ),
+    ssr: false,
+  }
+);
+
+const ModelPricingComparison = dynamic(
+  () =>
+    import('@/components/ModelPricingComparison').then((mod) => ({
+      default: mod.ModelPricingComparison,
+    })),
+  {
+    loading: () => (
+      <div className='p-8 text-center'>Loading pricing comparison...</div>
     ),
     ssr: false,
   }
@@ -31,7 +45,18 @@ export default function ModelsPage() {
                 Model Management
               </h1>
             </div>
-            <ModelSelector />
+            <Tabs defaultValue='models' className='w-full'>
+              <TabsList className='grid w-full grid-cols-2'>
+                <TabsTrigger value='models'>Models</TabsTrigger>
+                <TabsTrigger value='pricing'>Pricing Comparison</TabsTrigger>
+              </TabsList>
+              <TabsContent value='models'>
+                <ModelSelector />
+              </TabsContent>
+              <TabsContent value='pricing'>
+                <ModelPricingComparison />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </SidebarInset>

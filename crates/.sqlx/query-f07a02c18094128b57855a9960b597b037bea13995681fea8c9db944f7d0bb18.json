@@ -1,0 +1,202 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, provider_id, name, input_cost, output_cost, min_cash_per_request, \n               min_cost_per_request, provider, soft_deleted, model_type, \n               description, context_length, is_free, created_at, updated_at, last_seen_at,\n               modality, input_modalities, output_modalities, tokenizer, instruct_type,\n               created_timestamp, prompt_cost, completion_cost, request_cost, image_cost,\n               web_search_cost, internal_reasoning_cost, max_cost, max_completion_tokens,\n               is_moderated\n        FROM models\n        WHERE provider_id = $1 AND (soft_deleted = false OR soft_deleted IS NULL)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "provider_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "input_cost",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "output_cost",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "min_cash_per_request",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "min_cost_per_request",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "provider",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "soft_deleted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "model_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "context_length",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "is_free",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 14,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 15,
+        "name": "last_seen_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 16,
+        "name": "modality",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 17,
+        "name": "input_modalities",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 18,
+        "name": "output_modalities",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 19,
+        "name": "tokenizer",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 20,
+        "name": "instruct_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 21,
+        "name": "created_timestamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 22,
+        "name": "prompt_cost",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 23,
+        "name": "completion_cost",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 24,
+        "name": "request_cost",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 25,
+        "name": "image_cost",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 26,
+        "name": "web_search_cost",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 27,
+        "name": "internal_reasoning_cost",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 28,
+        "name": "max_cost",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 29,
+        "name": "max_completion_tokens",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 30,
+        "name": "is_moderated",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "f07a02c18094128b57855a9960b597b037bea13995681fea8c9db944f7d0bb18"
+}

@@ -298,7 +298,7 @@ pub async fn upsert_model(
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW(), NOW(),
             $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
         )
-        ON CONFLICT (name) DO UPDATE SET
+        ON CONFLICT (name, provider_id) DO UPDATE SET
             provider_id = EXCLUDED.provider_id,
             input_cost = EXCLUDED.input_cost,
             output_cost = EXCLUDED.output_cost,
