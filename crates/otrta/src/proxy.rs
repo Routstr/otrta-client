@@ -35,6 +35,71 @@ struct OpenAIRequest {
     _other: serde_json::Value,
 }
 
+async fn redeem_token_on_error(
+    state: &Arc<AppState>,
+    org_id: &Uuid,
+    token: &str,
+    mint_url: &str,
+    mint_currency_unit: &str,
+    api_key_id: Option<&str>,
+    user_id: Option<&str>,
+    transaction_type: TransactionType,
+    provider_url: &str,
+    model_name: Option<&str>,
+    status: StatusCode,
+) {
+    let wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(org_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(e) => {
+            eprintln!(
+                "Failed to get wallet for token redemption: mint={}, error={}",
+                mint_url, e
+            );
+            return;
+        }
+    };
+
+    let receive_result = wallet.receive(token).await.map_err(|e| e.to_string());
+
+    match receive_result {
+        Ok(res) => {
+            eprintln!(
+                "Redeemed original token after error response: mint={}, amount={}, status={}",
+                mint_url, res, status
+            );
+            if let Err(e) = add_transaction(
+                &state.db,
+                token,
+                &res,
+                TransactionDirection::Incoming,
+                api_key_id,
+                user_id,
+                transaction_type,
+                Some(provider_url),
+                Some(mint_currency_unit),
+                model_name,
+            )
+            .await
+            {
+                eprintln!(
+                    "Failed to record redemption transaction: mint={}, error={}",
+                    mint_url, e
+                );
+            }
+        }
+        Err(e) => {
+            eprintln!(
+                "Failed to redeem original token after error response: mint={}, status={}, error={}",
+                mint_url, status, e
+            );
+        }
+    }
+}
+
 pub async fn forward_any_request_get(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
@@ -612,22 +677,49 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                                 .into_response()
                         }
                     };
-                    let res = wallet.receive(in_token).await.unwrap();
-                    add_transaction(
-                        &state.db,
-                        in_token,
-                        &res.to_string(),
-                        TransactionDirection::Incoming,
-                        api_key_id,
-                        user_id,
-                        transaction_type.clone(),
-                        Some(&server_config.url),
-                        Some(&mint_currency_unit),
-                        model_name.as_deref(),
-                    )
-                    .await
-                    .unwrap();
+
+                    let receive_result = wallet.receive(in_token).await.map_err(|e| e.to_string());
+
+                    match receive_result {
+                        Ok(res) => {
+                            eprintln!("Received change token: amount={}", res);
+                            if let Err(e) = add_transaction(
+                                &state.db,
+                                in_token,
+                                &res,
+                                TransactionDirection::Incoming,
+                                api_key_id,
+                                user_id,
+                                transaction_type.clone(),
+                                Some(&server_config.url),
+                                Some(&mint_currency_unit),
+                                model_name.as_deref(),
+                            )
+                            .await
+                            {
+                                eprintln!("Failed to record change token transaction: {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to receive change token: {}", e);
+                        }
+                    }
                 }
+            } else if !token.is_empty() && !is_free_model {
+                redeem_token_on_error(
+                    &state,
+                    &org_id,
+                    &token,
+                    &mint_url,
+                    &mint_currency_unit,
+                    api_key_id,
+                    user_id,
+                    transaction_type.clone(),
+                    &server_config.url,
+                    model_name.as_deref(),
+                    status,
+                )
+                .await;
             }
             return (
                 StatusCode::BAD_REQUEST,
@@ -670,21 +762,42 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                             .into_response()
                     }
                 };
-                let res = wallet.receive(in_token).await.unwrap();
-                add_transaction(
-                    &state.db,
-                    in_token,
-                    &res.to_string(),
-                    TransactionDirection::Incoming,
-                    api_key_id,
-                    user_id,
-                    transaction_type.clone(),
-                    Some(&server_config.url),
-                    Some(&mint_currency_unit),
-                    model_name.as_deref(),
-                )
-                .await
-                .unwrap();
+
+                let receive_result = wallet.receive(in_token).await.map_err(|e| e.to_string());
+
+                match receive_result {
+                    Ok(res) => {
+                        eprintln!(
+                            "Received change token on successful response: amount={}",
+                            res
+                        );
+                        if let Err(e) = add_transaction(
+                            &state.db,
+                            in_token,
+                            &res,
+                            TransactionDirection::Incoming,
+                            api_key_id,
+                            user_id,
+                            transaction_type.clone(),
+                            Some(&server_config.url),
+                            Some(&mint_currency_unit),
+                            model_name.as_deref(),
+                        )
+                        .await
+                        {
+                            eprintln!(
+                                "Failed to record successful change token transaction: {}",
+                                e
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to receive change token on successful response: {}",
+                            e
+                        );
+                    }
+                }
             }
         }
 
@@ -743,25 +856,42 @@ pub async fn forward_request_with_payment_with_body<T: serde::Serialize>(
                     .into_response()
             }
         };
-        let res = wallet.receive(&token).await.unwrap();
-        eprintln!(
-            "Token redemption after failed request: mint={}, amount={:?}",
-            mint_url, res
-        );
-        add_transaction(
-            &state.db,
-            &token,
-            &res.to_string(),
-            TransactionDirection::Incoming,
-            api_key_id,
-            user_id,
-            transaction_type,
-            Some(&server_config.url),
-            Some(&mint_currency_unit),
-            model_name.as_deref(),
-        )
-        .await
-        .unwrap();
+
+        let receive_result = wallet.receive(&token).await.map_err(|e| e.to_string());
+
+        match receive_result {
+            Ok(res) => {
+                eprintln!(
+                    "Token redemption after failed request: mint={}, amount={}",
+                    mint_url, res
+                );
+                if let Err(e) = add_transaction(
+                    &state.db,
+                    &token,
+                    &res,
+                    TransactionDirection::Incoming,
+                    api_key_id,
+                    user_id,
+                    transaction_type,
+                    Some(&server_config.url),
+                    Some(&mint_currency_unit),
+                    model_name.as_deref(),
+                )
+                .await
+                {
+                    eprintln!(
+                        "Failed to record failed request redemption transaction: {}",
+                        e
+                    );
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "Failed to redeem token after failed request: mint={}, error={}",
+                    mint_url, e
+                );
+            }
+        }
         let error_json = Json(json!({
             "error": {
                 "message": "Error forwarding request to provider",
