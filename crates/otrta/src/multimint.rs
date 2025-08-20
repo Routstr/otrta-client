@@ -424,7 +424,7 @@ impl CdkWalletWrapper {
             .mint(quote_id, SplitTarget::default(), None)
             .await
         {
-            Ok(resp) => Ok(QuoteState::Paid),
+            Ok(_resp) => Ok(QuoteState::Paid),
             Err(e) => {
                 println!("{:?}", e);
                 Ok(QuoteState::Pending)
