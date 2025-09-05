@@ -3,7 +3,7 @@
 resolver = "2"
 
 members = [
-    "otrta", "otrta-ui"
+    "otrta", "otrta-nostr", "otrta-ui"
 ]
 
 [workspace.package]
@@ -15,6 +15,7 @@ repository = "https://github.com/ecash-402/ecash-402-routstr"
 description = "llm ecash 402 payment"
 
 [workspace.dependencies]
+nostr = "0.43"
 
 ecash-402-wallet = "0.1.23"
 # ecash-402-wallet = {path = "../../ecash-402-wallet/crates/wallet/"}

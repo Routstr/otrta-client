@@ -307,8 +307,9 @@ pub async fn get_provider(
 
 pub async fn refresh_providers(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<RefreshProvidersResponse>, (StatusCode, Json<serde_json::Value>)> {
-    match refresh_providers_from_nostr(&state.db).await {
+    match refresh_providers_from_nostr(&state.db, &user_ctx.organization_id).await {
         Ok(response) => Ok(Json(response)),
         Err(e) => {
             eprintln!("Failed to refresh providers: {}", e);

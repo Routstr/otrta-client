@@ -38,3 +38,4 @@ secrecy = {version = "0.10", features = ["serde"]}
 ecash-402-wallet.workspace = true
 
 otrta = { path = "../otrta"}
+otrta-nostr = { path = "../otrta-nostr" }

@@ -34,5 +34,6 @@ url = "2.5"
 dashmap = "6.1"
 
 # otrta-wallet = { path = "../otrta-wallet" }
+otrta-nostr = { path = "../otrta-nostr" }
 
 ecash-402-wallet.workspace = true

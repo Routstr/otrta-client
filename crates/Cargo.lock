@@ -2761,6 +2761,7 @@ dependencies = [
  "futures-util",
  "hex",
  "nostr 0.33.0",
+ "otrta-nostr",
  "rand 0.8.5",
  "regex",
  "reqwest",
@@ -2780,6 +2781,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "otrta-nostr"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "nostr 0.43.0",
+ "nostr-sdk",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "otrta-ui"
 version = "1.0.0"
 dependencies = [
@@ -2793,6 +2810,7 @@ dependencies = [
  "futures",
  "futures-util",
  "otrta",
+ "otrta-nostr",
  "pgvector",
  "reqwest",
  "secrecy",
