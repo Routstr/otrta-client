@@ -266,12 +266,6 @@ pub async fn delete_custom_provider(db: &Pool, id: i32) -> Result<bool, sqlx::Er
             "Provider found: id={}, name={}, is_custom={:?}, organization_id={:?}",
             provider.id, provider.name, provider.is_custom, provider.organization_id
         );
-
-        // FIXME: admin should be able to delete provider
-        if !provider.is_custom.unwrap_or(false) {
-            eprintln!("Provider {} is not marked as custom, cannot delete", id);
-            return Ok(false);
-        }
     } else {
         eprintln!("Provider {} not found", id);
         return Ok(false);
