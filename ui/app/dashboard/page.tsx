@@ -56,7 +56,22 @@ export default function Page() {
   });
 
   const mints = mintsData?.mints || [];
-  const activeMints = mints.filter((mint) => mint.is_active);
+
+  // Deduplicate mints by mint_url, keeping the most recent (highest id) and preferring active mints
+  const deduplicatedMints = mints.reduce((acc, mint) => {
+    const existing = acc.get(mint.mint_url);
+    if (
+      !existing ||
+      (mint.is_active && !existing.is_active) ||
+      (mint.is_active === existing.is_active && mint.id > existing.id)
+    ) {
+      acc.set(mint.mint_url, mint);
+    }
+    return acc;
+  }, new Map<string, (typeof mints)[0]>());
+
+  const uniqueMints = Array.from(deduplicatedMints.values());
+  const activeMints = uniqueMints.filter((mint) => mint.is_active);
 
   // Create a map from mint_url to MintWithBalances for easy lookup
   const mintBalancesMap = new Map<string, MintWithBalances>(
@@ -232,7 +247,7 @@ export default function Page() {
                   </Card>
                 ))}
               </div>
-            ) : mints.length === 0 ? (
+            ) : uniqueMints.length === 0 ? (
               <Card className='border-dashed'>
                 <CardContent className='flex flex-col items-center justify-center space-y-4 py-12'>
                   <Wallet className='text-muted-foreground h-12 w-12' />
@@ -377,13 +392,13 @@ export default function Page() {
                   );
                 })}
 
-                {mints.length > 6 && (
+                {uniqueMints.length > 6 && (
                   <Card className='border-dashed transition-shadow hover:shadow-md'>
                     <CardContent className='flex flex-col items-center justify-center space-y-2 py-8'>
                       <Plus className='text-muted-foreground h-8 w-8' />
                       <p className='text-muted-foreground text-center text-sm'>
-                        {mints.length - 6} more mint
-                        {mints.length - 6 !== 1 ? 's' : ''}
+                        {uniqueMints.length - 6} more mint
+                        {uniqueMints.length - 6 !== 1 ? 's' : ''}
                       </p>
                       <Button variant='ghost' size='sm' asChild>
                         <Link href='/mints'>View All</Link>

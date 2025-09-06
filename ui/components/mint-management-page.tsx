@@ -69,9 +69,10 @@ export function MintManagementPage() {
   });
 
   // Legacy support - convert mints with units to simple mints for backward compatibility
+  // Also deduplicate by mint_url to avoid duplicates in dropdown
   const activeMints = activeMintsWithUnits
-    ? {
-        mints: activeMintsWithUnits.mints.map((m) => ({
+    ? (() => {
+        const rawMints = activeMintsWithUnits.mints.map((m) => ({
           id: m.id,
           mint_url: m.mint_url,
           currency_unit: m.currency_unit,
@@ -80,9 +81,23 @@ export function MintManagementPage() {
           organization_id: m.organization_id,
           created_at: m.created_at,
           updated_at: m.updated_at,
-        })),
-        total: activeMintsWithUnits.total,
-      }
+        }));
+
+        // Deduplicate by mint_url, keeping the most recent (highest id)
+        const deduplicatedMints = rawMints.reduce((acc, mint) => {
+          const existing = acc.get(mint.mint_url);
+          if (!existing || mint.id > existing.id) {
+            acc.set(mint.mint_url, mint);
+          }
+          return acc;
+        }, new Map<string, (typeof rawMints)[0]>());
+
+        const uniqueMints = Array.from(deduplicatedMints.values());
+        return {
+          mints: uniqueMints,
+          total: uniqueMints.length,
+        };
+      })()
     : undefined;
 
   // Find the selected mint to get available units
