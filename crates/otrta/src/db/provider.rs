@@ -346,7 +346,7 @@ pub async fn refresh_providers_from_nostr(
 
     for nostr_provider in nostr_providers {
         for url in &nostr_provider.urls {
-            if url.is_empty() {
+            if url.is_empty() || url.contains("XXX") {
                 continue;
             }
 
