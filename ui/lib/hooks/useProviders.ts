@@ -56,7 +56,9 @@ export function useRefreshProviders() {
       if (response.message) {
         toast.success(response.message);
       } else {
-        toast.success(`Updated ${response.providers_updated} providers, added ${response.providers_added} new providers`);
+        toast.success(
+          `Updated ${response.providers_updated} providers, added ${response.providers_added} new providers`
+        );
       }
     },
     onError: (error) => {

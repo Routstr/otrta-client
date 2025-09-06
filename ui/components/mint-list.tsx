@@ -59,7 +59,22 @@ export function MintList({
     refetchBalance();
   };
 
-  const mints = mintsData?.mints || [];
+  const rawMints = mintsData?.mints || [];
+
+  // Deduplicate mints by mint_url, keeping the most recent (highest id) and preferring active mints
+  const deduplicatedMints = rawMints.reduce((acc, mint) => {
+    const existing = acc.get(mint.mint_url);
+    if (
+      !existing ||
+      (mint.is_active && !existing.is_active) ||
+      (mint.is_active === existing.is_active && mint.id > existing.id)
+    ) {
+      acc.set(mint.mint_url, mint);
+    }
+    return acc;
+  }, new Map<string, (typeof rawMints)[0]>());
+
+  const mints = Array.from(deduplicatedMints.values());
   const activeMints = mints.filter((mint) => mint.is_active);
   const inactiveMints = mints.filter((mint) => !mint.is_active);
 
