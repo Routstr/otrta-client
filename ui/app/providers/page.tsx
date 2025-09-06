@@ -71,8 +71,6 @@ export default function ProvidersPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [expandedMints, setExpandedMints] = useState<Set<number>>(new Set());
-
-  // Filter providers by type
   const nostrProviders = providers.filter(
     (provider) => provider.source === 'nostr'
   );
@@ -414,17 +412,20 @@ export default function ProvidersPage() {
               </p>
             </div>
             <div className='flex flex-col gap-2 md:flex-row md:gap-3'>
-              <Button
-                variant='outline'
-                size='sm'
-                className='text-xs md:text-sm'
-                onClick={() => refreshProviders.mutate()}
-                disabled={refreshProviders.isPending}
-              >
-                {refreshProviders.isPending
-                  ? 'Refreshing...'
-                  : 'Refresh from Nostr Marketplace'}
-              </Button>
+              {/* hacky */}
+              {providers.length > 0 && providers[0].is_editable && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='text-xs md:text-sm'
+                  onClick={() => refreshProviders.mutate()}
+                  disabled={refreshProviders.isPending}
+                >
+                  {refreshProviders.isPending
+                    ? 'Refreshing...'
+                    : 'Refresh from Nostr Marketplace'}
+                </Button>
+              )}
               <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
                 <DialogTrigger asChild>
                   <Button size='sm' className='text-xs md:text-sm'>

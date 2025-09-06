@@ -253,7 +253,6 @@ pub async fn create_custom_provider(
 }
 
 pub async fn delete_custom_provider(db: &Pool, id: i32) -> Result<bool, sqlx::Error> {
-    // First check if the provider exists and get its details
     let provider_check = sqlx::query!(
         "SELECT id, name, is_custom, organization_id FROM providers WHERE id = $1",
         id
@@ -271,7 +270,7 @@ pub async fn delete_custom_provider(db: &Pool, id: i32) -> Result<bool, sqlx::Er
         return Ok(false);
     }
 
-    let result = sqlx::query("DELETE FROM providers WHERE id = $1 AND is_custom = TRUE")
+    let result = sqlx::query("DELETE FROM providers WHERE id = $1")
         .bind(id)
         .execute(db)
         .await?;
