@@ -1,6 +1,6 @@
 use super::*;
 use otrta::handlers::refresh_models_background;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use tracing::{error, info};
 
 pub struct BackgroundJobRunner {
