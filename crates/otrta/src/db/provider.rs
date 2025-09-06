@@ -318,6 +318,104 @@ pub async fn upsert_provider(
     Ok(provider)
 }
 
+pub async fn refresh_providers_from_nostr_global(
+    db: &Pool,
+) -> Result<RefreshProvidersResponse, Box<dyn std::error::Error>> {
+    let mut providers_updated = 0;
+    let mut providers_added = 0;
+
+    let nostr_providers = match discover_providers().await {
+        Ok(providers) => providers,
+        Err(e) => {
+            eprintln!("Failed to discover providers from Nostr: {}", e);
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to discover providers: {}", e),
+            )));
+        }
+    };
+
+    for nostr_provider in nostr_providers {
+        for url in &nostr_provider.urls {
+            if url.is_empty() || url.contains("XXX") {
+                continue;
+            }
+
+            let existing_provider = sqlx::query_as::<_, Provider>(
+                "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom,
+                    COALESCE(source, 'manual') as source, organization_id, created_at, updated_at,
+                    EXISTS(
+                        SELECT 1 FROM mints m
+                        WHERE m.mint_url = ANY(mints)
+                        AND m.currency_unit = 'msat'
+                    ) as has_msat_support
+                 FROM providers WHERE url = $1 AND source = 'nostr'",
+            )
+            .bind(url)
+            .fetch_optional(db)
+            .await?;
+
+            if let Some(provider) = existing_provider {
+                let result = sqlx::query(
+                    "UPDATE providers SET 
+                        name = $1, 
+                        mints = $2, 
+                        use_onion = $3, 
+                        followers = $4, 
+                        zaps = $5, 
+                        updated_at = NOW() 
+                     WHERE id = $6",
+                )
+                .bind(&nostr_provider.name)
+                .bind(&nostr_provider.mints)
+                .bind(nostr_provider.use_onion)
+                .bind(nostr_provider.followers)
+                .bind(nostr_provider.zaps)
+                .bind(provider.id)
+                .execute(db)
+                .await?;
+
+                if result.rows_affected() > 0 {
+                    providers_updated += 1;
+                }
+            } else {
+                let provider_name = if nostr_provider.urls.len() > 1 {
+                    let url_suffix = if url.contains(".onion") { " (Tor)" } else { "" };
+                    format!("{}{}", nostr_provider.name, url_suffix)
+                } else {
+                    nostr_provider.name.clone()
+                };
+
+                let _created_provider = sqlx::query!(
+                    "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_default, is_custom, source, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, FALSE, FALSE, 'nostr', NOW(), NOW())
+                     RETURNING id",
+                    &provider_name,
+                    url,
+                    &nostr_provider.mints,
+                    nostr_provider.use_onion,
+                    nostr_provider.followers,
+                    nostr_provider.zaps
+                )
+                .fetch_one(db)
+                .await?;
+
+                providers_added += 1;
+            }
+        }
+    }
+
+    Ok(RefreshProvidersResponse {
+        success: true,
+        providers_updated,
+        providers_added,
+        message: Some(format!(
+            "Updated {} providers and added {} new providers from Nostr marketplace",
+            providers_updated, providers_added
+        )),
+    })
+}
+
 pub async fn refresh_providers_from_nostr(
     db: &Pool,
     organization_id: &Uuid,

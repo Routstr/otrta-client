@@ -1,7 +1,7 @@
 use super::*;
 use otrta::handlers::refresh_models_background;
 use tokio::time::{interval, Duration};
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 pub struct BackgroundJobRunner {
     app_state: Arc<AppState>,
@@ -76,48 +76,23 @@ impl BackgroundJobRunner {
     async fn discover_and_update_nostr_providers(
         app_state: &AppState,
     ) -> Result<(usize, usize), Box<dyn std::error::Error + Send + Sync>> {
-        use otrta::db::provider::{upsert_nostr_provider, CreateNostrProviderRequest};
-        use otrta_nostr::discover_providers;
+        use otrta::db::provider::refresh_providers_from_nostr_global;
 
-        let nostr_providers = discover_providers().await?;
-        info!("Discovered {} providers from Nostr", nostr_providers.len());
-
-        let providers_added = 0;
-        let mut providers_updated = 0;
-
-        for nostr_provider in nostr_providers {
-            let request = CreateNostrProviderRequest {
-                name: nostr_provider.name.clone(),
-                about: nostr_provider.about.clone(),
-                url: nostr_provider
-                    .urls
-                    .first()
-                    .unwrap_or(&"".to_string())
-                    .clone(),
-                mints: nostr_provider.mints.clone(),
-                use_onion: nostr_provider.use_onion,
-                followers: nostr_provider.followers,
-                zaps: nostr_provider.zaps,
-                version: nostr_provider.version.clone(),
-            };
-
-            match upsert_nostr_provider(&app_state.db, request).await {
-                Ok(_provider) => {
-                    providers_updated += 1;
-                    debug!(
-                        "Successfully upserted Nostr provider: {}",
-                        nostr_provider.name
-                    );
-                }
-                Err(e) => {
-                    error!(
-                        "Failed to upsert Nostr provider '{}': {}",
-                        nostr_provider.name, e
-                    );
-                }
+        match refresh_providers_from_nostr_global(&app_state.db).await {
+            Ok(response) => {
+                info!("{}", response.message.unwrap_or_default());
+                Ok((
+                    response.providers_added as usize,
+                    response.providers_updated as usize,
+                ))
+            }
+            Err(e) => {
+                error!("Failed to refresh providers from Nostr: {}", e);
+                Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Provider refresh failed: {}", e),
+                )))
             }
         }
-
-        Ok((providers_added, providers_updated))
     }
 }
