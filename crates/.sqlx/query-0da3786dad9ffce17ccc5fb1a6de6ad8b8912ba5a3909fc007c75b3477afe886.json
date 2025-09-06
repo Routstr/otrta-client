@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,\n            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,\n            COALESCE(op.is_active, false) as is_active_for_org,\n            COALESCE(op.is_default, false) as is_default_for_org,\n            EXISTS(\n                SELECT 1 FROM mints m \n                WHERE m.mint_url = ANY(p.mints) \n                AND m.organization_id = $1\n                AND m.currency_unit = 'msat'\n            ) as has_msat_support\n        FROM providers p\n        LEFT JOIN organization_providers op\n            ON p.id = op.provider_id AND op.organization_id = $1\n        WHERE p.organization_id IS NULL OR p.organization_id = $1\n        ORDER BY p.is_default DESC, p.is_custom ASC, p.followers DESC, p.zaps DESC\n        ",
+  "query": "\n        SELECT\n            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,\n            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at, p.source,\n            COALESCE(op.is_active, false) as is_active_for_org,\n            COALESCE(op.is_default, false) as is_default_for_org,\n            EXISTS(\n                SELECT 1 FROM mints m\n                WHERE m.mint_url = ANY(p.mints)\n                AND m.organization_id = $1\n                AND m.currency_unit = 'msat'\n            ) as has_msat_support\n        FROM providers p\n        LEFT JOIN organization_providers op\n            ON p.id = op.provider_id AND op.organization_id = $1\n        WHERE p.organization_id IS NULL OR p.organization_id = $1\n        ORDER BY p.is_default DESC, p.is_custom ASC, p.followers DESC, p.zaps DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -65,16 +65,21 @@
       },
       {
         "ordinal": 12,
+        "name": "source",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 13,
         "name": "is_active_for_org",
         "type_info": "Bool"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "is_default_for_org",
         "type_info": "Bool"
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "has_msat_support",
         "type_info": "Bool"
       }
@@ -97,10 +102,11 @@
       true,
       true,
       true,
+      false,
       null,
       null,
       null
     ]
   },
-  "hash": "88fd0afb2f8283356e908d37ce3b9534605abbd271dcf5075a1619e7cccfb9bd"
+  "hash": "0da3786dad9ffce17ccc5fb1a6de6ad8b8912ba5a3909fc007c75b3477afe886"
 }
