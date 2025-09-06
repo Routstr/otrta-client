@@ -1,6 +1,6 @@
 use super::*;
 use otrta::handlers::refresh_models_background;
-use tokio::time::{Duration, interval};
+use tokio::time::{interval, Duration};
 use tracing::{debug, error, info};
 
 pub struct BackgroundJobRunner {
@@ -22,7 +22,6 @@ impl BackgroundJobRunner {
 
         let state_clone = Arc::clone(&self.app_state);
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_secs(60)).await;
             Self::nostr_provider_discovery_job(state_clone, 300).await;
         });
     }
@@ -77,7 +76,7 @@ impl BackgroundJobRunner {
     async fn discover_and_update_nostr_providers(
         app_state: &AppState,
     ) -> Result<(usize, usize), Box<dyn std::error::Error + Send + Sync>> {
-        use otrta::db::provider::{CreateNostrProviderRequest, upsert_nostr_provider};
+        use otrta::db::provider::{upsert_nostr_provider, CreateNostrProviderRequest};
         use otrta_nostr::discover_providers;
 
         let nostr_providers = discover_providers().await?;
