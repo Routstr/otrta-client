@@ -10,6 +10,7 @@ export interface Provider {
   zaps: number;
   is_default: boolean;
   is_custom: boolean;
+  source: string;
   organization_id: string | null;
   created_at: string;
   updated_at: string;

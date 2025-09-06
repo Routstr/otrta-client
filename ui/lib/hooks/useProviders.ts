@@ -45,6 +45,27 @@ export function useDefaultProvider() {
   };
 }
 
+export function useRefreshProviders() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => ProviderService.refreshProviders(),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['providers'] });
+      queryClient.invalidateQueries({ queryKey: ['defaultProvider'] });
+      if (response.message) {
+        toast.success(response.message);
+      } else {
+        toast.success(`Updated ${response.providers_updated} providers, added ${response.providers_added} new providers`);
+      }
+    },
+    onError: (error) => {
+      console.error('Error refreshing providers:', error);
+      toast.error('Failed to refresh providers from Nostr marketplace');
+    },
+  });
+}
+
 export function useSetDefaultProvider() {
   const queryClient = useQueryClient();
 

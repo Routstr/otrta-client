@@ -1,4 +1,5 @@
 use crate::db::Pool;
+use otrta_nostr::discover_providers;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -26,6 +27,30 @@ impl std::fmt::Display for ProviderError {
 
 impl std::error::Error for ProviderError {}
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub enum ProviderSource {
+    Manual,
+    Nostr,
+}
+
+impl std::fmt::Display for ProviderSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProviderSource::Manual => write!(f, "manual"),
+            ProviderSource::Nostr => write!(f, "nostr"),
+        }
+    }
+}
+
+impl From<String> for ProviderSource {
+    fn from(s: String) -> Self {
+        match s.to_lowercase().as_str() {
+            "nostr" => ProviderSource::Nostr,
+            _ => ProviderSource::Manual,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Provider {
     pub id: i32,
@@ -37,6 +62,7 @@ pub struct Provider {
     pub zaps: i32,
     pub is_default: bool,
     pub is_custom: bool,
+    pub source: String,
     pub organization_id: Option<Uuid>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -76,12 +102,38 @@ pub struct RefreshProvidersResponse {
     pub message: Option<String>,
 }
 
+impl Provider {
+    pub fn get_source(&self) -> ProviderSource {
+        ProviderSource::from(self.source.clone())
+    }
+
+    pub fn is_from_nostr(&self) -> bool {
+        self.get_source() == ProviderSource::Nostr
+    }
+
+    pub fn is_manual(&self) -> bool {
+        self.get_source() == ProviderSource::Manual
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateCustomProviderRequest {
     pub name: String,
     pub url: String,
     pub mints: Vec<String>,
     pub use_onion: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateNostrProviderRequest {
+    pub name: String,
+    pub about: String,
+    pub url: String,
+    pub mints: Vec<String>,
+    pub use_onion: bool,
+    pub followers: i32,
+    pub zaps: i32,
+    pub version: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -94,16 +146,18 @@ pub struct UpdateCustomProviderRequest {
 
 pub async fn get_all_providers(db: &Pool) -> Result<Vec<Provider>, sqlx::Error> {
     let providers = sqlx::query_as::<_, Provider>(
-        "SELECT 
-            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+        "SELECT
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
+            p.is_default, p.is_custom,
+            COALESCE(p.source, 'manual') as source,
+            p.organization_id, p.created_at, p.updated_at,
             EXISTS(
-                SELECT 1 FROM mints m 
-                WHERE m.mint_url = ANY(p.mints) 
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(p.mints)
                 AND m.currency_unit = 'msat'
             ) as has_msat_support
          FROM providers p
-         ORDER BY p.is_default DESC, p.is_custom ASC, p.followers DESC, p.zaps DESC",
+         ORDER BY p.is_default DESC, COALESCE(p.source, 'manual') DESC, p.is_custom ASC, p.followers DESC, p.zaps DESC",
     )
     .fetch_all(db)
     .await?;
@@ -113,12 +167,13 @@ pub async fn get_all_providers(db: &Pool) -> Result<Vec<Provider>, sqlx::Error> 
 
 pub async fn get_default_provider(db: &Pool) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT 
-            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+        "SELECT
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
+            p.is_default, p.is_custom, COALESCE(p.source, 'manual') as source,
+            p.organization_id, p.created_at, p.updated_at,
             EXISTS(
-                SELECT 1 FROM mints m 
-                WHERE m.mint_url = ANY(p.mints) 
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(p.mints)
                 AND m.currency_unit = 'msat'
             ) as has_msat_support
          FROM providers p
@@ -132,12 +187,13 @@ pub async fn get_default_provider(db: &Pool) -> Result<Option<Provider>, sqlx::E
 
 pub async fn get_provider_by_id(db: &Pool, id: i32) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT 
-            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+        "SELECT
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
+            p.is_default, p.is_custom, COALESCE(p.source, 'manual') as source,
+            p.organization_id, p.created_at, p.updated_at,
             EXISTS(
-                SELECT 1 FROM mints m 
-                WHERE m.mint_url = ANY(p.mints) 
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(p.mints)
                 AND m.currency_unit = 'msat'
             ) as has_msat_support
          FROM providers p
@@ -182,9 +238,9 @@ pub async fn create_custom_provider(
     }
 
     let provider = sqlx::query_as::<_, Provider>(
-        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
-         VALUES ($1, $2, $3, $4, 0, 0, TRUE, NULL, NOW())
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at, false as has_msat_support"
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, source, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, 0, 0, TRUE, 'manual', NULL, NOW())
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, COALESCE(source, 'manual') as source, organization_id, created_at, updated_at, false as has_msat_support"
     )
     .bind(&request.name)
     .bind(&request.url)
@@ -211,6 +267,7 @@ pub async fn delete_custom_provider(db: &Pool, id: i32) -> Result<bool, sqlx::Er
             provider.id, provider.name, provider.is_custom, provider.organization_id
         );
 
+        // FIXME: admin should be able to delete provider
         if !provider.is_custom.unwrap_or(false) {
             eprintln!("Provider {} is not marked as custom, cannot delete", id);
             return Ok(false);
@@ -244,8 +301,8 @@ pub async fn upsert_provider(
     zaps: i32,
 ) -> Result<Provider, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, FALSE, NULL, NOW())
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, source, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, FALSE, 'manual', NULL, NOW())
          ON CONFLICT (url, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))
          DO UPDATE SET
             name = EXCLUDED.name,
@@ -254,7 +311,7 @@ pub async fn upsert_provider(
             followers = EXCLUDED.followers,
             zaps = EXCLUDED.zaps,
             updated_at = NOW()
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, COALESCE(source, 'manual') as source, organization_id, created_at, updated_at, false as has_msat_support"
     )
     .bind(name)
     .bind(url)
@@ -270,53 +327,109 @@ pub async fn upsert_provider(
 
 pub async fn refresh_providers_from_nostr(
     db: &Pool,
+    organization_id: &Uuid,
 ) -> Result<RefreshProvidersResponse, Box<dyn std::error::Error>> {
-    // This is a placeholder for now - in a real implementation, you would:
-    // 1. Connect to Nostr relays
-    // 2. Query for provider announcements using specific event kinds
-    // 3. Parse the provider data from the events
-    // 4. Update the database with fresh data
-
-    // For now, we'll simulate updating the existing providers with new follower/zap counts
     let mut providers_updated = 0;
+    let mut providers_added = 0;
+    let mut newly_created_provider_ids: Vec<i32> = Vec::new();
 
-    // Simulate fetching updated data from Nostr (only update non-custom providers)
-    let mock_updates = vec![
-        (1, 1300, 92000),  // Lightning Labs Provider
-        (2, 920, 47500),   // Casa Node Provider
-        (3, 2200, 160000), // Strike Provider
-        (4, 720, 34800),   // Breez Provider
-        (5, 1500, 82000),  // Alby Provider
-    ];
+    let nostr_providers = match discover_providers().await {
+        Ok(providers) => providers,
+        Err(e) => {
+            eprintln!("Failed to discover providers from Nostr: {}", e);
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to discover providers: {}", e),
+            )));
+        }
+    };
 
-    for (id, new_followers, new_zaps) in mock_updates {
-        match sqlx::query(
-            "UPDATE providers SET followers = $1, zaps = $2, updated_at = NOW() WHERE id = $3 AND is_custom = FALSE"
-        )
-        .bind(new_followers)
-        .bind(new_zaps)
-        .bind(id)
-        .execute(db)
-        .await
-        {
-            Ok(result) => {
+    for nostr_provider in nostr_providers {
+        for url in &nostr_provider.urls {
+            if url.is_empty() {
+                continue;
+            }
+
+            let existing_provider = sqlx::query_as::<_, Provider>(
+                "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom,
+                    COALESCE(source, 'manual') as source, organization_id, created_at, updated_at,
+                    EXISTS(
+                        SELECT 1 FROM mints m
+                        WHERE m.mint_url = ANY(mints)
+                        AND m.currency_unit = 'msat'
+                    ) as has_msat_support
+                 FROM providers WHERE url = $1 AND source = 'nostr'",
+            )
+            .bind(url)
+            .fetch_optional(db)
+            .await?;
+
+            if let Some(provider) = existing_provider {
+                let result = sqlx::query(
+                    "UPDATE providers SET 
+                        name = $1, 
+                        mints = $2, 
+                        use_onion = $3, 
+                        followers = $4, 
+                        zaps = $5, 
+                        updated_at = NOW() 
+                     WHERE id = $6",
+                )
+                .bind(&nostr_provider.name)
+                .bind(&nostr_provider.mints)
+                .bind(nostr_provider.use_onion)
+                .bind(nostr_provider.followers)
+                .bind(nostr_provider.zaps)
+                .bind(provider.id)
+                .execute(db)
+                .await?;
+
                 if result.rows_affected() > 0 {
                     providers_updated += 1;
                 }
+            } else {
+                let provider_name = if nostr_provider.urls.len() > 1 {
+                    let url_suffix = if url.contains(".onion") { " (Tor)" } else { "" };
+                    format!("{}{}", nostr_provider.name, url_suffix)
+                } else {
+                    nostr_provider.name.clone()
+                };
+
+                let created_provider = sqlx::query!(
+                    "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_default, is_custom, source, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, FALSE, FALSE, 'nostr', NOW(), NOW())
+                     RETURNING id",
+                    &provider_name,
+                    url,
+                    &nostr_provider.mints,
+                    nostr_provider.use_onion,
+                    nostr_provider.followers,
+                    nostr_provider.zaps
+                )
+                .fetch_one(db)
+                .await?;
+
+                providers_added += 1;
+                newly_created_provider_ids.push(created_provider.id);
             }
-            Err(e) => {
-                eprintln!("Failed to update provider {}: {}", id, e);
-            }
+        }
+    }
+
+    // Auto-activate newly created providers for the organization
+    for provider_id in newly_created_provider_ids {
+        if let Err(e) = activate_provider_for_organization(db, organization_id, provider_id).await {
+            eprintln!("Failed to auto-activate provider {}: {}", provider_id, e);
+            // Continue with other providers even if one fails
         }
     }
 
     Ok(RefreshProvidersResponse {
         success: true,
         providers_updated,
-        providers_added: 0,
+        providers_added,
         message: Some(format!(
-            "Updated {} providers from Nostr marketplace",
-            providers_updated
+            "Updated {} providers and added {} new providers from Nostr marketplace",
+            providers_updated, providers_added
         )),
     })
 }
@@ -326,10 +439,16 @@ pub async fn get_providers_for_organization(
     organization_id: &Uuid,
 ) -> Result<Vec<Provider>, sqlx::Error> {
     let providers = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom,
+            COALESCE(source, 'manual') as source, organization_id, created_at, updated_at,
+            EXISTS(
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(mints)
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
          FROM providers
          WHERE organization_id IS NULL OR organization_id = $1
-         ORDER BY is_default DESC, is_custom ASC, followers DESC, zaps DESC"
+         ORDER BY is_default DESC, is_custom ASC, followers DESC, zaps DESC",
     )
     .bind(organization_id)
     .fetch_all(db)
@@ -343,9 +462,15 @@ pub async fn get_default_provider_for_organization(
     organization_id: &Uuid,
 ) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at
+        "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom,
+            COALESCE(source, 'manual') as source, organization_id, created_at, updated_at,
+            EXISTS(
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(mints)
+                AND m.currency_unit = 'msat'
+            ) as has_msat_support
          FROM providers
-         WHERE is_default = TRUE AND (organization_id IS NULL OR organization_id = $1)"
+         WHERE is_default = TRUE AND (organization_id IS NULL OR organization_id = $1)",
     )
     .bind(organization_id)
     .fetch_optional(db)
@@ -360,12 +485,12 @@ pub async fn get_provider_by_id_for_organization(
     organization_id: &Uuid,
 ) -> Result<Option<Provider>, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "SELECT 
-            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps, 
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+        "SELECT
+            p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at, p.source,
             EXISTS(
-                SELECT 1 FROM mints m 
-                WHERE m.mint_url = ANY(p.mints) 
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(p.mints)
                 AND m.organization_id = $2
                 AND m.currency_unit = 'msat'
             ) as has_msat_support
@@ -401,9 +526,9 @@ pub async fn create_custom_provider_for_organization(
     }
 
     let provider = sqlx::query_as::<_, Provider>(
-        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
-         VALUES ($1, $2, $3, $4, 0, 0, TRUE, $5, NOW())
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at, false as has_msat_support"
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, source, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, 0, 0, TRUE, 'manual', $5, NOW())
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, COALESCE(source, 'manual') as source, organization_id, created_at, updated_at, false as has_msat_support"
     )
     .bind(&request.name)
     .bind(&request.url)
@@ -412,6 +537,9 @@ pub async fn create_custom_provider_for_organization(
     .bind(organization_id)
     .fetch_one(db)
     .await?;
+
+    // Automatically activate the newly created provider for this organization
+    let _ = activate_provider_for_organization(db, organization_id, provider.id).await?;
 
     Ok(provider)
 }
@@ -437,10 +565,10 @@ pub async fn update_custom_provider(
     }
 
     let provider = sqlx::query_as::<_, Provider>(
-        "UPDATE providers 
+        "UPDATE providers
          SET name = $1, url = $2, mints = $3, use_onion = $4, updated_at = NOW()
          WHERE id = $5 AND is_custom = TRUE
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at, false as has_msat_support"
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, COALESCE(source, 'manual') as source, organization_id, created_at, updated_at, false as has_msat_support"
     )
     .bind(&request.name)
     .bind(&request.url)
@@ -476,10 +604,10 @@ pub async fn update_custom_provider_for_organization(
     }
 
     let provider = sqlx::query_as::<_, Provider>(
-        "UPDATE providers 
+        "UPDATE providers
          SET name = $1, url = $2, mints = $3, use_onion = $4, updated_at = NOW()
          WHERE id = $5 AND is_custom = TRUE AND organization_id = $6
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at, false as has_msat_support"
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, COALESCE(source, 'manual') as source, organization_id, created_at, updated_at, false as has_msat_support"
     )
     .bind(&request.name)
     .bind(&request.url)
@@ -541,12 +669,12 @@ pub async fn get_available_providers_for_organization(
         r#"
         SELECT
             p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at, p.source,
             COALESCE(op.is_active, false) as is_active_for_org,
             COALESCE(op.is_default, false) as is_default_for_org,
             EXISTS(
-                SELECT 1 FROM mints m 
-                WHERE m.mint_url = ANY(p.mints) 
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(p.mints)
                 AND m.organization_id = $1
                 AND m.currency_unit = 'msat'
             ) as has_msat_support
@@ -583,6 +711,7 @@ pub async fn get_available_providers_for_organization(
                     zaps: row.zaps.unwrap_or(0),
                     is_default: row.is_default.unwrap_or(false),
                     is_custom,
+                    source: row.source,
                     organization_id: provider_org_id,
                     created_at: row.created_at.unwrap_or_else(chrono::Utc::now),
                     updated_at: row.updated_at.unwrap_or_else(chrono::Utc::now),
@@ -606,10 +735,10 @@ pub async fn get_active_providers_for_organization(
         r#"
         SELECT
             p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at, p.source,
             EXISTS(
-                SELECT 1 FROM mints m 
-                WHERE m.mint_url = ANY(p.mints) 
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(p.mints)
                 AND m.organization_id = $1
                 AND m.currency_unit = 'msat'
             ) as has_msat_support
@@ -635,10 +764,10 @@ pub async fn get_default_provider_for_organization_new(
         r#"
         SELECT
             p.id, p.name, p.url, p.mints, p.use_onion, p.followers, p.zaps,
-            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at,
+            p.is_default, p.is_custom, p.organization_id, p.created_at, p.updated_at, p.source,
             EXISTS(
-                SELECT 1 FROM mints m 
-                WHERE m.mint_url = ANY(p.mints) 
+                SELECT 1 FROM mints m
+                WHERE m.mint_url = ANY(p.mints)
                 AND m.organization_id = $1
                 AND m.currency_unit = 'msat'
             ) as has_msat_support
@@ -778,8 +907,8 @@ pub async fn upsert_provider_for_organization(
     organization_id: Option<&Uuid>,
 ) -> Result<Provider, sqlx::Error> {
     let provider = sqlx::query_as::<_, Provider>(
-        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, organization_id, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, FALSE, $7, NOW())
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, source, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, FALSE, 'manual', $7, NOW())
          ON CONFLICT (url, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))
          DO UPDATE SET
             name = EXCLUDED.name,
@@ -788,7 +917,7 @@ pub async fn upsert_provider_for_organization(
             followers = EXCLUDED.followers,
             zaps = EXCLUDED.zaps,
             updated_at = NOW()
-         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, organization_id, created_at, updated_at"
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, 'manual' as source, organization_id, created_at, updated_at, false as has_msat_support"
     )
     .bind(name)
     .bind(url)
@@ -797,6 +926,35 @@ pub async fn upsert_provider_for_organization(
     .bind(followers)
     .bind(zaps)
     .bind(organization_id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(provider)
+}
+
+pub async fn upsert_nostr_provider(
+    db: &Pool,
+    request: CreateNostrProviderRequest,
+) -> Result<Provider, sqlx::Error> {
+    let provider = sqlx::query_as::<_, Provider>(
+        "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, source, organization_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, FALSE, 'nostr', NULL, NOW())
+         ON CONFLICT (url, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))
+         DO UPDATE SET
+            name = EXCLUDED.name,
+            mints = EXCLUDED.mints,
+            use_onion = EXCLUDED.use_onion,
+            followers = EXCLUDED.followers,
+            zaps = EXCLUDED.zaps,
+            updated_at = NOW()
+         RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, COALESCE(source, 'nostr') as source, organization_id, created_at, updated_at, false as has_msat_support"
+    )
+    .bind(&request.name)
+    .bind(&request.url)
+    .bind(&request.mints)
+    .bind(request.use_onion)
+    .bind(request.followers)
+    .bind(request.zaps)
     .fetch_one(db)
     .await?;
 
