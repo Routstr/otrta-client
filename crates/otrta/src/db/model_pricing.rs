@@ -1,6 +1,7 @@
 use crate::models::{normalize_model_name, ModelRecord};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModelPricingProvider {
@@ -62,6 +63,7 @@ pub async fn upsert_model_pricing(
 
 pub async fn get_model_pricing_comparison(
     pool: &PgPool,
+    organization_id: &Uuid,
 ) -> Result<Vec<ModelPricingComparison>, sqlx::Error> {
     let records = sqlx::query!(
         r#"
@@ -76,21 +78,26 @@ pub async fn get_model_pricing_comparison(
             COALESCE(mp.is_free, false) AS is_free,
             provider_counts.provider_count
         FROM model_pricing mp
+        INNER JOIN providers p ON mp.provider_id = p.id
         INNER JOIN (
             SELECT 
                 normalized_model_name,
                 COUNT(DISTINCT provider_id) as provider_count
-            FROM model_pricing
-            WHERE last_updated > NOW() - INTERVAL '1 day'
+            FROM model_pricing mp2
+            INNER JOIN providers p2 ON mp2.provider_id = p2.id
+            WHERE mp2.last_updated > NOW() - INTERVAL '1 day'
+              AND (p2.organization_id IS NULL OR p2.organization_id = $1)
             GROUP BY normalized_model_name
         ) provider_counts ON mp.normalized_model_name = provider_counts.normalized_model_name
         WHERE mp.last_updated > NOW() - INTERVAL '1 day'
+          AND (p.organization_id IS NULL OR p.organization_id = $1)
         ORDER BY provider_counts.provider_count DESC,
                  mp.normalized_model_name ASC,
                  CASE WHEN COALESCE(mp.is_free, false) THEN 0 ELSE 1 END,
                  COALESCE(mp.input_cost + mp.output_cost, 0),
                  mp.min_cash_per_request
-        "#
+        "#,
+        organization_id
     )
     .fetch_all(pool)
     .await?;

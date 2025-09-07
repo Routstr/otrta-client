@@ -63,8 +63,14 @@ pub async fn get_proxy_models(
 
 pub async fn get_model_pricing_comparison(
     State(state): State<Arc<AppState>>,
+    Extension(user_ctx): Extension<UserContext>,
 ) -> Result<Json<Vec<ModelPricingComparison>>, (StatusCode, Json<serde_json::Value>)> {
-    match crate::db::model_pricing::get_model_pricing_comparison(&state.db).await {
+    match crate::db::model_pricing::get_model_pricing_comparison(
+        &state.db,
+        &user_ctx.organization_id,
+    )
+    .await
+    {
         Ok(comparisons) => Ok(Json(comparisons)),
         Err(e) => {
             eprintln!("Failed to get model pricing comparison: {}", e);
