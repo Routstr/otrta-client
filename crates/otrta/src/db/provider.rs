@@ -341,6 +341,8 @@ pub async fn refresh_providers_from_nostr_global(
                 continue;
             }
 
+            let is_onion_url = url.contains(".onion");
+
             let existing_provider = sqlx::query_as::<_, Provider>(
                 "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom,
                     COALESCE(source, 'manual') as source, organization_id, created_at, updated_at,
@@ -356,6 +358,13 @@ pub async fn refresh_providers_from_nostr_global(
             .await?;
 
             if let Some(provider) = existing_provider {
+                let provider_name = if nostr_provider.urls.len() > 1 {
+                    let url_suffix = if is_onion_url { " (Tor)" } else { "" };
+                    format!("{}{}", nostr_provider.name, url_suffix)
+                } else {
+                    nostr_provider.name.clone()
+                };
+
                 let result = sqlx::query(
                     "UPDATE providers SET 
                         name = $1, 
@@ -366,9 +375,9 @@ pub async fn refresh_providers_from_nostr_global(
                         updated_at = NOW() 
                      WHERE id = $6",
                 )
-                .bind(&nostr_provider.name)
+                .bind(&provider_name)
                 .bind(&nostr_provider.mints)
-                .bind(nostr_provider.use_onion)
+                .bind(is_onion_url)
                 .bind(nostr_provider.followers)
                 .bind(nostr_provider.zaps)
                 .bind(provider.id)
@@ -380,7 +389,7 @@ pub async fn refresh_providers_from_nostr_global(
                 }
             } else {
                 let provider_name = if nostr_provider.urls.len() > 1 {
-                    let url_suffix = if url.contains(".onion") { " (Tor)" } else { "" };
+                    let url_suffix = if is_onion_url { " (Tor)" } else { "" };
                     format!("{}{}", nostr_provider.name, url_suffix)
                 } else {
                     nostr_provider.name.clone()
@@ -393,7 +402,7 @@ pub async fn refresh_providers_from_nostr_global(
                     &provider_name,
                     url,
                     &nostr_provider.mints,
-                    nostr_provider.use_onion,
+                    is_onion_url,
                     nostr_provider.followers,
                     nostr_provider.zaps
                 )
@@ -441,6 +450,8 @@ pub async fn refresh_providers_from_nostr(
                 continue;
             }
 
+            let is_onion_url = url.contains(".onion");
+
             let existing_provider = sqlx::query_as::<_, Provider>(
                 "SELECT id, name, url, mints, use_onion, followers, zaps, is_default, is_custom,
                     COALESCE(source, 'manual') as source, organization_id, created_at, updated_at,
@@ -456,6 +467,13 @@ pub async fn refresh_providers_from_nostr(
             .await?;
 
             if let Some(provider) = existing_provider {
+                let provider_name = if nostr_provider.urls.len() > 1 {
+                    let url_suffix = if is_onion_url { " (Tor)" } else { "" };
+                    format!("{}{}", nostr_provider.name, url_suffix)
+                } else {
+                    nostr_provider.name.clone()
+                };
+
                 let result = sqlx::query(
                     "UPDATE providers SET 
                         name = $1, 
@@ -466,9 +484,9 @@ pub async fn refresh_providers_from_nostr(
                         updated_at = NOW() 
                      WHERE id = $6",
                 )
-                .bind(&nostr_provider.name)
+                .bind(&provider_name)
                 .bind(&nostr_provider.mints)
-                .bind(nostr_provider.use_onion)
+                .bind(is_onion_url)
                 .bind(nostr_provider.followers)
                 .bind(nostr_provider.zaps)
                 .bind(provider.id)
@@ -480,7 +498,7 @@ pub async fn refresh_providers_from_nostr(
                 }
             } else {
                 let provider_name = if nostr_provider.urls.len() > 1 {
-                    let url_suffix = if url.contains(".onion") { " (Tor)" } else { "" };
+                    let url_suffix = if is_onion_url { " (Tor)" } else { "" };
                     format!("{}{}", nostr_provider.name, url_suffix)
                 } else {
                     nostr_provider.name.clone()
@@ -493,7 +511,7 @@ pub async fn refresh_providers_from_nostr(
                     &provider_name,
                     url,
                     &nostr_provider.mints,
-                    nostr_provider.use_onion,
+                    is_onion_url,
                     nostr_provider.followers,
                     nostr_provider.zaps
                 )
