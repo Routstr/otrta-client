@@ -1027,6 +1027,12 @@ pub async fn upsert_nostr_provider(
     db: &Pool,
     request: CreateNostrProviderRequest,
 ) -> Result<Provider, sqlx::Error> {
+    let provider_name = if request.url.contains(".onion") {
+        format!("{} (Tor)", request.name)
+    } else {
+        request.name
+    };
+
     let provider = sqlx::query_as::<_, Provider>(
         "INSERT INTO providers (name, url, mints, use_onion, followers, zaps, is_custom, source, organization_id, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, FALSE, 'nostr', NULL, NOW())
@@ -1040,7 +1046,7 @@ pub async fn upsert_nostr_provider(
             updated_at = NOW()
          RETURNING id, name, url, mints, use_onion, followers, zaps, is_default, is_custom, COALESCE(source, 'nostr') as source, organization_id, created_at, updated_at, false as has_msat_support"
     )
-    .bind(&request.name)
+    .bind(&provider_name)
     .bind(&request.url)
     .bind(&request.mints)
     .bind(request.use_onion)
