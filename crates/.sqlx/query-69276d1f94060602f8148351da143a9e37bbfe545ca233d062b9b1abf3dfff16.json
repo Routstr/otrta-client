@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            mp.normalized_model_name,\n            mp.provider_id,\n            mp.provider_name,\n            mp.model_name,\n            mp.input_cost,\n            mp.output_cost,\n            mp.min_cash_per_request,\n            COALESCE(mp.is_free, false) AS is_free,\n            provider_counts.provider_count\n        FROM model_pricing mp\n        INNER JOIN providers p ON mp.provider_id = p.id\n        INNER JOIN (\n            SELECT \n                normalized_model_name,\n                COUNT(DISTINCT provider_id) as provider_count\n            FROM model_pricing mp2\n            INNER JOIN providers p2 ON mp2.provider_id = p2.id\n            WHERE mp2.last_updated > NOW() - INTERVAL '1 day'\n              AND (p2.organization_id IS NULL OR p2.organization_id = $1)\n            GROUP BY normalized_model_name\n        ) provider_counts ON mp.normalized_model_name = provider_counts.normalized_model_name\n        WHERE mp.last_updated > NOW() - INTERVAL '1 day'\n          AND (p.organization_id IS NULL OR p.organization_id = $1)\n        ORDER BY provider_counts.provider_count DESC,\n                 mp.normalized_model_name ASC,\n                 CASE WHEN COALESCE(mp.is_free, false) THEN 0 ELSE 1 END,\n                 COALESCE(mp.input_cost + mp.output_cost, 0),\n                 mp.min_cash_per_request\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "normalized_model_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "provider_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "provider_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "model_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "input_cost",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "output_cost",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "min_cash_per_request",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_free",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "provider_count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "69276d1f94060602f8148351da143a9e37bbfe545ca233d062b9b1abf3dfff16"
+}
