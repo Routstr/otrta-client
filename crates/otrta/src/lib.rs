@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod auto_refill_service;
 pub mod completion;
 pub mod db;
 pub mod error;
@@ -6,6 +7,7 @@ pub mod handlers;
 pub mod models;
 pub mod multimint;
 pub mod multimint_manager;
+pub mod nwc_client;
 pub mod onion;
 pub mod proxy;
 pub mod search;

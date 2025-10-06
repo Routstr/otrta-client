@@ -283,8 +283,8 @@ fn validate_auth_event(
     let mut url_found = false;
     let mut method_found = false;
 
-    for tag in &event.tags {
-        let values = tag.as_vec();
+    for tag in event.tags.iter() {
+        let values = tag.clone().to_vec();
         if values.len() >= 2 {
             match values[0].as_str() {
                 "u" => {

@@ -8,6 +8,7 @@ use background::BackgroundJobRunner;
 use connection::{DatabaseSettings, get_configuration};
 use otrta::{
     auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware_with_context},
+    auto_refill_service::{start_auto_refill_service, AutoRefillConfig},
     handlers,
     models::AppState,
     multimint_manager::MultimintManager,
@@ -55,6 +56,28 @@ async fn main() {
 
     let job_runner = BackgroundJobRunner::new(Arc::clone(&app_state));
     job_runner.start_all_jobs().await;
+
+    let auto_refill_config = AutoRefillConfig {
+        enabled: std::env::var("AUTO_REFILL_ENABLED")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse()
+            .unwrap_or(true),
+        check_interval_seconds: std::env::var("AUTO_REFILL_CHECK_INTERVAL_SECONDS")
+            .unwrap_or_else(|_| "300".to_string())
+            .parse()
+            .unwrap_or(300),
+        min_refill_interval_minutes: std::env::var("AUTO_REFILL_MIN_INTERVAL_MINUTES")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse()
+            .unwrap_or(60),
+    };
+
+    let _auto_refill_handle = start_auto_refill_service(
+        auto_refill_config,
+        connection_pool.clone(),
+        app_state.multimint_manager.clone(),
+    )
+    .await;
 
     let auth_config = AuthConfig {
         enabled: configuration.application.enable_authentication,
@@ -217,6 +240,17 @@ async fn main() {
             "/api/models/pricing-comparison",
             get(handlers::get_model_pricing_comparison),
         )
+        .route("/api/nwc/connections", get(handlers::get_nwc_connections_handler))
+        .route("/api/nwc/connections", post(handlers::create_nwc_connection_handler))
+        .route("/api/nwc/connections/{connection_id}", get(handlers::get_nwc_connection_handler))
+        .route("/api/nwc/connections/{connection_id}", put(handlers::update_nwc_connection_handler))
+        .route("/api/nwc/connections/{connection_id}", delete(handlers::delete_nwc_connection_handler))
+        .route("/api/nwc/test", post(handlers::test_nwc_connection_handler))
+        .route("/api/nwc/auto-refill", get(handlers::get_mint_auto_refill_settings_handler))
+        .route("/api/nwc/auto-refill", post(handlers::create_mint_auto_refill_handler))
+        .route("/api/nwc/auto-refill/mint/{mint_id}", get(handlers::get_mint_auto_refill_by_mint_handler))
+        .route("/api/nwc/auto-refill/{settings_id}", put(handlers::update_mint_auto_refill_handler))
+        .route("/api/nwc/auto-refill/{settings_id}", delete(handlers::delete_mint_auto_refill_handler))
         .with_state(app_state.clone());
 
     let mut unprotected_routes = Router::new()

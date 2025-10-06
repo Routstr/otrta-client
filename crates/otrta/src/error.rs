@@ -13,6 +13,7 @@ pub enum AppError {
     InternalServerError,
     ValidationError(String),
     DatabaseError(String),
+    BadRequest(String),
 }
 
 impl fmt::Display for AppError {
@@ -23,6 +24,7 @@ impl fmt::Display for AppError {
             AppError::InternalServerError => write!(f, "Internal server error"),
             AppError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
             AppError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
+            AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
         }
     }
 }
@@ -37,6 +39,7 @@ impl IntoResponse for AppError {
             }
             AppError::ValidationError(msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
             AppError::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error"),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
         };
 
         let body = Json(json!({
@@ -48,3 +51,9 @@ impl IntoResponse for AppError {
 }
 
 impl std::error::Error for AppError {}
+
+impl From<sqlx::Error> for AppError {
+    fn from(err: sqlx::Error) -> Self {
+        AppError::DatabaseError(err.to_string())
+    }
+}

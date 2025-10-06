@@ -4,6 +4,7 @@ pub mod helpers;
 pub mod mint;
 pub mod model_pricing;
 pub mod models;
+pub mod nwc;
 pub mod organizations;
 pub mod provider;
 pub mod server_config;
