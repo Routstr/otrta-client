@@ -4,7 +4,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     db::{
-        mint::{get_mint_by_id},
+        mint::get_mint_by_id,
         nwc::{get_enabled_mint_auto_refill_settings, update_last_refill_time},
     },
     error::AppError,
@@ -39,7 +39,10 @@ impl AutoRefillService {
     }
 
     pub async fn start(&self) {
-        info!("Starting auto-refill service with check interval: {:?}", self.check_interval);
+        info!(
+            "Starting auto-refill service with check interval: {:?}",
+            self.check_interval
+        );
 
         let mut interval_timer = interval(self.check_interval);
 
@@ -84,7 +87,8 @@ impl AutoRefillService {
     ) -> Result<(), AppError> {
         if let Some(last_refill) = setting.last_refill_at {
             let time_since_last_refill = chrono::Utc::now().signed_duration_since(last_refill);
-            if time_since_last_refill.to_std().unwrap_or(Duration::ZERO) < self.min_refill_interval {
+            if time_since_last_refill.to_std().unwrap_or(Duration::ZERO) < self.min_refill_interval
+            {
                 debug!(
                     "Skipping refill for mint {} - too soon since last refill",
                     setting.mint_id
@@ -124,7 +128,10 @@ impl AutoRefillService {
         );
 
         if balance >= setting.min_balance_threshold_msat as u64 {
-            debug!("Mint {} balance above threshold, no refill needed", mint.mint_url);
+            debug!(
+                "Mint {} balance above threshold, no refill needed",
+                mint.mint_url
+            );
             return Ok(());
         }
 

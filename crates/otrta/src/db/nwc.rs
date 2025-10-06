@@ -181,17 +181,15 @@ pub async fn delete_nwc_connection(
     id: &Uuid,
     organization_id: &Uuid,
 ) -> Result<bool, AppError> {
-    let result = sqlx::query(
-        "DELETE FROM nwc_connections WHERE id = $1 AND organization_id = $2",
-    )
-    .bind(id)
-    .bind(organization_id)
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to delete NWC connection: {}", e);
-        AppError::InternalServerError
-    })?;
+    let result = sqlx::query("DELETE FROM nwc_connections WHERE id = $1 AND organization_id = $2")
+        .bind(id)
+        .bind(organization_id)
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to delete NWC connection: {}", e);
+            AppError::InternalServerError
+        })?;
 
     Ok(result.rows_affected() > 0)
 }
@@ -319,10 +317,7 @@ pub async fn update_mint_auto_refill_settings(
     Ok(settings)
 }
 
-pub async fn update_last_refill_time(
-    pool: &PgPool,
-    id: &Uuid,
-) -> Result<bool, AppError> {
+pub async fn update_last_refill_time(pool: &PgPool, id: &Uuid) -> Result<bool, AppError> {
     let result = sqlx::query(
         "UPDATE mint_auto_refill_settings
          SET last_refill_at = NOW(), updated_at = NOW()
@@ -344,17 +339,16 @@ pub async fn delete_mint_auto_refill_settings(
     id: &Uuid,
     organization_id: &Uuid,
 ) -> Result<bool, AppError> {
-    let result = sqlx::query(
-        "DELETE FROM mint_auto_refill_settings WHERE id = $1 AND organization_id = $2",
-    )
-    .bind(id)
-    .bind(organization_id)
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to delete mint auto-refill settings: {}", e);
-        AppError::InternalServerError
-    })?;
+    let result =
+        sqlx::query("DELETE FROM mint_auto_refill_settings WHERE id = $1 AND organization_id = $2")
+            .bind(id)
+            .bind(organization_id)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to delete mint auto-refill settings: {}", e);
+                AppError::InternalServerError
+            })?;
 
     Ok(result.rows_affected() > 0)
 }

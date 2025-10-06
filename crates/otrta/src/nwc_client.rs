@@ -1,11 +1,11 @@
-use std::str::FromStr;
-use nwc::prelude::*;
 use nostr::nips::nip47::{MakeInvoiceRequest, PayInvoiceRequest};
+use nwc::prelude::*;
+use std::str::FromStr;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, error, info, warn};
 
-use crate::error::AppError;
 use crate::db::nwc::NwcConnection;
+use crate::error::AppError;
 
 pub struct NwcClient {
     client: NWC,
@@ -14,11 +14,10 @@ pub struct NwcClient {
 
 impl NwcClient {
     pub async fn new(connection: NwcConnection) -> Result<Self, AppError> {
-        let uri = NostrWalletConnectURI::from_str(&connection.connection_uri)
-            .map_err(|e| {
-                error!("Failed to parse NWC URI: {}", e);
-                AppError::BadRequest("Invalid NWC connection URI".to_string())
-            })?;
+        let uri = NostrWalletConnectURI::from_str(&connection.connection_uri).map_err(|e| {
+            error!("Failed to parse NWC URI: {}", e);
+            AppError::BadRequest("Invalid NWC connection URI".to_string())
+        })?;
 
         let client = NWC::new(uri);
 
@@ -44,7 +43,10 @@ impl NwcClient {
                 AppError::BadRequest("Failed to connect to NWC wallet".to_string())
             })?;
 
-        debug!("NWC connection validated. Supported methods: {:?}", info.methods);
+        debug!(
+            "NWC connection validated. Supported methods: {:?}",
+            info.methods
+        );
         Ok(())
     }
 
@@ -63,7 +65,11 @@ impl NwcClient {
         Ok(balance)
     }
 
-    pub async fn request_payment(&self, amount_msat: u64, description: &str) -> Result<String, AppError> {
+    pub async fn request_payment(
+        &self,
+        amount_msat: u64,
+        description: &str,
+    ) -> Result<String, AppError> {
         let request = MakeInvoiceRequest {
             amount: amount_msat,
             description: Some(description.to_string()),
@@ -127,50 +133,70 @@ impl NwcManager {
         connection_id: &uuid::Uuid,
         organization_id: &uuid::Uuid,
     ) -> Result<NwcClient, AppError> {
-        let connection = crate::db::nwc::get_nwc_connection_by_id(
-            &self.db_pool,
-            connection_id,
-            organization_id,
-        )
-        .await?
-        .ok_or_else(|| {
-            warn!("NWC connection not found: {}", connection_id);
-            AppError::NotFound
-        })?;
+        let connection =
+            crate::db::nwc::get_nwc_connection_by_id(&self.db_pool, connection_id, organization_id)
+                .await?
+                .ok_or_else(|| {
+                    warn!("NWC connection not found: {}", connection_id);
+                    AppError::NotFound
+                })?;
 
         if !connection.is_active {
             warn!("NWC connection is inactive: {}", connection_id);
-            return Err(AppError::BadRequest("NWC connection is inactive".to_string()));
+            return Err(AppError::BadRequest(
+                "NWC connection is inactive".to_string(),
+            ));
         }
 
         NwcClient::new(connection).await
     }
 
-    pub async fn test_connection(
-        &self,
-        connection_uri: &str,
-    ) -> Result<GetInfoResponse, AppError> {
-        let uri = NostrWalletConnectURI::from_str(connection_uri)
-            .map_err(|e| {
-                error!("Failed to parse NWC URI for testing: {}", e);
-                AppError::BadRequest("Invalid NWC connection URI".to_string())
-            })?;
+    pub async fn test_connection(&self, connection_uri: &str) -> Result<bool, AppError> {
+        let uri = NostrWalletConnectURI::from_str(connection_uri).map_err(|e| {
+            error!("Failed to parse NWC URI for testing: {}", e);
+            AppError::BadRequest("Invalid NWC connection URI".to_string())
+        })?;
 
-        let client = NWC::new(uri);
+        let monitor = Monitor::new(100);
+        let mut monitor_sub = monitor.subscribe();
 
-        let info = timeout(Duration::from_secs(10), client.get_info())
-            .await
-            .map_err(|_| {
+        let _nwc: NWC = NWC::with_opts(
+            uri.clone(),
+            NostrWalletConnectOptions::default().monitor(monitor),
+        );
+
+        let connection_result = timeout(Duration::from_secs(10), async {
+            while let Ok(notification) = monitor_sub.recv().await {
+                debug!("Notification: {notification:?}");
+                let notification_str = format!("{:?}", notification);
+                if notification_str.contains("status: Connected") {
+                    return Ok::<bool, ()>(true);
+                } else if notification_str.contains("status: Disconnected") {
+                    return Ok::<bool, ()>(false);
+                }
+            }
+            Ok::<bool, ()>(false)
+        })
+        .await;
+
+        match connection_result {
+            Ok(Ok(connected)) => {
+                if connected {
+                    info!("NWC connection test successful");
+                } else {
+                    warn!("NWC connection test failed - not connected");
+                }
+                Ok(connected)
+            }
+            Ok(Err(_)) => {
+                error!("Error during NWC connection test");
+                Ok(false)
+            }
+            Err(_) => {
                 error!("NWC connection test timed out");
-                AppError::InternalServerError
-            })?
-            .map_err(|e| {
-                error!("Failed to test NWC connection: {}", e);
-                AppError::BadRequest("Failed to connect to NWC wallet".to_string())
-            })?;
-
-        info!("NWC connection test successful. Methods: {:?}", info.methods);
-        Ok(info)
+                Ok(false)
+            }
+        }
     }
 
     pub async fn request_mint_refill(
@@ -180,7 +206,9 @@ impl NwcManager {
         amount_msat: u64,
         mint_url: &str,
     ) -> Result<String, AppError> {
-        let client = self.get_client_for_connection(nwc_connection_id, organization_id).await?;
+        let client = self
+            .get_client_for_connection(nwc_connection_id, organization_id)
+            .await?;
 
         let description = format!("Auto-refill for mint: {} ({}msat)", mint_url, amount_msat);
         client.request_payment(amount_msat, &description).await

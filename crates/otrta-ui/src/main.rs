@@ -8,7 +8,7 @@ use background::BackgroundJobRunner;
 use connection::{DatabaseSettings, get_configuration};
 use otrta::{
     auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware_with_context},
-    auto_refill_service::{start_auto_refill_service, AutoRefillConfig},
+    auto_refill_service::{AutoRefillConfig, start_auto_refill_service},
     handlers,
     models::AppState,
     multimint_manager::MultimintManager,
@@ -28,7 +28,7 @@ async fn main() {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG")
-                .unwrap_or_else(|_| "ecash-402-wallet=debug,tower_http=warning".into()),
+                .unwrap_or_else(|_| "ecash-402-wallet=debug,tower_http=warn".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -240,17 +240,47 @@ async fn main() {
             "/api/models/pricing-comparison",
             get(handlers::get_model_pricing_comparison),
         )
-        .route("/api/nwc/connections", get(handlers::get_nwc_connections_handler))
-        .route("/api/nwc/connections", post(handlers::create_nwc_connection_handler))
-        .route("/api/nwc/connections/{connection_id}", get(handlers::get_nwc_connection_handler))
-        .route("/api/nwc/connections/{connection_id}", put(handlers::update_nwc_connection_handler))
-        .route("/api/nwc/connections/{connection_id}", delete(handlers::delete_nwc_connection_handler))
+        .route(
+            "/api/nwc/connections",
+            get(handlers::get_nwc_connections_handler),
+        )
+        .route(
+            "/api/nwc/connections",
+            post(handlers::create_nwc_connection_handler),
+        )
+        .route(
+            "/api/nwc/connections/{connection_id}",
+            get(handlers::get_nwc_connection_handler),
+        )
+        .route(
+            "/api/nwc/connections/{connection_id}",
+            put(handlers::update_nwc_connection_handler),
+        )
+        .route(
+            "/api/nwc/connections/{connection_id}",
+            delete(handlers::delete_nwc_connection_handler),
+        )
         .route("/api/nwc/test", post(handlers::test_nwc_connection_handler))
-        .route("/api/nwc/auto-refill", get(handlers::get_mint_auto_refill_settings_handler))
-        .route("/api/nwc/auto-refill", post(handlers::create_mint_auto_refill_handler))
-        .route("/api/nwc/auto-refill/mint/{mint_id}", get(handlers::get_mint_auto_refill_by_mint_handler))
-        .route("/api/nwc/auto-refill/{settings_id}", put(handlers::update_mint_auto_refill_handler))
-        .route("/api/nwc/auto-refill/{settings_id}", delete(handlers::delete_mint_auto_refill_handler))
+        .route(
+            "/api/nwc/auto-refill",
+            get(handlers::get_mint_auto_refill_settings_handler),
+        )
+        .route(
+            "/api/nwc/auto-refill",
+            post(handlers::create_mint_auto_refill_handler),
+        )
+        .route(
+            "/api/nwc/auto-refill/mint/{mint_id}",
+            get(handlers::get_mint_auto_refill_by_mint_handler),
+        )
+        .route(
+            "/api/nwc/auto-refill/{settings_id}",
+            put(handlers::update_mint_auto_refill_handler),
+        )
+        .route(
+            "/api/nwc/auto-refill/{settings_id}",
+            delete(handlers::delete_mint_auto_refill_handler),
+        )
         .with_state(app_state.clone());
 
     let mut unprotected_routes = Router::new()

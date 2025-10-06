@@ -15,6 +15,7 @@ dotenv = "0.15"
 futures-util = "0.3"
 hex = "0.4"
 nostr = "0.43"
+nostr-sdk = { version = "0.43", default-features = false, features = ["nip04", "nip47"] }
 nwc = "0.43"
 rand = "0.8"
 regex = "1.10"
