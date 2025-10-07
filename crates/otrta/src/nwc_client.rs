@@ -7,7 +7,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::db::nwc::NwcConnection;
 use crate::error::AppError;
-use crate::handlers::{check_lightning_payment_nwc, PaymentStatusResponse};
+use crate::handlers::check_lightning_payment_nwc;
 use crate::models::AppState;
 
 pub struct NwcClient {
