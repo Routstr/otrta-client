@@ -150,9 +150,6 @@ impl NostrProviderDiscovery {
     }
 
     fn parse_provider_from_event(&self, event: &Event) -> Result<NostrProvider> {
-        println!("Parsing event content: {}", event.content);
-        println!("Event tags: {:?}", event.tags);
-
         let content: ProviderContent = match serde_json::from_str(&event.content) {
             Ok(content) => content,
             Err(e) => {
@@ -166,7 +163,6 @@ impl NostrProviderDiscovery {
         let mut use_onion = content.use_onion.unwrap_or(false);
 
         let tag_map = parse_tags_to_map(&event.tags);
-        println!("Parsed tag map: {:?}", tag_map);
 
         if let Some(tag_urls) = tag_map.get("u") {
             for url in tag_urls {

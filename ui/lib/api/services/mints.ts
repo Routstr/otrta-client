@@ -89,6 +89,17 @@ export class MintService {
     }
   }
 
+  // Get all mints (alias for getAllMints for compatibility)
+  static async listMints(): Promise<Mint[]> {
+    try {
+      const response = await this.getAllMints();
+      return response.mints;
+    } catch (error) {
+      console.error('Error fetching mints:', error);
+      throw error;
+    }
+  }
+
   // Get active mints only
   static async getActiveMints(): Promise<MintListResponse> {
     try {

@@ -129,6 +129,13 @@ impl MultimintWalletWrapper {
         Ok(balance)
     }
 
+    pub async fn get_balance_for_mint(
+        &self,
+        mint_url: &str,
+    ) -> Result<u64, Box<dyn std::error::Error>> {
+        self.get_mint_balance(mint_url).await
+    }
+
     pub async fn get_balances_by_units(
         &self,
         db: &crate::db::Pool,

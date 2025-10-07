@@ -7,6 +7,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct CreateLightningPaymentRequest {
@@ -524,5 +525,55 @@ pub async fn create_lightning_invoice_handler(
             }
         ),
         mint_url: payload.mint_url.clone().unwrap_or_default(), // Include the mint_url used for the invoice
+    }))
+}
+
+pub async fn check_lightning_payment_nwc(
+    state: &Arc<AppState>,
+    organization_id: &Uuid,
+    quote_id: &str,
+    mint_url: &str,
+) -> Result<Json<PaymentStatusResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let org_wallet = match state
+        .multimint_manager
+        .get_or_create_multimint(organization_id)
+        .await
+    {
+        Ok(wallet) => wallet,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({"error": {"message": "Failed to get organization wallet", "type": "wallet_error"}}),
+                ),
+            ))
+        }
+    };
+
+    let wallet = match org_wallet.get_wallet_for_mint(mint_url).await {
+        Some(wallet) => {
+            eprintln!("DEBUG: Found wallet for specified mint");
+            wallet
+        }
+        None => {
+            eprintln!("DEBUG: No wallet found for specified mint: {}", mint_url);
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "error": {
+                        "message": format!("No wallet found for mint: {}. Make sure this mint is added to your wallet.", mint_url),
+                        "type": "wallet_not_found"
+                    }
+                })),
+            ));
+        }
+    };
+
+    let status = wallet.check_mint_quote(&quote_id).await.unwrap();
+
+    Ok(Json(PaymentStatusResponse {
+        quote_id: quote_id.to_string(),
+        state: status.to_string(),
+        amount: 0,
     }))
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Send, Zap, Activity } from 'lucide-react';
+import { Send, Zap, Activity, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MintList } from './mint-list';
 import { CollectSats } from './collect-sats';
@@ -17,6 +17,7 @@ import {
   type CreateInvoiceResponse,
 } from '@/lib/api/services/lightning';
 import { MintService } from '@/lib/api/services/mints';
+import { NwcService } from '@/lib/api/services/nwc';
 import {
   Card,
   CardContent,
@@ -28,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -62,11 +64,21 @@ export function MintManagementPage() {
     token: undefined,
   });
   const [selectedUnit, setSelectedUnit] = useState<string>('sat');
+  const [useNwc, setUseNwc] = useState(false);
+  const [selectedNwcConnectionId, setSelectedNwcConnectionId] =
+    useState<string>('');
 
   const { data: activeMintsWithUnits } = useQuery({
     queryKey: ['active-mints-with-units'],
     queryFn: () => MintService.getActiveMintsWithUnits(),
   });
+
+  const { data: nwcConnections = [] } = useQuery({
+    queryKey: ['nwc-connections'],
+    queryFn: () => NwcService.listConnections(),
+  });
+
+  const activeNwcConnections = nwcConnections.filter((conn) => conn.is_active);
 
   // Legacy support - convert mints with units to simple mints for backward compatibility
   // Also deduplicate by mint_url to avoid duplicates in dropdown
@@ -137,14 +149,85 @@ export function MintManagementPage() {
   const lightningInvoiceMutation = useMutation({
     mutationFn: (data: TopupRequest) => LightningService.createInvoice(data),
     onSuccess: (response) => {
-      toast.success('Lightning invoice created!');
-      setCurrentInvoice(response);
-      setTopupDialogOpen(false);
-      setLightningInvoiceModalOpen(true);
+      if (useNwc && selectedNwcConnectionId) {
+        toast.success('Lightning invoice created! Paying with NWC...');
+        nwcPayInvoiceMutation.mutate({
+          invoice: response.payment_request,
+          quote_id: response.quote_id,
+          mint_url: response.mint_url,
+        });
+      } else {
+        toast.success('Lightning invoice created!');
+        setCurrentInvoice(response);
+        setTopupDialogOpen(false);
+        setLightningInvoiceModalOpen(true);
+      }
     },
     onError: (error) => {
       console.error('Lightning invoice error:', error);
       toast.error('Failed to create lightning invoice. Please try again.');
+    },
+  });
+
+  const nwcPayInvoiceMutation = useMutation({
+    mutationFn: async ({
+      invoice,
+      quote_id,
+      mint_url,
+    }: {
+      invoice: string;
+      quote_id: string;
+      mint_url: string;
+    }) => {
+      const paymentResult = await NwcService.payInvoice({
+        invoice,
+        quote_id,
+        mint_url,
+      });
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || 'Payment failed');
+      }
+      return paymentResult;
+    },
+    onSuccess: () => {
+      toast.success('Invoice paid successfully!');
+      handlePaymentComplete();
+      setTopupDialogOpen(false);
+    },
+    onError: (error) => {
+      console.error('NWC payment error:', error);
+      toast.error(`NWC payment failed: ${error.message}`);
+    },
+  });
+
+  const nwcCreateAndPayMutation = useMutation({
+    mutationFn: async ({
+      lightningRequest,
+    }: {
+      lightningRequest: TopupRequest;
+    }) => {
+      const invoice = await LightningService.createInvoice(lightningRequest);
+      console.log(invoice);
+      const paymentResult = await NwcService.payInvoice({
+        invoice: invoice.payment_request,
+        quote_id: invoice.quote_id,
+        mint_url: invoice.mint_url,
+      });
+
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || 'Payment failed');
+      }
+
+      return paymentResult;
+    },
+    onSuccess: () => {
+      toast.success('Invoice paid successfully!');
+      handlePaymentComplete();
+      setTopupDialogOpen(false);
+    },
+    onError: (error) => {
+      console.error('NWC payment error:', error);
+      toast.error(`NWC payment failed: ${error.message}`);
     },
   });
 
@@ -156,6 +239,8 @@ export function MintManagementPage() {
       token: undefined,
     });
     setSelectedUnit('sat');
+    setUseNwc(false);
+    setSelectedNwcConnectionId('');
   };
 
   const handleTopup = () => {
@@ -164,13 +249,23 @@ export function MintManagementPage() {
       topupForm.amount &&
       topupForm.mint_url
     ) {
-      const lightningRequest: TopupRequest = {
-        amount: topupForm.amount,
-        unit: validUnit,
-        mint_url: topupForm.mint_url,
-        // description: 'Multimint Lightning Topup',
-      };
-      lightningInvoiceMutation.mutate(lightningRequest);
+      if (useNwc) {
+        const lightningRequest: TopupRequest = {
+          amount: topupForm.amount,
+          unit: validUnit,
+          mint_url: topupForm.mint_url,
+        };
+        nwcCreateAndPayMutation.mutate({
+          lightningRequest,
+        });
+      } else {
+        const lightningRequest: TopupRequest = {
+          amount: topupForm.amount,
+          unit: validUnit,
+          mint_url: topupForm.mint_url,
+        };
+        lightningInvoiceMutation.mutate(lightningRequest);
+      }
     } else {
       topupMutation.mutate(topupForm);
     }
@@ -192,6 +287,7 @@ export function MintManagementPage() {
 
   const isLightningProcessing = lightningInvoiceMutation.isPending;
   const isTopupProcessing = topupMutation.isPending;
+  const isNwcProcessing = nwcCreateAndPayMutation.isPending;
 
   return (
     <div className='space-y-6'>
@@ -317,6 +413,34 @@ export function MintManagementPage() {
                       <p className='text-xs text-gray-500'>
                         Lightning invoices will be generated for this amount
                       </p>
+
+                      <div className='flex items-center space-x-2'>
+                        <Checkbox
+                          id='use-nwc'
+                          checked={useNwc}
+                          onCheckedChange={(checked) => {
+                            setUseNwc(checked as boolean);
+                            if (checked && activeNwcConnections.length > 0) {
+                              setSelectedNwcConnectionId(
+                                activeNwcConnections[0].id
+                              );
+                            } else {
+                              setSelectedNwcConnectionId('');
+                            }
+                          }}
+                        />
+                        <Label
+                          htmlFor='use-nwc'
+                          className='text-sm font-normal'
+                        >
+                          Pay automatically with NWC
+                          {useNwc && activeNwcConnections.length > 0 && (
+                            <span className='ml-1 text-xs text-gray-500'>
+                              ({activeNwcConnections[0].name})
+                            </span>
+                          )}
+                        </Label>
+                      </div>
                     </div>
                   )}
 
@@ -356,17 +480,26 @@ export function MintManagementPage() {
                     disabled={
                       isLightningProcessing ||
                       isTopupProcessing ||
-                      !topupForm.mint_url ||
-                      (topupForm.method === 'lightning' && !topupForm.amount) ||
-                      (topupForm.method === 'ecash' && !topupForm.token)
+                      isNwcProcessing
                     }
                   >
-                    {isLightningProcessing || isTopupProcessing
-                      ? topupForm.method === 'lightning'
-                        ? 'Creating Invoice...'
-                        : 'Processing...'
+                    {(isLightningProcessing ||
+                      isTopupProcessing ||
+                      isNwcProcessing) && (
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                    )}
+                    {isLightningProcessing ||
+                    isTopupProcessing ||
+                    isNwcProcessing
+                      ? isNwcProcessing
+                        ? 'Paying with NWC...'
+                        : topupForm.method === 'lightning'
+                          ? 'Creating Invoice...'
+                          : 'Processing...'
                       : topupForm.method === 'lightning'
-                        ? 'Create Lightning Invoice'
+                        ? useNwc
+                          ? 'Create & Pay Invoice'
+                          : 'Create Lightning Invoice'
                         : 'Topup'}
                   </Button>
                 </DialogFooter>

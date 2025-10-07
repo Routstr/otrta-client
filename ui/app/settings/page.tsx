@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { ApiKeySettings } from '@/components/settings/api-key-settings';
+import { NwcSettings } from '@/components/settings/nwc-settings';
 import { SiteHeader } from '@/components/site-header';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -21,11 +22,15 @@ export default function SettingsPage() {
             </div>
             <div className='w-full'>
               <Tabs defaultValue='api-keys' className='w-full'>
-                <TabsList className='grid w-full grid-cols-1'>
+                <TabsList className='grid w-full grid-cols-2'>
                   <TabsTrigger value='api-keys'>API Keys</TabsTrigger>
+                  <TabsTrigger value='nwc'>NWC</TabsTrigger>
                 </TabsList>
                 <TabsContent value='api-keys' className='mt-6'>
                   <ApiKeySettings />
+                </TabsContent>
+                <TabsContent value='nwc' className='mt-6'>
+                  <NwcSettings />
                 </TabsContent>
               </Tabs>
             </div>
