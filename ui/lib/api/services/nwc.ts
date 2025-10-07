@@ -79,19 +79,15 @@ export class NwcService {
 
   // Invoice payment
   static async payInvoice(
-    connectionId: string,
     data: PayInvoiceRequest
   ): Promise<PayInvoiceResponse> {
     try {
       return await apiClient.post<PayInvoiceResponse>(
-        `/api/nwc/connections/${connectionId}/pay`,
+        `/api/nwc/connections/pay`,
         data as unknown as Record<string, unknown>
       );
     } catch (error) {
-      console.error(
-        `Error paying invoice via connection ${connectionId}:`,
-        error
-      );
+      console.error(`Error paying invoice:`, error);
       throw error;
     }
   }

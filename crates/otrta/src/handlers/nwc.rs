@@ -11,11 +11,11 @@ use std::sync::Arc;
 use crate::{
     db::nwc::{
         create_mint_auto_refill_settings, create_nwc_connection, delete_mint_auto_refill_settings,
-        delete_nwc_connection, get_mint_auto_refill_settings_by_mint,
-        get_mint_auto_refill_settings_for_organization, get_nwc_connection_by_id,
-        get_nwc_connections_for_organization, update_mint_auto_refill_settings,
-        update_nwc_connection, CreateMintAutoRefillRequest, CreateNwcConnectionRequest,
-        UpdateMintAutoRefillRequest, UpdateNwcConnectionRequest,
+        delete_nwc_connection, get_active_nwc_connection_for_organization,
+        get_mint_auto_refill_settings_by_mint, get_mint_auto_refill_settings_for_organization,
+        get_nwc_connection_by_id, get_nwc_connections_for_organization,
+        update_mint_auto_refill_settings, update_nwc_connection, CreateMintAutoRefillRequest,
+        CreateNwcConnectionRequest, UpdateMintAutoRefillRequest, UpdateNwcConnectionRequest,
     },
     error::AppError,
     models::{AppState, UserContext},
@@ -47,6 +47,8 @@ pub struct TestNwcConnectionRequest {
 #[derive(Debug, Deserialize)]
 pub struct PayInvoiceRequest {
     pub invoice: String,
+    pub quote_id: String,
+    pub mint_url: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -219,16 +221,22 @@ pub async fn delete_mint_auto_refill_handler(
 pub async fn pay_invoice_with_nwc_handler(
     State(state): State<Arc<AppState>>,
     Extension(user_context): Extension<UserContext>,
-    Path(connection_id): Path<Uuid>,
     Json(request): Json<PayInvoiceRequest>,
 ) -> Result<Json<PayInvoiceResponse>, AppError> {
     let nwc_manager = NwcManager::new(state.db.clone());
+    let connection =
+        get_active_nwc_connection_for_organization(&state.db, &user_context.organization_id)
+            .await
+            .unwrap();
 
     match nwc_manager
         .pay_invoice_with_connection(
-            &connection_id,
+            &state,
+            &connection.id,
             &user_context.organization_id,
             &request.invoice,
+            &request.quote_id,
+            &request.mint_url,
         )
         .await
     {

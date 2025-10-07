@@ -103,6 +103,27 @@ pub async fn get_nwc_connections_for_organization(
     Ok(connections)
 }
 
+pub async fn get_active_nwc_connection_for_organization(
+    pool: &PgPool,
+    organization_id: &Uuid,
+) -> Result<NwcConnection, AppError> {
+    let connections = sqlx::query_as::<_, NwcConnection>(
+        "SELECT id, organization_id, name, connection_uri, is_active, created_at, updated_at
+         FROM nwc_connections
+         WHERE organization_id = $1 AND is_active = TRUE
+         ORDER BY created_at DESC",
+    )
+    .bind(organization_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to get active NWC connections: {}", e);
+        AppError::InternalServerError
+    })?;
+
+    Ok(connections)
+}
+
 pub async fn get_active_nwc_connections_for_organization(
     pool: &PgPool,
     organization_id: &Uuid,

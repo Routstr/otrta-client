@@ -1,11 +1,14 @@
 use nostr::nips::nip47::{MakeInvoiceRequest, PayInvoiceRequest};
 use nwc::prelude::*;
 use std::str::FromStr;
-use tokio::time::{timeout, Duration};
+use std::sync::Arc;
+use tokio::time::{sleep, timeout, Duration};
 use tracing::{debug, error, info, warn};
 
 use crate::db::nwc::NwcConnection;
 use crate::error::AppError;
+use crate::handlers::{check_lightning_payment_nwc, PaymentStatusResponse};
+use crate::models::AppState;
 
 pub struct NwcClient {
     client: NWC,
@@ -205,14 +208,56 @@ impl NwcManager {
 
     pub async fn pay_invoice_with_connection(
         &self,
+        state: &Arc<AppState>,
         nwc_connection_id: &uuid::Uuid,
         organization_id: &uuid::Uuid,
         invoice: &str,
+        quote_id: &str,
+        mint_url: &str,
     ) -> Result<String, AppError> {
-        let client = self
-            .get_client_for_connection(nwc_connection_id, organization_id)
-            .await?;
+        let connection = crate::db::nwc::get_nwc_connection_by_id(
+            &self.db_pool,
+            nwc_connection_id,
+            organization_id,
+        )
+        .await?
+        .ok_or_else(|| {
+            warn!("NWC connection not found: {}", nwc_connection_id);
+            AppError::NotFound
+        })?;
 
-        client.pay_invoice(invoice).await
+        println!("{:?}", connection);
+        let uri = NostrWalletConnectURI::from_str(&connection.connection_uri).map_err(|e| {
+            error!("Failed to parse NWC URI for testing: {}", e);
+            AppError::BadRequest("Invalid NWC connection URI".to_string())
+        })?;
+
+        let monitor = Monitor::new(100);
+
+        let mut monitor_sub = monitor.subscribe();
+        tokio::spawn(async move {
+            while let Ok(notification) = monitor_sub.recv().await {
+                println!("Notification: {notification:?}");
+            }
+        });
+
+        let nwc: NWC = NWC::with_opts(
+            uri.clone(),
+            NostrWalletConnectOptions::default().monitor(monitor),
+        );
+        let request: PayInvoiceRequest = PayInvoiceRequest::new(invoice);
+        let _ = nwc.pay_invoice(request).await.unwrap();
+
+        for _ in [..10] {
+            let response = check_lightning_payment_nwc(state, organization_id, quote_id, mint_url)
+                .await
+                .unwrap();
+            if response.state == "PAID" {
+                return Ok(response.state.clone());
+            }
+            sleep(Duration::from_secs(2)).await;
+        }
+
+        Err(AppError::NotFound)
     }
 }

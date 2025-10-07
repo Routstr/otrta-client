@@ -1,21 +1,20 @@
 use axum::{
-    middleware,
+    Router, middleware,
     routing::{delete, get, post, put},
-    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{get_configuration, DatabaseSettings};
+use connection::{DatabaseSettings, get_configuration};
 use otrta::{
-    auth::{bearer_auth_middleware, nostr_auth_middleware_with_context, AuthConfig, AuthState},
-    auto_refill_service::{start_auto_refill_service, AutoRefillConfig},
+    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware_with_context},
+    auto_refill_service::{AutoRefillConfig, start_auto_refill_service},
     handlers,
     models::AppState,
     multimint_manager::MultimintManager,
     proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -263,7 +262,7 @@ async fn main() {
         )
         .route("/api/nwc/test", post(handlers::test_nwc_connection_handler))
         .route(
-            "/api/nwc/connections/{connection_id}/pay",
+            "/api/nwc/connections/pay",
             post(handlers::pay_invoice_with_nwc_handler),
         )
         .route(

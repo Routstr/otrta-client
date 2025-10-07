@@ -31,6 +31,8 @@ export interface NwcTestResponse {
 
 export interface PayInvoiceRequest {
   invoice: string;
+  quote_id: string;
+  mint_url: string;
 }
 
 export interface PayInvoiceResponse {
