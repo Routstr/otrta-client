@@ -209,88 +209,92 @@ export function NwcSettings() {
                 Manage Nostr Wallet Connect connections for lightning payments
               </CardDescription>
             </div>
-            <Dialog
-              open={isCreateDialogOpen}
-              onOpenChange={setIsCreateDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className='mr-2 h-4 w-4' />
-                  Add Connection
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create NWC Connection</DialogTitle>
-                </DialogHeader>
-                <div className='space-y-4'>
-                  <div>
-                    <Label htmlFor='connection-name'>Name</Label>
-                    <Input
-                      id='connection-name'
-                      value={newConnectionName}
-                      onChange={(e) => setNewConnectionName(e.target.value)}
-                      placeholder='Enter connection name'
-                    />
+            {connections.length === 0 && (
+              <Dialog
+                open={isCreateDialogOpen}
+                onOpenChange={setIsCreateDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className='mr-2 h-4 w-4' />
+                    Add Connection
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create NWC Connection</DialogTitle>
+                  </DialogHeader>
+                  <div className='space-y-4'>
+                    <div>
+                      <Label htmlFor='connection-name'>Name</Label>
+                      <Input
+                        id='connection-name'
+                        value={newConnectionName}
+                        onChange={(e) => setNewConnectionName(e.target.value)}
+                        placeholder='Enter connection name'
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor='connection-uri'>Connection URI</Label>
+                      <Input
+                        id='connection-uri'
+                        value={newConnectionUri}
+                        onChange={(e) => setNewConnectionUri(e.target.value)}
+                        placeholder='nostr+walletconnect://...'
+                      />
+                    </div>
+                    <div className='flex gap-2'>
+                      <Button
+                        variant='outline'
+                        onClick={testConnection}
+                        disabled={
+                          isTestingConnection || !newConnectionUri.trim()
+                        }
+                        className='flex-1'
+                      >
+                        {isTestingConnection ? (
+                          <RefreshCw className='mr-2 h-4 w-4 animate-spin' />
+                        ) : (
+                          <TestTube className='mr-2 h-4 w-4' />
+                        )}
+                        Test Connection
+                      </Button>
+                    </div>
+                    {testResult && (
+                      <Alert>
+                        <Wifi className='h-4 w-4' />
+                        <AlertDescription>
+                          Connection successful! Methods:{' '}
+                          {testResult.methods.join(', ')}
+                          {testResult.alias && ` | Alias: ${testResult.alias}`}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <div className='flex justify-end space-x-2'>
+                      <Button
+                        variant='outline'
+                        onClick={() => {
+                          setIsCreateDialogOpen(false);
+                          setTestResult(null);
+                          setNewConnectionName('');
+                          setNewConnectionUri('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={createConnection} disabled={isLoading}>
+                        {isLoading ? (
+                          <RefreshCw className='mr-2 h-4 w-4 animate-spin' />
+                        ) : (
+                          <Plus className='mr-2 h-4 w-4' />
+                        )}
+                        Create
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor='connection-uri'>Connection URI</Label>
-                    <Input
-                      id='connection-uri'
-                      value={newConnectionUri}
-                      onChange={(e) => setNewConnectionUri(e.target.value)}
-                      placeholder='nostr+walletconnect://...'
-                    />
-                  </div>
-                  <div className='flex gap-2'>
-                    <Button
-                      variant='outline'
-                      onClick={testConnection}
-                      disabled={isTestingConnection || !newConnectionUri.trim()}
-                      className='flex-1'
-                    >
-                      {isTestingConnection ? (
-                        <RefreshCw className='mr-2 h-4 w-4 animate-spin' />
-                      ) : (
-                        <TestTube className='mr-2 h-4 w-4' />
-                      )}
-                      Test Connection
-                    </Button>
-                  </div>
-                  {testResult && (
-                    <Alert>
-                      <Wifi className='h-4 w-4' />
-                      <AlertDescription>
-                        Connection successful! Methods:{' '}
-                        {testResult.methods.join(', ')}
-                        {testResult.alias && ` | Alias: ${testResult.alias}`}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  <div className='flex justify-end space-x-2'>
-                    <Button
-                      variant='outline'
-                      onClick={() => {
-                        setIsCreateDialogOpen(false);
-                        setTestResult(null);
-                        setNewConnectionName('');
-                        setNewConnectionUri('');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={createConnection} disabled={isLoading}>
-                      {isLoading ? (
-                        <RefreshCw className='mr-2 h-4 w-4 animate-spin' />
-                      ) : (
-                        <Plus className='mr-2 h-4 w-4' />
-                      )}
-                      Create
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </CardHeader>
         <CardContent>

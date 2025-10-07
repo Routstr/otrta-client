@@ -44,6 +44,18 @@ pub struct TestNwcConnectionRequest {
     pub connection_uri: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct PayInvoiceRequest {
+    pub invoice: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PayInvoiceResponse {
+    pub success: bool,
+    pub preimage: Option<String>,
+    pub error: Option<String>,
+}
+
 pub async fn create_nwc_connection_handler(
     State(state): State<Arc<AppState>>,
     Extension(user_context): Extension<UserContext>,
@@ -201,5 +213,34 @@ pub async fn delete_mint_auto_refill_handler(
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(AppError::NotFound)
+    }
+}
+
+pub async fn pay_invoice_with_nwc_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(user_context): Extension<UserContext>,
+    Path(connection_id): Path<Uuid>,
+    Json(request): Json<PayInvoiceRequest>,
+) -> Result<Json<PayInvoiceResponse>, AppError> {
+    let nwc_manager = NwcManager::new(state.db.clone());
+
+    match nwc_manager
+        .pay_invoice_with_connection(
+            &connection_id,
+            &user_context.organization_id,
+            &request.invoice,
+        )
+        .await
+    {
+        Ok(preimage) => Ok(Json(PayInvoiceResponse {
+            success: true,
+            preimage: Some(preimage),
+            error: None,
+        })),
+        Err(e) => Ok(Json(PayInvoiceResponse {
+            success: false,
+            preimage: None,
+            error: Some(e.to_string()),
+        })),
     }
 }

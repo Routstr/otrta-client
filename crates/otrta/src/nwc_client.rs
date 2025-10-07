@@ -19,35 +19,22 @@ impl NwcClient {
             AppError::BadRequest("Invalid NWC connection URI".to_string())
         })?;
 
-        let client = NWC::new(uri);
+        let monitor = Monitor::new(100);
+        let mut monitor_sub = monitor.subscribe();
+        tokio::spawn(async move {
+            while let Ok(notification) = monitor_sub.recv().await {
+                println!("Notification: {notification:?}");
+            }
+        });
+
+        let nwc: NWC = NWC::with_opts(uri, NostrWalletConnectOptions::default().monitor(monitor));
 
         let nwc_client = Self {
-            client,
+            client: nwc,
             connection_info: connection,
         };
 
-        nwc_client.validate_connection().await?;
-
         Ok(nwc_client)
-    }
-
-    async fn validate_connection(&self) -> Result<(), AppError> {
-        let info = timeout(Duration::from_secs(10), self.client.get_info())
-            .await
-            .map_err(|_| {
-                error!("NWC connection validation timed out");
-                AppError::InternalServerError
-            })?
-            .map_err(|e| {
-                error!("Failed to validate NWC connection: {}", e);
-                AppError::BadRequest("Failed to connect to NWC wallet".to_string())
-            })?;
-
-        debug!(
-            "NWC connection validated. Supported methods: {:?}",
-            info.methods
-        );
-        Ok(())
     }
 
     pub async fn get_balance(&self) -> Result<u64, AppError> {
@@ -141,6 +128,8 @@ impl NwcManager {
                     AppError::NotFound
                 })?;
 
+        println!("connection: {:?}", connection);
+
         if !connection.is_active {
             warn!("NWC connection is inactive: {}", connection_id);
             return Err(AppError::BadRequest(
@@ -212,5 +201,18 @@ impl NwcManager {
 
         let description = format!("Auto-refill for mint: {} ({}msat)", mint_url, amount_msat);
         client.request_payment(amount_msat, &description).await
+    }
+
+    pub async fn pay_invoice_with_connection(
+        &self,
+        nwc_connection_id: &uuid::Uuid,
+        organization_id: &uuid::Uuid,
+        invoice: &str,
+    ) -> Result<String, AppError> {
+        let client = self
+            .get_client_for_connection(nwc_connection_id, organization_id)
+            .await?;
+
+        client.pay_invoice(invoice).await
     }
 }

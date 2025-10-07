@@ -1,20 +1,21 @@
 use axum::{
-    Router, middleware,
+    middleware,
     routing::{delete, get, post, put},
+    Router,
 };
 mod background;
 mod connection;
 use background::BackgroundJobRunner;
-use connection::{DatabaseSettings, get_configuration};
+use connection::{get_configuration, DatabaseSettings};
 use otrta::{
-    auth::{AuthConfig, AuthState, bearer_auth_middleware, nostr_auth_middleware_with_context},
-    auto_refill_service::{AutoRefillConfig, start_auto_refill_service},
+    auth::{bearer_auth_middleware, nostr_auth_middleware_with_context, AuthConfig, AuthState},
+    auto_refill_service::{start_auto_refill_service, AutoRefillConfig},
     handlers,
     models::AppState,
     multimint_manager::MultimintManager,
     proxy::{forward_any_request, forward_any_request_get},
 };
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::sync::Arc;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -261,6 +262,10 @@ async fn main() {
             delete(handlers::delete_nwc_connection_handler),
         )
         .route("/api/nwc/test", post(handlers::test_nwc_connection_handler))
+        .route(
+            "/api/nwc/connections/{connection_id}/pay",
+            post(handlers::pay_invoice_with_nwc_handler),
+        )
         .route(
             "/api/nwc/auto-refill",
             get(handlers::get_mint_auto_refill_settings_handler),

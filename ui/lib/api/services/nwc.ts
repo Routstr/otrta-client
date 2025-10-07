@@ -84,7 +84,7 @@ export class NwcService {
   ): Promise<PayInvoiceResponse> {
     try {
       return await apiClient.post<PayInvoiceResponse>(
-        `/api/nwc/connections/${connectionId}/pay-invoice`,
+        `/api/nwc/connections/${connectionId}/pay`,
         data as unknown as Record<string, unknown>
       );
     } catch (error) {
