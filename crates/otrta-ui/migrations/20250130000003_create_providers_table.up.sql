@@ -1,6 +1,6 @@
 -- Add up migration script here
 
-CREATE TABLE providers (
+CREATE TABLE IF NOT EXISTS providers (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     url VARCHAR(500) NOT NULL UNIQUE,
